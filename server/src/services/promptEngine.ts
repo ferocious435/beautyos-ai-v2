@@ -22,7 +22,8 @@ Current Date: ${today}
 {
   "instagram": "Creative post with emojis & hashtags.",
   "facebook": "Professional/Trust-building post.",
-  "whatsapp": "Short status update."
+  "whatsapp": "Short status update.",
+  "short_overlay": "Super short catchy phrase (2-4 words) in Hebrew for the image itself."
 }
     `.trim();
   }
