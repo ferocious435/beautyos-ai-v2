@@ -1,28 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Camera, Sparkles, User, MessageCircle, Send as TelegramIcon } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 
 const Dashboard = () => {
   const { tg, haptic, setMainButton, hideMainButton } = useTelegram();
   const [activeSocial, setActiveSocial] = useState('Instagram');
-  const [clickCount, setClickCount] = useState(0);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
+    // Принудительно разворачиваем на весь экран
+    if (tg) {
+      tg.expand();
+    }
     const timer = setTimeout(() => setIsLoaded(true), 100);
     return () => clearTimeout(timer);
-  }, []);
+  }, [tg]);
 
   useEffect(() => {
     // Подключаем нативную кнопку Telegram
-    if (tg) {
+    if (tg && imagePreview) {
       setMainButton('פרסום עכשיו ✨', () => {
         haptic('heavy');
         alert('הפוסט נשלח לפרסום!');
       });
+    } else {
+      hideMainButton();
     }
-    return () => hideMainButton();
-  }, [tg, haptic, setMainButton, hideMainButton]);
+  }, [tg, haptic, setMainButton, hideMainButton, imagePreview]);
 
   const socialNetworks = [
     { id: 'Instagram', name: 'Instagram' },
@@ -31,9 +37,21 @@ const Dashboard = () => {
     { id: 'WhatsApp', name: 'WhatsApp' }
   ];
 
-  const handleUpload = () => {
+  const handleUploadClick = () => {
     haptic('medium');
-    setClickCount((prev: number) => prev + 1);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+        haptic('light');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -50,6 +68,15 @@ const Dashboard = () => {
       perspective: '1000px'
     }}>
       
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        style={{ display: 'none' }} 
+        accept="image/*" 
+        onChange={handleFileChange}
+      />
+
       <div style={{ 
         maxWidth: '440px', 
         margin: '0 auto', 
@@ -74,7 +101,7 @@ const Dashboard = () => {
             marginBottom: '16px',
             textTransform: 'uppercase'
           }}>
-            BeautyOS AI v2.2
+            BeautyOS AI v2.2.2
           </div>
           <h1 style={{ 
             fontSize: '48px', 
@@ -94,11 +121,11 @@ const Dashboard = () => {
 
         {/* Floating Upload Module */}
         <section 
-          onClick={handleUpload}
+          onClick={handleUploadClick}
           style={{ 
             background: 'rgba(255,255,255,0.03)',
             backdropFilter: 'blur(25px)',
-            padding: '50px 20px', 
+            padding: imagePreview ? '20px' : '50px 20px', 
             textAlign: 'center', 
             cursor: 'pointer', 
             border: '1px solid rgba(255,255,255,0.1)', 
@@ -106,32 +133,54 @@ const Dashboard = () => {
             marginBottom: '80px',
             boxShadow: '0 40px 100px rgba(0,0,0,0.5)',
             transform: 'translateZ(20px)',
-            transition: 'all 0.4s ease'
+            transition: 'all 0.4s ease',
+            position: 'relative',
+            overflow: 'hidden'
           }}
         >
-          <div style={{ 
-            width: '90px', 
-            height: '90px', 
-            background: 'linear-gradient(135deg, #eab308 0%, #fbbf24 100%)', 
-            borderRadius: '30px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            margin: '0 auto 24px auto', 
-            boxShadow: '0 20px 40px rgba(234,179,8,0.3)',
-            transform: 'rotate(-5deg)'
-          }}>
-            <Camera style={{ width: '40px', height: '40px', color: '#000' }} />
-          </div>
-          <h3 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 12px 0', color: '#fff' }}>העלאת תמונה חכמה</h3>
-          <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.6', margin: 0 }}>
-            גררו לכאן או לחצו כדי להתחיל<br/>
-            מעובד ע״י <span style={{ color: '#eab308' }}>Gemini 3.1 Pro</span>
-          </p>
-          {clickCount > 0 && (
-            <div style={{ marginTop: '20px', color: '#eab308', fontWeight: 'bold' }}>
-               ✓ מוכן לעיבוד (Clicks: {clickCount})
+          {imagePreview ? (
+            <div style={{ position: 'relative' }}>
+              <img 
+                src={imagePreview} 
+                alt="Preview" 
+                style={{ width: '100%', borderRadius: '25px', objectFit: 'cover', maxHeight: '300px' }} 
+              />
+              <div style={{ 
+                position: 'absolute', 
+                top: '15px', 
+                right: '15px', 
+                background: 'rgba(234,179,8,0.9)', 
+                color: '#000',
+                padding: '6px 12px',
+                borderRadius: '100px',
+                fontSize: '10px',
+                fontWeight: 'bold'
+              }}>
+                נבחר ✓
+              </div>
             </div>
+          ) : (
+            <>
+              <div style={{ 
+                width: '90px', 
+                height: '90px', 
+                background: 'linear-gradient(135deg, #eab308 0%, #fbbf24 100%)', 
+                borderRadius: '30px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                margin: '0 auto 24px auto', 
+                boxShadow: '0 20px 40px rgba(234,179,8,0.3)',
+                transform: 'rotate(-5deg)'
+              }}>
+                <Camera style={{ width: '40px', height: '40px', color: '#000' }} />
+              </div>
+              <h3 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 12px 0', color: '#fff' }}>העלאת תמונה חכמה</h3>
+              <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.6', margin: 0 }}>
+                גררו לכאן או לחצו כדי להתחיל<br/>
+                מעובд ע״י <span style={{ color: '#eab308' }}>Gemini 1.5 Flash</span>
+              </p>
+            </>
           )}
         </section>
 
@@ -212,7 +261,11 @@ const Dashboard = () => {
             position: 'relative',
             overflow: 'hidden'
           }}>
-             <Camera size={48} color="#333" />
+             {imagePreview ? (
+               <img src={imagePreview} alt="Post" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+             ) : (
+               <Camera size={48} color="#333" />
+             )}
              <div style={{ 
                position: 'absolute', 
                bottom: '15px', 
@@ -224,7 +277,7 @@ const Dashboard = () => {
                backdropFilter: 'blur(10px)',
                border: '1px solid rgba(255,255,255,0.1)'
              }}>
-               Preview Image
+               Preview
              </div>
           </div>
 
@@ -235,8 +288,8 @@ const Dashboard = () => {
             marginBottom: '20px', 
             textAlign: 'right' 
           }}>
-            הטקסט של הפוסט המעוצב שלך יופיע כאן... ✨
-            #יופי #טיפוח #סטייל
+            {imagePreview ? 'הטקסט של הפוסט המעוצב שלך ייווצר כאן תוך שניות... ✨' : 'העלי תמונה כדי להתחיל... ✨'}
+            <br/>#יופי #טיפוח #סטייל
           </p>
 
           <div style={{ display: 'flex', gap: '20px', color: '#555' }}>
@@ -247,7 +300,7 @@ const Dashboard = () => {
         </div>
 
         <div style={{ textAlign: 'center', color: '#333', fontSize: '12px' }}>
-          Version v2.2.0 Ultra Glass
+          Version v2.2.2 Ultra Fix
         </div>
       </div>
 
