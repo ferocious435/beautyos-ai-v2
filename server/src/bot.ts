@@ -1,8 +1,10 @@
 import { Telegraf, session, Scenes } from 'telegraf';
 import { BotContext } from './context.js';
 import { setupPhotoHandler } from './handlers/photoHandler.js';
-import { registrationScene } from './scenes/registration.js';
-import { contentScene } from './scenes/content.js';
+import { registrationScene, REGISTRATION_SCENE } from './scenes/registration.js';
+import { contentScene, CONTENT_SCENE } from './scenes/content.js';
+import { supabase } from './services/supabase.js';
+import { photoHandler } from './handlers/photoHandler.js';
 
 export function createBot(token: string) {
   const bot = new Telegraf<BotContext>(token);
@@ -32,6 +34,7 @@ export function createBot(token: string) {
       reply_markup: {
         inline_keyboard: [
           [{ text: '📊 סטטיסטיקה (בקרוב)', callback_data: 'admin_stats' }],
+          [{ text: '👥 רשימת מסטרים', callback_data: 'admin_masters' }],
           [{ text: '🧪 בדיקת Studio AI', web_app: { url: 'https://beautyos-ai-v2.vercel.app' } }]
         ]
       }
@@ -49,7 +52,7 @@ export function createBot(token: string) {
       }
       await ctx.answerCbQuery('✅ אושר בהצלחה!');
       await ctx.editMessageText(`✅ המשתמש ${targetId} אושר.`);
-      await ctx.telegram.sendMessage(targetId, '🎉 בשורות טובות! החשבון שלך אושר על ידי המנהל. עכשיו כל האפשרויות פתוחות בפניך!');
+      await ctx.telegram.sendMessage(targetId.toString(), '🎉 בשורות טובות! החשבון שלך אושר על ידי המנהל. עכשיו כל האפשרויות פתוחות בפניך!');
     } catch (e) {
       console.error(e);
       ctx.answerCbQuery('❌ שגיאה');
@@ -61,6 +64,21 @@ export function createBot(token: string) {
     if (ctx.from?.id !== ADMIN_ID) return;
     await ctx.answerCbQuery('❌ נדחה');
     await ctx.editMessageText(`❌ המשתמש ${targetId} נדחה.`);
+  });
+
+  bot.action('admin_masters', async (ctx) => {
+    if (ctx.from?.id !== ADMIN_ID) return;
+    if (!supabase) return ctx.reply('Database error');
+
+    const { data: masters, error } = await supabase.from('masters').select('*').limit(20);
+    if (error) return ctx.reply('Error fetching masters');
+
+    let text = '👥 **רשימת מסטרים:**\n\n';
+    masters.forEach(m => {
+      text += `• ${m.name} (${m.business_name || 'אין שם'}) - ${m.status}\n`;
+    });
+
+    ctx.reply(text);
   });
 
   bot.start((ctx) => {

@@ -2,19 +2,22 @@
 
 :root {
   --bg-primary: #050505;
-  --bg-secondary: #121214;
-  --accent: #eab308; /* Золотой */
+  --bg-secondary: #0a0a0c;
+  --accent: #eab308;
   --accent-hover: #ca8a04;
-  --text-primary: #f8fafc;
+  --text-primary: #ffffff;
   --text-secondary: #94a3b8;
-  --glass: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme {
+  --color-gold: var(--accent);
+  --color-gold-hover: var(--accent-hover);
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--bg-primary);
+  background-color: var(--bg-primary) !important;
   color: var(--text-primary);
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
   overflow-x: hidden;
@@ -22,40 +25,29 @@ body {
 }
 
 .glass-card {
-  background: var(--glass);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  border-radius: 24px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 28px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.82);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent) 0%, #ca8a04 100%);
-  color: #000;
-  font-weight: 700;
-  padding: 16px 28px;
-  border-radius: 16px;
-  box-shadow: 0 4px 15px rgba(234, 179, 8, 0.3);
-  transition: all 0.3s ease;
-  letter-spacing: -0.01em;
-}
-
-.btn-primary:active {
-  transform: scale(0.96);
+  background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 18px 32px;
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #fff 0%, #eab308 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #eab308 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  color: transparent;
 }
