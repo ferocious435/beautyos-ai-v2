@@ -3,11 +3,11 @@ import { Camera, Sparkles, User } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 
 const Dashboard = () => {
-  const { tg, haptic, setMainButton, hideMainButton } = useTelegram();
+  const { tg, haptic, setMainButton, hideMainButton, user } = useTelegram();
   const [activeSocial, setActiveSocial] = useState('Instagram');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedText, setGeneratedText] = useState<string | null>(null);
+  const [generatedResults, setGeneratedResults] = useState<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -22,16 +22,23 @@ const Dashboard = () => {
   }, [tg]);
 
   useEffect(() => {
-    if (tg && generatedText && !isGenerating) {
+    const currentText = generatedResults ? (generatedResults[activeSocial.toLowerCase()] || generatedResults.instagram) : null;
+    
+    if (tg && currentText && !isGenerating) {
       setMainButton('פרסום עכשיו ✨', () => {
         haptic('heavy');
-        tg.sendData(JSON.stringify({ action: 'publish', text: generatedText, social: activeSocial }));
+        tg.sendData(JSON.stringify({ 
+          action: 'publish', 
+          text: currentText, 
+          social: activeSocial,
+          image: imagePreview 
+        }));
         alert('הפוסט נשלח לבוט לפרסום!');
       });
     } else {
       hideMainButton();
     }
-  }, [tg, haptic, setMainButton, hideMainButton, generatedText, isGenerating, activeSocial]);
+  }, [tg, haptic, setMainButton, hideMainButton, generatedResults, isGenerating, activeSocial, imagePreview]);
 
   const socialNetworks = [
     { id: 'Instagram', name: 'Instagram' },
@@ -52,36 +59,56 @@ const Dashboard = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
-        setGeneratedText(null);
+        setGeneratedResults(null);
         haptic('light');
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!imagePreview) return;
     setIsGenerating(true);
     haptic('heavy');
     
-    setTimeout(() => {
-      const texts = [
-        "העבודה המושלמת שלי להיום! ✨ ציפורניים מעוצבות בסגנון נקי ואלגנטי. מה אתן אומרות?",
-        "סטייל это הכל! 💅 שילוב של קלאסיקה ומودרניות. תייגי חברה שחייבת כזה!",
-        "פינוק אמיתי לידיים שלך 🌸 יום של יופי בסטודיו. מחכה לכן!",
-        "Nail Art ברמה אחרת 🚀 דיוק, איכות וסטייל ללא פשרות."
-      ];
-      setGeneratedText(texts[Math.floor(Math.random() * texts.length)]);
-      setIsGenerating(false);
+    try {
+      // Определяем URL API в зависимости от окружения
+      const baseUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:3001' 
+        : 'https://beautyos-ai-v2-server.vercel.app'; // Предполагаемый URL сервера
+
+      const response = await fetch(`${baseUrl}/api/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: imagePreview,
+          masterName: user?.first_name || 'Beauty Master'
+        }),
+      });
+
+      if (!response.ok) throw new Error('API request failed');
+
+      const data = await response.json();
+      setGeneratedResults(data);
       haptic('medium');
-    }, 2500);
+    } catch (error) {
+      console.error('Generation Error:', error);
+      alert('שגיאה בחיבור ל-AI. נסי שוב מאוחר יותר.');
+      haptic('heavy');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleReset = () => {
     setImagePreview(null);
-    setGeneratedText(null);
+    setGeneratedResults(null);
     haptic('light');
   };
+
+  const currentText = generatedResults ? (generatedResults[activeSocial.toLowerCase()] || generatedResults.instagram) : null;
 
   return (
     <div style={{ 
@@ -121,7 +148,7 @@ const Dashboard = () => {
             letterSpacing: '2px',
             marginBottom: '16px'
           }}>
-            BeautyOS AI v2.2.5
+            BeautyOS AI v2.2.6
           </div>
           <h1 style={{ fontSize: '42px', fontWeight: '900', margin: '0 0 8px 0', background: 'linear-gradient(135deg, white 0%, #888 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             BeautyOS AI
@@ -147,10 +174,10 @@ const Dashboard = () => {
               <img src={imagePreview} alt="Target" style={{ width: '100%', borderRadius: '30px', maxHeight: '400px', objectFit: 'cover' }} />
               <div style={{ position: 'absolute', top: '15px', left: '15px', display: 'flex', gap: '10px', direction: 'ltr' }}>
                 <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{ background: 'rgba(255,0,0,0.8)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white' }}>
-                  <User size={20} /> {/* Временная замена Trash */}
+                  <User size={20} />
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); handleUploadClick(); }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white', backdropFilter: 'blur(10px)' }}>
-                  <Camera size={20} /> {/* Временная замена Edit */}
+                  <Camera size={20} />
                 </button>
               </div>
             </div>
@@ -165,7 +192,7 @@ const Dashboard = () => {
           )}
         </section>
 
-        {imagePreview && !generatedText && (
+        {imagePreview && !currentText && (
           <button 
             disabled={isGenerating}
             onClick={handleGenerate}
@@ -189,11 +216,11 @@ const Dashboard = () => {
             }}
           >
             {isGenerating ? <Sparkles className="animate-spin" /> : <Sparkles />}
-            {isGenerating ? 'מעבד תמונה...' : 'צור פוסט גאוני ✨'}
+            {isGenerating ? 'מעבד תמונה (Gemini AI)...' : 'צור פוסט גאוני ✨'}
           </button>
         )}
 
-        {generatedText && (
+        {currentText && (
           <div style={{ 
             animation: 'fadeIn 0.5s ease-out',
             background: 'rgba(255,255,255,0.04)',
@@ -207,7 +234,7 @@ const Dashboard = () => {
                 <div style={{ width: '40px', height: '40px', background: '#eab308', borderRadius: '12px', display: 'flex', color: 'black' }}>
                   <User size={20} style={{ margin: 'auto' }} />
                 </div>
-                <span style={{ fontWeight: '800' }}>{activeSocial} Profile</span>
+                <span style={{ fontWeight: '800' }}>{activeSocial} Variant</span>
               </div>
               <button 
                 onClick={handleGenerate}
@@ -216,11 +243,11 @@ const Dashboard = () => {
               </button>
             </div>
 
-            <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#eee', marginBottom: '20px', textAlign: 'right' }}>
-              {generatedText}
+            <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#eee', marginBottom: '20px', textAlign: 'right', whiteSpace: 'pre-wrap' }}>
+              {currentText}
             </p>
 
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {socialNetworks.map(s => (
                 <button 
                   key={s.id}
@@ -232,7 +259,8 @@ const Dashboard = () => {
                     background: activeSocial === s.id ? '#eab308' : 'rgba(255,255,255,0.05)',
                     color: activeSocial === s.id ? 'black' : '#888',
                     fontSize: '12px',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    transition: '0.3s'
                   }}>
                   {s.id}
                 </button>
@@ -242,7 +270,7 @@ const Dashboard = () => {
         )}
 
         <div style={{ textAlign: 'center', color: '#333', fontSize: '12px' }}>
-          Version v2.2.5 Ultra Logic
+          Version v2.2.6 Real AI Power
         </div>
       </div>
 
