@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Sparkles, User, RotateCw, Check, Info } from 'lucide-react';
+import { Camera, Sparkles, User, Check } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 
 const Dashboard = () => {
@@ -188,7 +188,7 @@ const Dashboard = () => {
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)' }}>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto' }}>
-                         <RotateCw className="animate-spin" size={80} color="#eab308" strokeWidth={1} style={{ opacity: 0.3 }} />
+                         <Sparkles className="animate-spin" size={80} color="#eab308" strokeWidth={1} style={{ opacity: 0.3 }} />
                          <Sparkles size={30} color="#eab308" style={{ position: 'absolute', top: '25px', left: '25px' }} />
                       </div>
                       <div style={{ marginTop: '24px', fontWeight: '900', fontSize: '18px', color: 'white', letterSpacing: '1px' }}>מעצב פוסט פרימיום...</div>
@@ -271,7 +271,7 @@ const Dashboard = () => {
                   <span style={{ fontWeight: '900', color: 'white', fontSize: '18px' }}>טקסט הפוסט המוכן</span>
                 </div>
                 <button onClick={handleGenerate} style={{ background: 'transparent', border: 'none', color: '#eab308', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <RotateCw size={14} /> נסי שוב
+                  <Sparkles size={14} /> נסי שוב
                 </button>
              </div>
              <p style={{ fontSize: '19px', lineHeight: '1.9', color: '#ccc', whiteSpace: 'pre-wrap', textAlign: 'right', fontWeight: '500' }}>
@@ -279,7 +279,7 @@ const Dashboard = () => {
              </p>
              
              <div style={{ marginTop: '30px', padding: '20px', background: 'rgba(234,179,8,0.05)', borderRadius: '20px', display: 'flex', gap: '12px' }}>
-                <Info size={20} color="#eab308" />
+                <Sparkles size={20} color="#eab308" />
                 <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>
                   הטקסט הותאם במיוחד ל- {activeSocial} על בסיס העיצוב החדש.
                 </p>
