@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Sparkles, User, MessageCircle, Send as TelegramIcon, RotateCw, Edit, Trash } from 'lucide-react';
+import { Camera, Sparkles, User, MessageCircle, Send as TelegramIcon } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 
 const Dashboard = () => {
@@ -67,8 +67,8 @@ const Dashboard = () => {
     setTimeout(() => {
       const texts = [
         "העבודה המושלמת שלי להיום! ✨ ציפורניים מעוצבות בסגנון נקי ואלגנטי. מה אתן אומרות?",
-        "סטייל זה הכל! 💅 שילוב של קלאסיקה ומודרניות. תייגי חברה שחייבת כזה!",
-        "פינוק אמיתי לידיים שלך 🌸 יום של יופי в студии. מחכה לכן!",
+        "סטייל это הכל! 💅 שילוב של קלאסיקה ומودרניות. תייגי חברה שחייבת כזה!",
+        "פינוק אמיתי לידיים שלך 🌸 יום של יופי בסטודיו. מחכה לכן!",
         "Nail Art ברמה אחרת 🚀 דיוק, איכות וסטייל ללא פשרות."
       ];
       setGeneratedText(texts[Math.floor(Math.random() * texts.length)]);
@@ -147,10 +147,10 @@ const Dashboard = () => {
               <img src={imagePreview} alt="Target" style={{ width: '100%', borderRadius: '30px', maxHeight: '400px', objectFit: 'cover' }} />
               <div style={{ position: 'absolute', top: '15px', left: '15px', display: 'flex', gap: '10px', direction: 'ltr' }}>
                 <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{ background: 'rgba(255,0,0,0.8)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white' }}>
-                  <Trash size={20} />
+                  <User size={20} /> {/* Временная замена Trash */}
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); handleUploadClick(); }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white', backdropFilter: 'blur(10px)' }}>
-                  <Edit size={20} />
+                  <Camera size={20} /> {/* Временная замена Edit */}
                 </button>
               </div>
             </div>
@@ -188,7 +188,7 @@ const Dashboard = () => {
               opacity: isGenerating ? 0.7 : 1
             }}
           >
-            {isGenerating ? <RotateCw className="animate-spin" /> : <Sparkles />}
+            {isGenerating ? <Sparkles className="animate-spin" /> : <Sparkles />}
             {isGenerating ? 'מעבד תמונה...' : 'צור פוסט גאוני ✨'}
           </button>
         )}
@@ -212,7 +212,7 @@ const Dashboard = () => {
               <button 
                 onClick={handleGenerate}
                 style={{ background: 'transparent', border: 'none', color: '#eab308', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold' }}>
-                <RotateCw size={16} /> נסה שוב
+                <Sparkles size={16} /> נסה שוב
               </button>
             </div>
 
