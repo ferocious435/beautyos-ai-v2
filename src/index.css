@@ -1,12 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #0a0a0c;
-  --bg-secondary: #1a1a1e;
-  --accent: #d4af37; /* Пшеничное золото */
-  --accent-hover: #b8962d;
-  --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
+  --bg-primary: #050505;
+  --bg-secondary: #121214;
+  --accent: #eab308; /* Золотой */
+  --accent-hover: #ca8a04;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
 }
 
 body {
@@ -14,33 +16,46 @@ body {
   padding: 0;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-4px);
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: black;
-  font-weight: 600;
-  padding: 12px 24px;
-  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent) 0%, #ca8a04 100%);
+  color: #000;
+  font-weight: 700;
+  padding: 16px 28px;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(234, 179, 8, 0.3);
   transition: all 0.3s ease;
+  letter-spacing: -0.01em;
 }
 
-.btn-primary:hover {
-  background: var(--accent-hover);
-  transform: translateY(-2px);
+.btn-primary:active {
+  transform: scale(0.96);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #fff 0%, #d4af37 100%);
+  background: linear-gradient(135deg, #fff 0%, #eab308 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }

@@ -5,71 +5,81 @@ import { motion } from 'framer-motion';
 const Dashboard = () => {
   
   return (
-    <div className="min-h-screen p-4 pb-24">
-      <header className="mb-8 text-right">
-        <h1 className="text-3xl font-bold gradient-text">BeautyOS AI</h1>
-        <p className="text-zinc-500">עוזר ה-SMM המקצועי שלך</p>
-      </header>
+    <div className="min-h-screen p-6 pb-28 max-w-lg mx-auto">
+      <motion.header 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-10 text-right"
+      >
+        <h1 className="text-4xl font-extrabold gradient-text mb-1">BeautyOS AI</h1>
+        <p className="text-zinc-500 font-medium tracking-tight">השותף הדיגיטלי המושלם שלך</p>
+      </motion.header>
 
       {/* Основной функционал */}
-      <div className="grid gap-6">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+        }}
+        className="grid gap-6"
+      >
         <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="glass-card p-6 flex flex-col items-center justify-center border-dashed border-2 border-zinc-700 min-h-[200px]"
+          variants={{ hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } }}
+          whileTap={{ scale: 0.98 }}
+          className="glass-card p-10 flex flex-col items-center justify-center border-dashed border-2 border-zinc-800 cursor-pointer group"
         >
-          <Camera className="w-12 h-12 text-zinc-500 mb-4" />
-          <p className="text-center text-zinc-400">לחצו להעלאת תמונת עבודה<br/>או פשוט שלחו אותה לבוט</p>
+          <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mb-6 group-hover:bg-yellow-500/10 transition-colors">
+            <Camera className="w-8 h-8 text-zinc-500 group-hover:text-yellow-500" />
+          </div>
+          <p className="text-center text-zinc-300 font-medium leading-relaxed">
+            לחצו להעלאת תמונת עבודה<br/>
+            <span className="text-sm text-zinc-500">או פשוט שלחו אותה לבוט</span>
+          </p>
         </motion.div>
 
-        <section className="glass-card p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-yellow-500" />
-            <h2 className="text-xl font-semibold">ריטוש חכם</h2>
-          </div>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-zinc-400">החלקת עור</span>
-              <input type="range" className="w-1/2 accent-yellow-500" />
+        <motion.section 
+          variants={{ hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } }}
+          className="glass-card p-6"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-yellow-500/10 rounded-lg">
+              <Sparkles className="w-5 h-5 text-yellow-500" />
             </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-zinc-400">תיקון תאורה</span>
-              <input type="checkbox" className="w-5 h-5 rounded border-zinc-700 bg-zinc-800" />
+            <h2 className="text-xl font-bold">ריטוש חכם</h2>
+          </div>
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-sm font-semibold">
+                <span className="text-zinc-400">החלקת עור</span>
+                <span className="text-yellow-500">50%</span>
+              </div>
+              <input type="range" className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-yellow-500" />
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="glass-card p-6 text-right">
-          <h2 className="text-xl font-semibold mb-4">תצוגה מקדימה לפוסט</h2>
-          <div className="flex gap-4 mb-4">
-            <button className="p-2 rounded-lg bg-zinc-800 text-pink-500"><Instagram /></button>
-            <button className="p-2 rounded-lg bg-zinc-800 text-blue-500"><Facebook /></button>
-            <button className="p-2 rounded-lg bg-zinc-800 text-green-500"><MessageCircle /></button>
-          </div>
-          <textarea 
-            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-sm min-h-[120px] focus:outline-none focus:border-yellow-500"
-            placeholder="טקסט הפוסט יופיע כאן לאחר היצירה..."
-          />
-        </section>
-
-        <button className="btn-primary flex items-center justify-center gap-2 w-full mt-4">
+        <motion.button 
+          variants={{ hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } }}
+          whileTap={{ scale: 0.95 }}
+          className="btn-primary flex items-center justify-center gap-3 w-full shadow-2xl"
+        >
           <Send className="w-5 h-5 scale-x-[-1]" />
           פרסום בכל הערוצים
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
-      {/* Bottom Nav (Mobile style) */}
-      <nav className="fixed bottom-0 left-0 right-0 glass-card bg-black/80 m-4 p-4 flex justify-around">
-        <Link to="/" className="text-yellow-500 flex flex-col items-center gap-1">
-          <Sparkles className="w-6 h-6" />
-          <span className="text-[10px]">סטודיו</span>
+      {/* Bottom Nav */}
+      <nav className="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center border-white/5 shadow-2xl">
+        <Link to="/" className="p-4 bg-yellow-500/10 text-yellow-500 rounded-2xl flex flex-col items-center gap-1">
+          <Sparkles className="w-5 h-5" />
         </Link>
-        <Link to="/portfolio" className="text-zinc-500 flex flex-col items-center gap-1">
-          <Camera className="w-6 h-6" />
-          <span className="text-[10px]">עבודות</span>
+        <Link to="/portfolio" className="p-4 text-zinc-500 hover:text-zinc-200 transition-colors rounded-2xl flex flex-col items-center gap-1">
+          <Camera className="w-5 h-5" />
         </Link>
-        <button className="text-zinc-500 flex flex-col items-center gap-1">
-          <Send className="w-6 h-6 scale-x-[-1]" />
-          <span className="text-[10px]">פוסטים</span>
+        <button className="p-4 text-zinc-500 hover:text-zinc-200 transition-colors rounded-2xl flex flex-col items-center gap-1">
+          <Send className="w-5 h-5 scale-x-[-1]" />
         </button>
       </nav>
     </div>

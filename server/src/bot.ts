@@ -15,6 +15,54 @@ export function createBot(token: string) {
   bot.use(session());
   bot.use(stage.middleware());
 
+  const ADMIN_ID = 305032473;
+
+  bot.use(async (ctx, next) => {
+    if (ctx.from) {
+      console.log(`[USER_LOG] ID: ${ctx.from.id}, Name: ${ctx.from.first_name}, Username: @${ctx.from.username || 'none'}`);
+    }
+    return next();
+  });
+
+  bot.command('admin', (ctx) => {
+    if (ctx.from?.id !== ADMIN_ID) {
+      return ctx.reply('❌ אין לך הרשאות למצב זה.');
+    }
+    ctx.reply('🔧 ברוך הבא, מנהל על! (Admin Mode)\n\nכאן תוכל לנהל את המערכת ולבדוק את כל הפונקציות.', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📊 סטטיסטיקה (בקרוב)', callback_data: 'admin_stats' }],
+          [{ text: '🧪 בדיקת Studio AI', web_app: { url: 'https://beautyos-ai-v2.vercel.app' } }]
+        ]
+      }
+    });
+  });
+
+  // Обработка одобрения
+  bot.action(/^approve_(\d+)$/, async (ctx) => {
+    const targetId = ctx.match[1];
+    if (ctx.from?.id !== ADMIN_ID) return;
+
+    try {
+      if (supabase) {
+        await supabase.from('masters').update({ status: 'approved' }).eq('telegram_id', targetId);
+      }
+      await ctx.answerCbQuery('✅ אושר בהצלחה!');
+      await ctx.editMessageText(`✅ המשתמש ${targetId} אושר.`);
+      await ctx.telegram.sendMessage(targetId, '🎉 בשורות טובות! החשבון שלך אושר על ידי המנהל. עכשיו כל האפשרויות פתוחות בפניך!');
+    } catch (e) {
+      console.error(e);
+      ctx.answerCbQuery('❌ שגיאה');
+    }
+  });
+
+  bot.action(/^reject_(\d+)$/, async (ctx) => {
+    const targetId = ctx.match[1];
+    if (ctx.from?.id !== ADMIN_ID) return;
+    await ctx.answerCbQuery('❌ נדחה');
+    await ctx.editMessageText(`❌ המשתמש ${targetId} נדחה.`);
+  });
+
   bot.start((ctx) => {
     ctx.replyWithHTML(
       '✨ <b>ברוכים הבאים ל-BeautyOS AI v2</b> ✨\n\n' +
@@ -28,7 +76,7 @@ export function createBot(token: string) {
       {
         reply_markup: {
           keyboard: [
-            [{ text: '🤖 סטודיו AI' }, { text: '📝 הרשמה' }],
+            [{ text: '✨ סטודיו AI', web_app: { url: 'https://beautyos-ai-v2.vercel.app' } }, { text: '📝 הרשמה' }],
             [{ text: '🖼️ תיק עבודות' }, { text: '⚙️ הגדרות' }]
           ],
           resize_keyboard: true

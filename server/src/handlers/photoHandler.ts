@@ -93,7 +93,7 @@ export function setupPhotoHandler(bot: Telegraf<BotContext>) {
       }]);
 
       const keyboard = Markup.inlineKeyboard([
-        [Markup.button.webApp("✨ עריכה בסטודיו (Mini App)", `https://beauty-os-v2.vercel.app/?photo=${encodeURIComponent(enhancedUrl)}`)],
+        [Markup.button.webApp("✨ עריכה בסטודיו (Mini App)", `https://beautyos-ai-v2.vercel.app/?photo=${encodeURIComponent(enhancedUrl)}`)],
         [Markup.button.callback("📸 פרסום באינסטגרם", "publish_ig")],
         [Markup.button.callback("👥 פרסום בפייסבוק", "publish_fb")],
         [Markup.button.callback("❌ ביטול", "cancel_posts")],
