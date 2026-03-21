@@ -14,14 +14,19 @@
   --color-gold-hover: var(--accent-hover);
 }
 
-body {
+* {
+  box-sizing: border-box;
+}
+
+html, body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-primary) !important;
   color: var(--text-primary);
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  overflow-x: hidden;
+  overflow-x: hidden; /* Критично для мобильных */
   -webkit-font-smoothing: antialiased;
+  direction: rtl;
 }
 
 .glass-card {
@@ -30,7 +35,8 @@ body {
   -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 28px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.82);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+  max-width: 100%;
 }
 
 .btn-primary {
@@ -42,6 +48,7 @@ body {
   padding: 18px 32px;
   border-radius: 20px;
   box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+  transition: all 0.2s ease;
 }
 
 .gradient-text {
@@ -50,4 +57,14 @@ body {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+}
+
+/* Исправление отступов для мобильных */
+.container-custom {
+  width: 100%;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
 }
