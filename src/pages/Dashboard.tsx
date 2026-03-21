@@ -61,7 +61,7 @@ const Dashboard = () => {
 
   return (
     <div style={{ 
-      backgroundColor: '#0a0a20', /* DARK NAVY BLUE - VERY OBVIOUS CHANGE */
+      backgroundColor: '#0a0a20', /* DARK NAVY BLUE - SUCCESS INDICATOR */
       minHeight: '100vh', 
       color: 'white', 
       direction: 'rtl', 
@@ -70,11 +70,6 @@ const Dashboard = () => {
       width: '100%',
       position: 'relative'
     }}>
-      {/* VERSION INDICATOR - VERY BRIGHT */}
-      <div style={{ background: '#eab308', color: '#000', padding: '4px 10px', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999 }}>
-         BUILD: v2.1.0 - REFRESH CONFIRMED (Clicks: {clickCount})
-      </div>
-
       <div style={{ maxWidth: '440px', margin: '0 auto', paddingTop: '60px', paddingBottom: '160px' }}>
         
         {/* Header */}
