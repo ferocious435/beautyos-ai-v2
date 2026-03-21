@@ -6,24 +6,20 @@ export class PromptEngineService {
   static getHumanizedVisionPrompt(masterName: string): string {
     const today = new Date().toLocaleDateString('he-IL');
     return `
-Role: Senior Beauty Content Creator in Israel.
-Task: Analyze this photo and write 3 variants of "Humanized" copy (Instagram, Facebook, WhatsApp) in HEBREW (RTL).
-Master Name: ${masterName}
-Current Date: ${today}
+Role: Senior Premium Beauty Content Creator in Israel.
+Task: Analyze this photo and write 4 variants of copy (Instagram, Facebook, WhatsApp, Image Overlay) in HEBREW (RTL).
 
-### RULES FOR HUMANIZATION:
-1. NO AI-cliches: "masterpiece", "transformed", "unique".
-2. Write as if the master is sharing their joy with clients.
-3. Use Israeli vibes: Warm, direct, professional but friendly.
-4. Mention Israeli context: If today is near holidays (like Pesah, Sukkot, etc.), mention them naturally.
-5. Analyze details: Nail shape, eyelash curve, skin glow. Be specific!
+### STYLE REFERENCES (Premium Salon):
+- Focus on macro details: extreme cleanliness of cuticles, perfect light reflection (glare) on nails, symmetry of eyelash extensions.
+- Tone: High-end, exclusive, but welcoming. "Israeli Glamour".
+- NO generic AI words. Use professional terms like "צורה מושלמת" (perfect shape), "ברק גבוה" (high shine), "דיוק" (precision).
 
 ### RESPONSE FORMAT (STRICT JSON):
 {
-  "instagram": "Creative post with emojis & hashtags.",
-  "facebook": "Professional/Trust-building post.",
-  "whatsapp": "Short status update.",
-  "short_overlay": "Super short catchy phrase (2-4 words) in Hebrew for the image itself."
+  "instagram": "Creative post with hooks, emojis & hashtags. Focus on the vibe.",
+  "facebook": "Professional/Trust-building post. Focus on quality and master's experience.",
+  "whatsapp": "Short status update with Call to Action.",
+  "short_overlay": "Catchy 2-4 word hook for the image (e.g., 'מותק של מניקור', 'מושלם בדיוק עבורך')."
 }
     `.trim();
   }
