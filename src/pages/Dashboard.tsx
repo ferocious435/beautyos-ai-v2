@@ -51,6 +51,7 @@ const PostPreview = ({ type, imageUrl, userName = "Beauty_Master", caption = "" 
 
 const Dashboard = () => {
   const [activeSocial, setActiveSocial] = useState('Instagram');
+  const [clickCount, setClickCount] = useState(0);
   
   const socialNetworks = [
     { id: 'Instagram', name: 'Instagram' },
@@ -61,36 +62,44 @@ const Dashboard = () => {
 
   return (
     <div style={{ 
-      backgroundColor: '#050505', 
+      backgroundColor: '#0a0a20', /* DARK NAVY BLUE - VERY OBVIOUS CHANGE */
       minHeight: '100vh', 
       color: 'white', 
       direction: 'rtl', 
       padding: '0 20px',
-      fontFamily: "'Outfit', sans-serif"
+      fontFamily: "'Outfit', sans-serif",
+      width: '100%',
+      position: 'relative'
     }}>
-      <div style={{ maxWidth: '440px', margin: '0 auto', paddingTop: '40px', paddingBottom: '160px' }}>
+      {/* VERSION INDICATOR - VERY BRIGHT */}
+      <div style={{ background: '#eab308', color: '#000', padding: '4px 10px', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999 }}>
+         BUILD: v2.1.0 - REFRESH CONFIRMED (Clicks: {clickCount})
+      </div>
+
+      <div style={{ maxWidth: '440px', margin: '0 auto', paddingTop: '60px', paddingBottom: '160px' }}>
         
         {/* Header */}
         <div style={{ marginBottom: '60px' }}>
           <h1 className="gradient-text" style={{ fontSize: '42px', fontWeight: '900', margin: '0 0 12px 0', lineHeight: '1.1' }}>
             BeautyOS AI
           </h1>
-          <p style={{ color: '#666', fontSize: '18px', fontWeight: '600', margin: 0 }}>
+          <p style={{ color: '#aaa', fontSize: '18px', fontWeight: '600', margin: 0 }}>
             השותף הדיגיטלי המקצועי שלך
           </p>
         </div>
 
         {/* Upload Button */}
         <div 
-          onClick={() => alert('ישירות מהבוט ניתן להעלות תמונה')}
+          onClick={() => setClickCount(prev => prev + 1)}
           style={{ 
-            background: 'rgba(255,255,255,0.03)',
+            background: 'rgba(255,255,255,0.05)',
             padding: '60px 20px', 
             textAlign: 'center', 
             cursor: 'pointer', 
-            border: '2px dashed rgba(255,255,255,0.05)', 
+            border: '2px dashed #eab308', 
             borderRadius: '32px',
-            marginBottom: '60px' 
+            marginBottom: '60px',
+            boxShadow: '0 0 20px rgba(234,179,8,0.1)'
           }}
         >
           <div style={{ 
@@ -104,11 +113,11 @@ const Dashboard = () => {
             margin: '0 auto 24px auto', 
             boxShadow: '0 10px 30px rgba(0,0,0,0.5)' 
           }}>
-            <Camera style={{ width: '40px', height: '40px', color: '#444' }} />
+            <Camera style={{ width: '40px', height: '40px', color: '#eab308' }} />
           </div>
-          <p style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 8px 0' }}>העלאת תמונה</p>
-          <p style={{ fontSize: '12px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            לחצו כאן לעיבוד ופרסום
+          <p style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#fff' }}>העלאת תמונה</p>
+          <p style={{ fontSize: '12px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            לחצו כאן לעיבוד (Clicks: {clickCount})
           </p>
         </div>
 
