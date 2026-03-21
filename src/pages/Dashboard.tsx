@@ -1,34 +1,37 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Sparkles, User, MessageCircle, Send as TelegramIcon } from 'lucide-react';
+import { Camera, Sparkles, User, MessageCircle, Send as TelegramIcon, RefreshCw, Edit3, Trash2, Wand2 } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 
 const Dashboard = () => {
   const { tg, haptic, setMainButton, hideMainButton } = useTelegram();
   const [activeSocial, setActiveSocial] = useState('Instagram');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedText, setGeneratedText] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
-    // Принудительно разворачиваем на весь экран
     if (tg) {
-      tg.expand();
+      tg.ready();
+      tg.expand(); // Принудительно на весь экран
+      tg.enableClosingConfirmation();
     }
     const timer = setTimeout(() => setIsLoaded(true), 100);
     return () => clearTimeout(timer);
   }, [tg]);
 
   useEffect(() => {
-    // Подключаем нативную кнопку Telegram
-    if (tg && imagePreview) {
+    if (tg && generatedText && !isGenerating) {
       setMainButton('פרסום עכשיו ✨', () => {
         haptic('heavy');
-        alert('הפוסט נשלח לפרסום!');
+        tg.sendData(JSON.stringify({ action: 'publish', text: generatedText, social: activeSocial }));
+        alert('הפוסט נשלח לבוט לפרסום!');
       });
     } else {
       hideMainButton();
     }
-  }, [tg, haptic, setMainButton, hideMainButton, imagePreview]);
+  }, [tg, haptic, setMainButton, hideMainButton, generatedText, isGenerating, activeSocial]);
 
   const socialNetworks = [
     { id: 'Instagram', name: 'Instagram' },
@@ -38,6 +41,7 @@ const Dashboard = () => {
   ];
 
   const handleUploadClick = () => {
+    if (tg) tg.expand(); // Еще раз расширяем при взаимодействии
     haptic('medium');
     fileInputRef.current?.click();
   };
@@ -48,10 +52,36 @@ const Dashboard = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+        setGeneratedText(null); // Сброс при новом фото
         haptic('light');
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleGenerate = () => {
+    if (!imagePreview) return;
+    setIsGenerating(true);
+    haptic('heavy');
+    
+    // Имитация работы AI (Gemini)
+    setTimeout(() => {
+      const texts = [
+        "העבודה המושלמת שלי להיום! ✨ ציפורניים מעוצבות בסגנון נקי ואלגנטי. מה אתן אומרות?",
+        "סטייל זה הכל! 💅 שילוב של קלאסיקה ומודרניות. תייגי חברה שחייבת כזה!",
+        "פינוק אמיתי לידיים שלך 🌸 יום של יופי בסטודיו שלנו. מחכה לכן!",
+        "Nail Art ברמה אחרת 🚀 דיוק, איכות וסטייל ללא פשרות."
+      ];
+      setGeneratedText(texts[Math.floor(Math.random() * texts.length)]);
+      setIsGenerating(false);
+      haptic('medium');
+    }, 2500);
+  };
+
+  const handleReset = () => {
+    setImagePreview(null);
+    setGeneratedText(null);
+    haptic('light');
   };
 
   return (
@@ -68,14 +98,7 @@ const Dashboard = () => {
       perspective: '1000px'
     }}>
       
-      {/* Hidden File Input */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        style={{ display: 'none' }} 
-        accept="image/*" 
-        onChange={handleFileChange}
-      />
+      <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleFileChange} />
 
       <div style={{ 
         maxWidth: '440px', 
@@ -87,8 +110,8 @@ const Dashboard = () => {
         transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)'
       }}>
         
-        {/* Header (Antigravity) */}
-        <header style={{ marginBottom: '60px', textAlign: 'center' }}>
+        {/* Header */}
+        <header style={{ marginBottom: '40px', textAlign: 'center' }}>
           <div style={{ 
             display: 'inline-block',
             padding: '8px 16px',
@@ -98,251 +121,159 @@ const Dashboard = () => {
             fontSize: '12px',
             fontWeight: '900',
             letterSpacing: '2px',
-            marginBottom: '16px',
-            textTransform: 'uppercase'
+            marginBottom: '16px'
           }}>
-            BeautyOS AI v2.2.2
+            BeautyOS AI v2.2.5
           </div>
-          <h1 style={{ 
-            fontSize: '48px', 
-            fontWeight: '900', 
-            margin: '0 0 8px 0', 
-            background: 'linear-gradient(135deg, #fff 0%, #888 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            lineHeight: '1'
-          }}>
-            BeautyOS
+          <h1 style={{ fontSize: '42px', fontWeight: '900', margin: '0 0 8px 0', background: 'linear-gradient(135deg, white 0%, #888 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            BeautyOS AI
           </h1>
-          <p style={{ color: '#aaa', fontSize: '16px', fontWeight: '400', margin: 0 }}>
-            השותף הдиגיטלי המקצועי שלך לעיצוב תוכן
-          </p>
         </header>
 
-        {/* Floating Upload Module */}
+        {/* Upload/Preview Section */}
         <section 
-          onClick={handleUploadClick}
+          onClick={!imagePreview ? handleUploadClick : undefined}
           style={{ 
             background: 'rgba(255,255,255,0.03)',
             backdropFilter: 'blur(25px)',
-            padding: imagePreview ? '20px' : '50px 20px', 
+            padding: imagePreview ? '10px' : '60px 20px', 
             textAlign: 'center', 
-            cursor: 'pointer', 
-            border: '1px solid rgba(255,255,255,0.1)', 
+            cursor: !imagePreview ? 'pointer' : 'default', 
+            border: '2px dashed rgba(234,179,8,0.2)', 
             borderRadius: '40px',
-            marginBottom: '80px',
-            boxShadow: '0 40px 100px rgba(0,0,0,0.5)',
-            transform: 'translateZ(20px)',
-            transition: 'all 0.4s ease',
-            position: 'relative',
-            overflow: 'hidden'
+            marginBottom: '40px',
+            position: 'relative'
           }}
         >
           {imagePreview ? (
             <div style={{ position: 'relative' }}>
-              <img 
-                src={imagePreview} 
-                alt="Preview" 
-                style={{ width: '100%', borderRadius: '25px', objectFit: 'cover', maxHeight: '300px' }} 
-              />
-              <div style={{ 
-                position: 'absolute', 
-                top: '15px', 
-                right: '15px', 
-                background: 'rgba(234,179,8,0.9)', 
-                color: '#000',
-                padding: '6px 12px',
-                borderRadius: '100px',
-                fontSize: '10px',
-                fontWeight: 'bold'
-              }}>
-                נבחר ✓
+              <img src={imagePreview} alt="Target" style={{ width: '100%', borderRadius: '30px', maxHeight: '400px', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', top: '15px', left: '15px', display: 'flex', gap: '10px' }}>
+                <button onClick={handleReset} style={{ background: 'rgba(255,0,0,0.8)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white' }}>
+                  <Trash2 size={20} />
+                </button>
+                <button onClick={handleUploadClick} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white', backdropFilter: 'blur(10px)' }}>
+                  <Edit3 size={20} />
+                </button>
               </div>
             </div>
           ) : (
-            <>
-              <div style={{ 
-                width: '90px', 
-                height: '90px', 
-                background: 'linear-gradient(135deg, #eab308 0%, #fbbf24 100%)', 
-                borderRadius: '30px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                margin: '0 auto 24px auto', 
-                boxShadow: '0 20px 40px rgba(234,179,8,0.3)',
-                transform: 'rotate(-5deg)'
-              }}>
-                <Camera style={{ width: '40px', height: '40px', color: '#000' }} />
+            <div style={{ padding: '20px' }}>
+              <div style={{ width: '80px', height: '80px', background: '#eab308', borderRadius: '25px', display: 'flex', alignItems: 'center', justifyCenter: 'center', margin: '0 auto 20px', color: 'black' }}>
+                <Camera size={40} style={{ margin: 'auto' }} />
               </div>
-              <h3 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 12px 0', color: '#fff' }}>העלאת תמונה חכמה</h3>
-              <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.6', margin: 0 }}>
-                גררו לכאן או לחצו כדי להתחיל<br/>
-                מעובд ע״י <span style={{ color: '#eab308' }}>Gemini 1.5 Flash</span>
-              </p>
-            </>
+              <h2 style={{ fontSize: '24px', fontWeight: '800' }}>העלאת תמונה</h2>
+              <p style={{ color: '#666' }}>לחצי כאן כדי לבחור תמונה מהגלריה</p>
+            </div>
           )}
         </section>
 
-        {/* Social Switcher */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '12px', 
-          marginBottom: '40px', 
-          background: 'rgba(255,255,255,0.02)', 
-          padding: '8px', 
-          borderRadius: '24px',
-          border: '1px solid rgba(255,255,255,0.05)',
-          overflowX: 'auto',
-          whiteSpace: 'nowrap'
-        }}>
-          {socialNetworks.map(social => (
-            <button
-              key={social.id}
-              onClick={() => { haptic('light'); setActiveSocial(social.id); }}
-              style={{
-                padding: '12px 20px',
-                borderRadius: '16px',
-                border: 'none',
-                background: activeSocial === social.id ? '#eab308' : 'transparent',
-                color: activeSocial === social.id ? '#000' : '#888',
-                fontWeight: '800',
-                fontSize: '14px',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              {social.id}
-            </button>
-          ))}
-        </div>
-
-        {/* Post Preview (3D Perspective) */}
-        <div style={{ 
-          background: 'rgba(255,255,255,0.04)',
-          borderRadius: '40px',
-          padding: '30px',
-          border: '1px solid rgba(255,255,255,0.1)',
-          boxShadow: '0 30px 60px rgba(0,0,0,0.3)',
-          transform: 'rotateX(5deg) rotateY(-2deg)',
-          marginBottom: '80px',
-          backdropFilter: 'blur(15px)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '25px' }}>
-            <div style={{ 
-              width: '50px', 
-              height: '50px', 
-              background: '#222', 
-              borderRadius: '15px', 
-              display: 'flex', 
-              alignItems: 'center', 
+        {/* Action Buttons */}
+        {imagePreview && !generatedText && (
+          <button 
+            disabled={isGenerating}
+            onClick={handleGenerate}
+            style={{
+              width: '100%',
+              padding: '24px',
+              borderRadius: '25px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #eab308 0%, #fbbf24 100%)',
+              color: 'black',
+              fontWeight: '900',
+              fontSize: '20px',
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid rgba(255,255,255,0.1)'
-            }}>
-              <User size={24} color="#888" />
-            </div>
-            <div>
-              <div style={{ fontWeight: '900', fontSize: '18px' }}>יופי מאסטר</div>
-              <div style={{ color: '#666', fontSize: '12px' }}>{activeSocial} Profile</div>
-            </div>
-          </div>
+              gap: '12px',
+              marginBottom: '40px',
+              boxShadow: '0 20px 40px rgba(234,179,8,0.3)',
+              cursor: 'pointer',
+              opacity: isGenerating ? 0.7 : 1
+            }}
+          >
+            {isGenerating ? <RefreshCw className="animate-spin" /> : <Wand2 />}
+            {isGenerating ? 'מעבד תמונה...' : 'צור פוסט גאוני ✨'}
+          </button>
+        )}
 
+        {/* Post Result Section */}
+        {generatedText && (
           <div style={{ 
-            aspectRatio: '1', 
-            background: 'linear-gradient(45deg, #111 0%, #222 100%)', 
-            borderRadius: '25px', 
-            marginBottom: '25px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            overflow: 'hidden'
+            animation: 'fadeIn 0.5s ease-out',
+            background: 'rgba(255,255,255,0.04)',
+            borderRadius: '40px',
+            padding: '25px',
+            border: '1px solid rgba(255,255,255,0.1)',
+            marginBottom: '40px'
           }}>
-             {imagePreview ? (
-               <img src={imagePreview} alt="Post" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-             ) : (
-               <Camera size={48} color="#333" />
-             )}
-             <div style={{ 
-               position: 'absolute', 
-               bottom: '15px', 
-               right: '15px', 
-               background: 'rgba(0,0,0,0.6)', 
-               padding: '8px 15px', 
-               borderRadius: '100px', 
-               fontSize: '10px',
-               backdropFilter: 'blur(10px)',
-               border: '1px solid rgba(255,255,255,0.1)'
-             }}>
-               Preview
-             </div>
-          </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', background: '#eab308', borderRadius: '12px', display: 'flex', color: 'black' }}>
+                  <User size={20} style={{ margin: 'auto' }} />
+                </div>
+                <span style={{ fontWeight: '800' }}>תצוגה מקדימה: {activeSocial}</span>
+              </div>
+              <button 
+                onClick={handleGenerate}
+                style={{ background: 'transparent', border: 'none', color: '#eab308', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold' }}>
+                <RefreshCw size={16} /> נסה שוב
+              </button>
+            </div>
 
-          <p style={{ 
-            fontSize: '18px', 
-            lineHeight: '1.8', 
-            color: '#eee', 
-            marginBottom: '20px', 
-            textAlign: 'right' 
-          }}>
-            {imagePreview ? 'הטקסט של הפוסט המעוצב שלך ייווצר כאן תוך שניות... ✨' : 'העלי תמונה כדי להתחיל... ✨'}
-            <br/>#יופי #טיפוח #סטייל
-          </p>
+            <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#eee', marginBottom: '20px' }}>
+              {generatedText}
+            </p>
 
-          <div style={{ display: 'flex', gap: '20px', color: '#555' }}>
-            <Camera size={20} />
-            <MessageCircle size={20} />
-            <TelegramIcon size={20} />
+            <div style={{ display: 'flex', gap: '15px' }}>
+              {socialNetworks.map(s => (
+                <button 
+                  key={s.id}
+                  onClick={() => { haptic('light'); setActiveSocial(s.id); }}
+                  style={{ 
+                    padding: '8px 12px', 
+                    borderRadius: '12px', 
+                    border: 'none',
+                    background: activeSocial === s.id ? '#eab308' : 'rgba(255,255,255,0.05)',
+                    color: activeSocial === s.id ? 'black' : '#888',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}>
+                  {s.id}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ textAlign: 'center', color: '#333', fontSize: '12px' }}>
-          Version v2.2.2 Ultra Fix
+          Version v2.2.5 Ultra Logic
         </div>
       </div>
 
-      {/* Floating Bottom Nav */}
+      {/* Navigation */}
       <nav style={{
-        position: 'fixed',
-        bottom: '30px',
-        left: '20px',
-        right: '20px',
-        height: '80px',
-        background: 'rgba(15,15,20,0.7)',
-        backdropFilter: 'blur(30px)',
-        borderRadius: '30px',
-        border: '1px solid rgba(255,255,255,0.1)',
-        display: 'flex',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        padding: '0 20px',
-        zIndex: 1000,
-        boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+        position: 'fixed', bottom: '30px', left: '20px', right: '20px', height: '80px',
+        background: 'rgba(15,15,20,0.8)', backdropFilter: 'blur(30px)', borderRadius: '30px',
+        border: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-around', alignItems: 'center'
       }}>
         {[
           { id: 'smart', label: 'סמארט', icon: <Sparkles size={24} color="#eab308" /> },
           { id: 'gallery', label: 'גלריה', icon: <Camera size={24} color="#888" /> },
           { id: 'profile', label: 'פרופיל', icon: <User size={24} color="#888" /> }
         ].map(item => (
-          <div key={item.id} style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <div style={{ 
-              width: '45px', 
-              height: '45px', 
-              borderRadius: '15px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              background: item.id === 'smart' ? 'rgba(234,179,8,0.1)' : 'transparent'
-            }}>
-              {item.icon}
-            </div>
-            <span style={{ fontSize: '10px', fontWeight: '900', color: item.id === 'smart' ? '#eab308' : '#666' }}>{item.label}</span>
+          <div key={item.id} style={{ textAlign: 'center' }}>
+            {item.icon}
+            <div style={{ fontSize: '10px', color: item.id === 'smart' ? '#eab308' : '#666', marginTop: '4px', fontWeight: 'bold' }}>{item.label}</div>
           </div>
         ))}
       </nav>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 };
