@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Camera, Sparkles, Send, User, MessageCircle, Send as TelegramIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
