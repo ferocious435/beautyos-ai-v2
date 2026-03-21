@@ -1,10 +1,7 @@
-import { Link } from 'react-router-dom';
-import { Sparkles, Camera, Instagram, Facebook, MessageCircle, Send } from 'lucide-react';
-import { motion } from 'framer-motion';
-
-const Dashboard = () => {
-  
 import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Camera, Sparkles, Send, User, MessageCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const PostPreview = ({ type, imageUrl, userName = "Beauty_Artist", caption = "" }: any) => {
   return (
