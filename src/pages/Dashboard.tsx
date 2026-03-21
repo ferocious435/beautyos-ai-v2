@@ -207,6 +207,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+        <p style={{ textAlign: 'center', fontSize: '8px', color: '#222', marginTop: '10px', pointerEvents: 'none' }}>Version v2.0.5 Fix-Click</p>
       </div>
     </div>
   );
