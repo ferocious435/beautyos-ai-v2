@@ -34,7 +34,8 @@ export function createBot(token: string) {
         inline_keyboard: [
           [{ text: '📊 סטטיסטיקה (בקרוב)', callback_data: 'admin_stats' }],
           [{ text: '👥 רשימת מסטרים', callback_data: 'admin_masters' }],
-          [{ text: '🧪 בדיקת Studio AI', web_app: { url: 'https://beautyos-ai-v2.vercel.app' } }]
+          [{ text: '🧪 בדיקת Studio AI', web_app: { url: 'https://beautyos-ai-v2.vercel.app' } }],
+          [{ text: '🚀 TEST V2.1 (Force Update)', web_app: { url: 'https://beautyos-ai-v2.vercel.app/test' } }]
         ]
       }
     });
