@@ -54,43 +54,41 @@ const PostPreview = ({ type, imageUrl, userName = "Beauty_Artist", caption = "" 
 };
 
 const Dashboard = () => {
-  const [activeSocial, setActiveSocial] = useState('Instagram');
-  
-  return (
+  const [activeSocial, setActiveSocia  return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col font-['Outfit'] antialiased overflow-x-hidden">
-      {/* Контент */}
-      <div className="flex-1 w-full max-w-md mx-auto px-6 pt-10 pb-40">
+      {/* Контент с ЧЕТКИМИ отступами 20px (4mm) от краев */}
+      <div className="flex-1 w-full max-w-md mx-auto px-[20px] pt-16 pb-48">
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-10 text-right"
+          className="mb-16 text-right"
         >
-          <h1 className="text-4xl font-black gradient-text mb-2 leading-tight">BeautyOS AI</h1>
-          <p className="text-zinc-500 font-medium text-lg">עוזר ה-SMM המקצועי שלך</p>
+          <h1 className="text-5xl font-black gradient-text mb-4 leading-[1.2]">BeautyOS AI</h1>
+          <p className="text-zinc-500 font-semibold text-xl leading-relaxed">השותף הדיגיטלי המושלם שלך</p>
         </motion.header>
 
-        <motion.div className="space-y-10">
+        <motion.div className="space-y-16"> {/* Огромные зазоры между блоками */}
           {/* Upload Card */}
           <motion.div 
             whileTap={{ scale: 0.98 }}
-            className="glass-card p-12 flex flex-col items-center justify-center border-dashed border-2 border-zinc-800/50 cursor-pointer group"
+            className="glass-card p-14 flex flex-col items-center justify-center border-dashed border-2 border-zinc-800/80 cursor-pointer group hover:border-yellow-500/40 transition-all"
           >
-            <div className="w-20 h-20 bg-zinc-900 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-yellow-500/10 transition-colors shadow-xl">
-              <Camera className="w-10 h-10 text-zinc-600 group-hover:text-yellow-500 transition-colors" />
+            <div className="w-24 h-24 bg-zinc-900 rounded-[32px] flex items-center justify-center mb-8 group-hover:bg-yellow-500/10 transition-colors shadow-2xl">
+              <Camera className="w-12 h-12 text-zinc-600 group-hover:text-yellow-500 transition-colors" />
             </div>
-            <p className="text-center text-zinc-300 font-bold text-lg leading-relaxed">
+            <p className="text-center text-zinc-200 font-black text-xl leading-[1.8]">
               העלאת תמונה<br/>
-              <span className="text-xs font-medium text-zinc-500 mt-2 block">גררו או לחצו כאן</span>
+              <span className="text-xs font-bold text-zinc-600 mt-4 block tracking-widest uppercase">לחצו כאן לעיבוד</span>
             </p>
           </motion.div>
 
-          {/* Social Tabs */}
-          <div className="flex justify-center gap-4 bg-zinc-900/50 p-2 rounded-2xl border border-zinc-800/50">
+          {/* Social Tabs - Используем Grid для стабильности */}
+          <div className="grid grid-cols-3 gap-3 bg-zinc-900/40 p-2 rounded-[24px] border border-zinc-800/50">
             {['Instagram', 'Facebook', 'WhatsApp'].map(s => (
               <button 
                 key={s}
                 onClick={() => setActiveSocial(s)}
-                className={`flex-1 py-3 px-2 rounded-xl text-xs font-bold transition-all ${activeSocial === s ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-zinc-500 hover:text-zinc-300'}`}
+                className={`py-4 px-1 rounded-[18px] text-[10px] font-black transition-all text-center ${activeSocial === s ? 'bg-yellow-500 text-black shadow-[0_10px_20px_rgba(234,179,8,0.3)] scale-105' : 'text-zinc-600 hover:text-zinc-400'}`}
               >
                 {s}
               </button>
@@ -98,35 +96,46 @@ const Dashboard = () => {
           </div>
 
           {/* Preview Section */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold flex items-center gap-2 pr-2 border-r-2 border-yellow-500">
+          <div className="space-y-8">
+            <h2 className="text-2xl font-black flex items-center justify-end gap-3 pr-4 border-r-4 border-yellow-500 leading-tight">
               תצוגה מקדימה
             </h2>
-            <PostPreview type={activeSocial} />
+            <div className="py-4">
+              <PostPreview type={activeSocial} />
+            </div>
           </div>
 
           {/* Action Button */}
           <motion.button 
-            whileTap={{ scale: 0.96 }}
-            className="btn-primary flex items-center justify-center gap-3 w-full py-6 text-xl"
+            whileTap={{ scale: 0.94 }}
+            className="btn-primary flex items-center justify-center gap-4 w-full py-8 text-2xl"
           >
-            <Send className="w-6 h-6" />
+            <Send className="w-8 h-8 rotate-[15deg]" />
             פרסום עכשיו
           </motion.button>
         </motion.div>
       </div>
 
-      {/* Низовая навигация - Полный рестайл */}
-      <nav className="fixed bottom-0 left-0 right-0 p-6 z-50 pointer-events-none">
+      {/* Низовая навигация - Бронированная сетка */}
+      <nav className="fixed bottom-0 left-0 right-0 p-8 z-50 pointer-events-none">
         <div className="max-w-md mx-auto pointer-events-auto">
-          <div className="glass-card bg-[#0a0a0c]/80 backdrop-blur-3xl p-2 flex justify-around items-center border-white/5 shadow-[0_-20px_50px_-15px_rgba(0,0,0,0.8)]">
-            <Link to="/" className="p-4 bg-yellow-500/10 text-yellow-500 rounded-2xl flex items-center justify-center flex-1">
-              <Sparkles className="w-6 h-6" />
-            </Link>
-            <Link to="/portfolio" className="p-4 text-zinc-600 hover:text-zinc-200 transition-colors flex items-center justify-center flex-1">
-              <Camera className="w-6 h-6" />
-            </Link>
-            <button className="p-4 text-zinc-600 hover:text-zinc-200 transition-colors flex items-center justify-center flex-1">
+          <div className="glass-card bg-[#0a0a0c]/90 backdrop-blur-3xl p-3 shadow-[0_-25px_60px_-15px_rgba(0,0,0,0.9)] border-white/10 m-0">
+            <div className="nav-grid">
+              <Link to="/" className="p-5 bg-yellow-500/10 text-yellow-500 rounded-[22px] flex items-center justify-center transition-transform active:scale-90">
+                <Sparkles className="w-7 h-7" />
+              </Link>
+              <Link to="/portfolio" className="p-5 text-zinc-700 hover:text-zinc-200 flex items-center justify-center transition-transform active:scale-90">
+                <Camera className="w-7 h-7" />
+              </Link>
+              <button className="p-5 text-zinc-700 hover:text-zinc-200 flex items-center justify-center transition-transform active:scale-90">
+                <User className="w-7 h-7" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </div>
+  );
               <User className="w-6 h-6" />
             </button>
           </div>

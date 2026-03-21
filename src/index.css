@@ -2,69 +2,68 @@
 
 :root {
   --bg-primary: #050505;
-  --bg-secondary: #0a0a0c;
   --accent: #eab308;
-  --accent-hover: #ca8a04;
   --text-primary: #ffffff;
-  --text-secondary: #94a3b8;
-}
-
-@theme {
-  --color-gold: var(--accent);
-  --color-gold-hover: var(--accent-hover);
 }
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
   margin: 0;
   padding: 0;
-  background-color: var(--bg-primary) !important;
-  color: var(--text-primary);
+  background-color: #050505 !important;
+  color: #fff;
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  overflow-x: hidden; /* Критично для мобильных */
-  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  width: 100vw;
   direction: rtl;
+  line-height: 1.8; /* Увеличенный межстрочный интервал по умолчанию */
+}
+
+/* Принудительная очистка обтекания */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .glass-card {
   background: rgba(255, 255, 255, 0.03) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 28px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
-  max-width: 100%;
+  backdrop-filter: blur(25px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 32px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  margin-bottom: 48px; /* Большой зазор между блоками */
 }
 
 .btn-primary {
   background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important;
   color: #000 !important;
-  font-weight: 800 !important;
+  font-weight: 900 !important;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 18px 32px;
-  border-radius: 20px;
-  box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
-  transition: all 0.2s ease;
+  letter-spacing: 0.1em;
+  padding: 24px !important;
+  border-radius: 24px;
+  box-shadow: 0 15px 30px rgba(234, 179, 8, 0.2);
 }
 
 .gradient-text {
   background: linear-gradient(135deg, #ffffff 0%, #eab308 100%);
   -webkit-background-clip: text;
   background-clip: text;
-  -webkit-text-fill-color: transparent;
   color: transparent;
 }
 
-/* Исправление отступов для мобильных */
-.container-custom {
+/* Сетка для навигации - теперь бронебойная */
+.nav-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   width: 100%;
-  max-width: 480px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 24px;
-  padding-right: 24px;
+  gap: 12px;
 }
