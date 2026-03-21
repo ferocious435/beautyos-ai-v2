@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Sparkles, User, MessageCircle, Send as TelegramIcon, RefreshCw, Edit3, Trash2, Wand2 } from 'lucide-react';
+import { Camera, Sparkles, User, MessageCircle, Send as TelegramIcon, RotateCw, Edit, Trash } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 
 const Dashboard = () => {
@@ -14,7 +14,7 @@ const Dashboard = () => {
   useEffect(() => {
     if (tg) {
       tg.ready();
-      tg.expand(); // Принудительно на весь экран
+      tg.expand();
       tg.enableClosingConfirmation();
     }
     const timer = setTimeout(() => setIsLoaded(true), 100);
@@ -41,7 +41,7 @@ const Dashboard = () => {
   ];
 
   const handleUploadClick = () => {
-    if (tg) tg.expand(); // Еще раз расширяем при взаимодействии
+    if (tg) tg.expand();
     haptic('medium');
     fileInputRef.current?.click();
   };
@@ -52,7 +52,7 @@ const Dashboard = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
-        setGeneratedText(null); // Сброс при новом фото
+        setGeneratedText(null);
         haptic('light');
       };
       reader.readAsDataURL(file);
@@ -64,12 +64,11 @@ const Dashboard = () => {
     setIsGenerating(true);
     haptic('heavy');
     
-    // Имитация работы AI (Gemini)
     setTimeout(() => {
       const texts = [
         "העבודה המושלמת שלי להיום! ✨ ציפורניים מעוצבות בסגנון נקי ואלגנטי. מה אתן אומרות?",
         "סטייל זה הכל! 💅 שילוב של קלאסיקה ומודרניות. תייגי חברה שחייבת כזה!",
-        "פינוק אמיתי לידיים שלך 🌸 יום של יופי בסטודיו שלנו. מחכה לכן!",
+        "פינוק אמיתי לידיים שלך 🌸 יום של יופי в студии. מחכה לכן!",
         "Nail Art ברמה אחרת 🚀 דיוק, איכות וסטייל ללא פשרות."
       ];
       setGeneratedText(texts[Math.floor(Math.random() * texts.length)]);
@@ -110,7 +109,6 @@ const Dashboard = () => {
         transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)'
       }}>
         
-        {/* Header */}
         <header style={{ marginBottom: '40px', textAlign: 'center' }}>
           <div style={{ 
             display: 'inline-block',
@@ -130,7 +128,6 @@ const Dashboard = () => {
           </h1>
         </header>
 
-        {/* Upload/Preview Section */}
         <section 
           onClick={!imagePreview ? handleUploadClick : undefined}
           style={{ 
@@ -148,18 +145,18 @@ const Dashboard = () => {
           {imagePreview ? (
             <div style={{ position: 'relative' }}>
               <img src={imagePreview} alt="Target" style={{ width: '100%', borderRadius: '30px', maxHeight: '400px', objectFit: 'cover' }} />
-              <div style={{ position: 'absolute', top: '15px', left: '15px', display: 'flex', gap: '10px' }}>
-                <button onClick={handleReset} style={{ background: 'rgba(255,0,0,0.8)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white' }}>
-                  <Trash2 size={20} />
+              <div style={{ position: 'absolute', top: '15px', left: '15px', display: 'flex', gap: '10px', direction: 'ltr' }}>
+                <button onClick={(e) => { e.stopPropagation(); handleReset(); }} style={{ background: 'rgba(255,0,0,0.8)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white' }}>
+                  <Trash size={20} />
                 </button>
-                <button onClick={handleUploadClick} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white', backdropFilter: 'blur(10px)' }}>
-                  <Edit3 size={20} />
+                <button onClick={(e) => { e.stopPropagation(); handleUploadClick(); }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '12px', padding: '10px', color: 'white', backdropFilter: 'blur(10px)' }}>
+                  <Edit size={20} />
                 </button>
               </div>
             </div>
           ) : (
             <div style={{ padding: '20px' }}>
-              <div style={{ width: '80px', height: '80px', background: '#eab308', borderRadius: '25px', display: 'flex', alignItems: 'center', justifyCenter: 'center', margin: '0 auto 20px', color: 'black' }}>
+              <div style={{ width: '80px', height: '80px', background: '#eab308', borderRadius: '25px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'black' }}>
                 <Camera size={40} style={{ margin: 'auto' }} />
               </div>
               <h2 style={{ fontSize: '24px', fontWeight: '800' }}>העלאת תמונה</h2>
@@ -168,7 +165,6 @@ const Dashboard = () => {
           )}
         </section>
 
-        {/* Action Buttons */}
         {imagePreview && !generatedText && (
           <button 
             disabled={isGenerating}
@@ -192,12 +188,11 @@ const Dashboard = () => {
               opacity: isGenerating ? 0.7 : 1
             }}
           >
-            {isGenerating ? <RefreshCw className="animate-spin" /> : <Wand2 />}
+            {isGenerating ? <RotateCw className="animate-spin" /> : <Sparkles />}
             {isGenerating ? 'מעבד תמונה...' : 'צור פוסט גאוני ✨'}
           </button>
         )}
 
-        {/* Post Result Section */}
         {generatedText && (
           <div style={{ 
             animation: 'fadeIn 0.5s ease-out',
@@ -212,20 +207,20 @@ const Dashboard = () => {
                 <div style={{ width: '40px', height: '40px', background: '#eab308', borderRadius: '12px', display: 'flex', color: 'black' }}>
                   <User size={20} style={{ margin: 'auto' }} />
                 </div>
-                <span style={{ fontWeight: '800' }}>תצוגה מקדימה: {activeSocial}</span>
+                <span style={{ fontWeight: '800' }}>{activeSocial} Profile</span>
               </div>
               <button 
                 onClick={handleGenerate}
                 style={{ background: 'transparent', border: 'none', color: '#eab308', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold' }}>
-                <RefreshCw size={16} /> נסה שוב
+                <RotateCw size={16} /> נסה שוב
               </button>
             </div>
 
-            <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#eee', marginBottom: '20px' }}>
+            <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#eee', marginBottom: '20px', textAlign: 'right' }}>
               {generatedText}
             </p>
 
-            <div style={{ display: 'flex', gap: '15px' }}>
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
               {socialNetworks.map(s => (
                 <button 
                   key={s.id}
@@ -251,7 +246,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav style={{
         position: 'fixed', bottom: '30px', left: '20px', right: '20px', height: '80px',
         background: 'rgba(15,15,20,0.8)', backdropFilter: 'blur(30px)', borderRadius: '30px',
@@ -263,7 +257,7 @@ const Dashboard = () => {
           { id: 'profile', label: 'פרופיל', icon: <User size={24} color="#888" /> }
         ].map(item => (
           <div key={item.id} style={{ textAlign: 'center' }}>
-            {item.icon}
+            <div style={{ display: 'flex', justifyContent: 'center' }}>{item.icon}</div>
             <div style={{ fontSize: '10px', color: item.id === 'smart' ? '#eab308' : '#666', marginTop: '4px', fontWeight: 'bold' }}>{item.label}</div>
           </div>
         ))}
