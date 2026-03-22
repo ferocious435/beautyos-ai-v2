@@ -14,11 +14,16 @@ const Dashboard = () => {
   useEffect(() => {
     if (tg) {
       tg.ready();
-      if (tg.requestFullscreen) {
-        try { tg.requestFullscreen(); } catch(e) { tg.expand(); }
-      } else {
+      // Force expansion and fullscreen as early as possible
+      const expandApp = () => {
         tg.expand();
-      }
+        if (tg.requestFullscreen) {
+          try { tg.requestFullscreen(); } catch(e) { /* ignore */ }
+        }
+      };
+      expandApp();
+      // Double check expansion after small delay to handle slow loads
+      setTimeout(expandApp, 500);
       tg.enableClosingConfirmation();
     }
     const timer = setTimeout(() => setIsLoaded(true), 100);
