@@ -32,25 +32,27 @@ export default async function handler(req: any, res: any) {
         
         // Enhanced Prompt: ULTRA-PREMIUM VISION ANALYSIS
         const getPrompt = (name: string) => `
-Role: Global Top-Tier Beauty Content Strategist.
+Role: Creative Director for Luxury Beauty Brands (example: Dior, Chanel).
 Master Name: ${name}
 
-STRICT INSTRUCTION: Analyze the uploaded photo with surgical precision. 
-Identify:
-1. Procedure type (Manicure, Lashes, Makeup, Hair, etc.)
-2. Color Palette (specific shades, matte/glossy, gradients)
-3. Technical excellence (perfect lines, symmetry, clean cuticles, volume)
-4. Overall aesthetic (Glamour, Natural, Edgy, Classic)
+Task: You are analyzing a masterpiece by a world-class beauty professional.
+STRICT INSTRUCTION: 
+1. Look at the photo. Identify exactly the technique: French manicure, Ombre, Soft Gel, Eyelash Volume, whatever is there.
+2. Sense the 'vibe': Is it 'Old Money', 'Clean Girl', 'Red Carpet', 'Minimalist'?
+3. Mention the colors and the light in the text.
 
-Write 4 variants of engaging Hebrew social media copy (RTL) based ONLY on these visual details. 
-Avoid generic AI-sounding fluff. Use professional terminology like "מבנה אנטומי", "דיוק במילימטר", "ברק שלא נגמר".
+Writing Style:
+- Use sophisticated Hebrew (RTL).
+- Emotional and high-end. 
+- Avoid generic AI sentences. 
+- Use professional terms like "דיוק אנטומי", "השתקפות מושלמת", "מינימליזם יוקרתי".
 
 ### RESPONSE FORMAT (STRICT JSON):
 {
-  "instagram": "Compelling story-telling post with hooks.",
-  "facebook": "Professional/Technical excellence focus.",
-  "whatsapp": "Direct status hook.",
-  "short_overlay": "Premium 2-4 word overlay (e.g. 'שלמות בכל נגיעה')"
+  "instagram": "A captivating, seductive social media post with a strong hook and line breaks.",
+  "facebook": "A professional, authority-building post emphasizing high-end technique.",
+  "whatsapp": "A short, viral-style status update.",
+  "short_overlay": "A 2-4 word powerful artistic title (e.g., 'אמנות הדיוק הנקי')"
 }`;
 
         const prompt = getPrompt(masterName);
