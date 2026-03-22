@@ -120,46 +120,45 @@ const Dashboard = () => {
   const currentRatio = socialNetworks.find(s => s.id === activeSocial)?.ratio || '1/1';
 
   return (
-    <div style={{ 
+    <div className="animate-luxury" style={{ 
       backgroundColor: '#050508', minHeight: '100vh', color: 'white', direction: 'rtl', 
-      padding: '0 20px', fontFamily: "'Outfit', sans-serif", width: '100%', overflowX: 'hidden',
-      backgroundImage: 'radial-gradient(circle at 50% 0%, #1a1a3a 0%, #050508 100%)', perspective: '1000px'
+      padding: '0 20px', fontFamily: "'Assistant', sans-serif", width: '100%', overflowX: 'hidden',
+      backgroundImage: 'radial-gradient(circle at 50% 10%, #1e1e3f 0%, #050508 100%)'
     }}>
       
       <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleFileChange} />
 
       <div style={{ 
-        maxWidth: '440px', margin: '0 auto', paddingTop: '60px', paddingBottom: '160px',
-        opacity: isLoaded ? 1 : 0, transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)'
+        maxWidth: '460px', margin: '0 auto', paddingTop: '40px', paddingBottom: '160px',
+        opacity: isLoaded ? 1 : 0, transition: 'opacity 1s ease'
       }}>
         
-        <header style={{ marginBottom: '40px', textAlign: 'center' }}>
-          <div style={{ 
-            display: 'inline-block', padding: '8px 16px', background: 'rgba(234,179,8,0.1)',
-            borderRadius: '100px', color: '#eab308', fontSize: '10px', fontWeight: '900',
-            letterSpacing: '2px', marginBottom: '16px', textTransform: 'uppercase'
+        <header style={{ marginBottom: '50px', textAlign: 'right' }}>
+          <div className="font-modern" style={{ 
+            display: 'inline-block', padding: '6px 12px', background: 'rgba(234,179,8,0.1)',
+            borderRadius: '8px', color: '#eab308', fontSize: '10px', fontWeight: '900',
+            letterSpacing: '3px', marginBottom: '12px', textTransform: 'uppercase'
           }}>
-            BeautyOS Premium Studio v2.2.8
+            BeautyOS v2.2.9 • Ultra Premium
           </div>
-          <h1 style={{ fontSize: '48px', fontWeight: '900', margin: '0', background: 'linear-gradient(135deg, white, #eab308)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-1px' }}>
-            AI Designer
+          <h1 className="font-luxury" style={{ fontSize: '56px', fontWeight: '900', margin: '0', lineHeight: '1', letterSpacing: '-2px' }}>
+            <span className="gold-text">AI</span> Creative
           </h1>
+          <p className="font-modern" style={{ color: '#64748b', fontSize: '14px', marginTop: '10px', fontWeight: '400' }}>
+            עיצוב תוכן ברמה של מותגי על
+          </p>
         </header>
 
         {/* Post Designer View */}
-        <section style={{ marginBottom: '40px' }}>
-          <div style={{ 
+        <section style={{ marginBottom: '50px' }}>
+          <div className="glass-premium" style={{ 
             width: '100%', 
             aspectRatio: currentRatio, 
-            background: 'rgba(255,255,255,0.02)', 
             borderRadius: '40px', 
             overflow: 'hidden',
-            border: '2px solid rgba(255,255,255,0.05)',
             position: 'relative',
-            boxShadow: '0 40px 100px rgba(0,0,0,0.8)',
-            transition: 'aspect-ratio 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-            transformStyle: 'preserve-3d'
+            boxShadow: '0 50px 100px -20px rgba(0,0,0,0.9)',
+            transition: 'aspect-ratio 0.8s cubic-bezier(0.16, 1, 0.3, 1)'
           }}>
             {imagePreview ? (
               <>
@@ -168,85 +167,80 @@ const Dashboard = () => {
                   alt="Post" 
                   style={{ 
                     width: '100%', height: '100%', objectFit: 'contain',
-                    filter: isGenerating ? 'blur(15px) brightness(0.5)' : 'brightness(1.05) contrast(1.1) saturate(1.1)',
-                    transition: 'all 0.6s ease',
-                    backgroundColor: 'rgba(0,0,0,0.4)'
+                    filter: isGenerating ? 'blur(20px) brightness(0.4)' : 'brightness(1.02) contrast(1.05)',
+                    transition: 'all 0.8s ease',
+                    backgroundColor: '#0a0a0f'
                   }} 
                 />
                 
-                {/* Branding Watermark */}
-                <div style={{ position: 'absolute', top: '30px', right: '30px', opacity: 0.6 }}>
-                   <div style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(5px)', padding: '6px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px', fontWeight: '900' }}>
-                      BEAUTYOS AI
-                   </div>
-                </div>
-
-                {/* AI Overlay Text - Premium Glassmorphism Card */}
+                {/* AI Overlay Text - Clean Premium Label */}
                 {generatedResults?.short_overlay && !isGenerating && (
                   <div style={{ 
-                    position: 'absolute', bottom: '10%', left: '0', right: '0', textAlign: 'center',
-                    padding: '0 30px', animation: 'slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1)'
+                    position: 'absolute', bottom: '12%', left: '0', right: '0', textAlign: 'center',
+                    padding: '0 40px', animation: 'luxuryFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1)'
                   }}>
-                    <div style={{ 
-                      display: 'inline-block', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(40px)',
-                      padding: '20px 40px', borderRadius: '25px', border: '1px solid rgba(255,255,255,0.2)',
-                      boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                      color: 'white', fontWeight: '900', fontSize: '24px', letterSpacing: '-0.5px'
+                    <div className="glass-premium" style={{ 
+                      display: 'inline-block', padding: '16px 32px', borderRadius: '20px', 
+                      background: 'rgba(5,5,8,0.6)', color: 'white', fontWeight: '900', 
+                      fontSize: '22px', border: '1px solid rgba(255,255,255,0.15)'
                     }}>
-                      <div style={{ color: '#eab308', fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>AI RECOMMENDATION</div>
-                      {generatedResults.short_overlay}
+                      <div className="gold-text" style={{ fontSize: '9px', marginBottom: '4px', fontWeight: '900', letterSpacing: '2px' }}>
+                        VISION CONCEPT
+                      </div>
+                      <span className="font-luxury">{generatedResults.short_overlay}</span>
                     </div>
                   </div>
                 )}
 
                 {/* Loading State */}
                 {isGenerating && (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)' }}>
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto' }}>
-                         <Sparkles className="animate-spin" size={80} color="#eab308" strokeWidth={1} style={{ opacity: 0.3 }} />
-                         <Sparkles size={30} color="#eab308" style={{ position: 'absolute', top: '25px', left: '25px' }} />
+                      <div className="animate-spin" style={{ width: '60px', height: '60px', border: '2px solid rgba(234,179,8,0.1)', borderTopColor: '#eab308', borderRadius: '50%', margin: '0 auto' }} />
+                      <div className="font-modern" style={{ marginTop: '20px', fontWeight: '900', fontSize: '11px', color: '#eab308', letterSpacing: '3px', textTransform: 'uppercase' }}>
+                        מנתח ויזואלית...
                       </div>
-                      <div style={{ marginTop: '24px', fontWeight: '900', fontSize: '18px', color: 'white', letterSpacing: '1px' }}>מעצב פוסט פרימיום...</div>
                     </div>
                   </div>
                 )}
 
                 {/* Edit Controls */}
-                <div style={{ position: 'absolute', top: '25px', left: '25px', direction: 'ltr', display: 'flex', gap: '10px' }}>
-                   <button onClick={handleReset} style={{ width: '44px', height: '44px', borderRadius: '15px', background: 'rgba(255,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', fontWeight: 'bold', fontSize: '20px' }}>×</button>
-                   <button onClick={handleUploadClick} style={{ width: '44px', height: '44px', borderRadius: '15px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}><Camera size={20} /></button>
+                <div style={{ position: 'absolute', top: '25px', left: '25px', display: 'flex', gap: '8px' }}>
+                   <button onClick={handleReset} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                   <button onClick={handleUploadClick} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Camera size={18} /></button>
                 </div>
               </>
             ) : (
               <div 
                 onClick={handleUploadClick}
-                style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.01)' }}>
-                <div style={{ width: '100px', height: '100px', background: 'linear-gradient(135deg, #eab308, #fbbf24)', borderRadius: '35px', display: 'flex', color: 'black', marginBottom: '30px', boxShadow: '0 20px 40px rgba(234,179,8,0.2)' }}>
-                   <Camera size={48} style={{ margin: 'auto' }} />
+                style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <div className="gold-gradient" style={{ width: '80px', height: '80px', borderRadius: '25px', display: 'flex', color: 'black', marginBottom: '24px' }}>
+                   <Camera size={32} style={{ margin: 'auto' }} />
                 </div>
-                <h3 style={{ fontWeight: '900', fontSize: '28px', color: 'white' }}>העלי תמונה ראשונה</h3>
-                <p style={{ color: '#444', fontSize: '18px' }}>לחצי כאן לצילום או בחירה מהגלריה</p>
+                <h3 className="font-luxury" style={{ fontWeight: '900', fontSize: '24px', color: 'white' }}>העלאת יצירה</h3>
+                <p style={{ color: '#444', fontSize: '14px', marginTop: '8px' }}>לחצי לבחירת צילום מהגלריה</p>
               </div>
             )}
           </div>
         </section>
 
-        {/* Social Network Picker - Vertical Luxury Style */}
-        <div style={{ marginBottom: '30px' }}>
-           <div style={{ fontSize: '12px', fontWeight: '900', color: '#444', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>בחירת פורמט</div>
-           <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
+        {/* Social Network Picker */}
+        <div style={{ marginBottom: '40px' }}>
+           <div className="font-modern" style={{ fontSize: '10px', fontWeight: '900', color: '#444', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+             בחירת פורמט פרסום
+           </div>
+           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'none' }}>
              {socialNetworks.map(social => (
                <button
                  key={social.id}
                  onClick={() => { haptic('light'); setActiveSocial(social.id); }}
+                 className="font-modern"
                  style={{
-                   padding: '16px 24px', borderRadius: '20px', border: '1px solid',
+                   padding: '14px 20px', borderRadius: '16px', border: '1px solid',
                    borderColor: activeSocial === social.id ? '#eab308' : 'rgba(255,255,255,0.05)',
                    background: activeSocial === social.id ? 'rgba(234,179,8,0.1)' : 'rgba(255,255,255,0.02)',
                    color: activeSocial === social.id ? '#eab308' : '#666',
-                   fontWeight: '900', fontSize: '14px', transition: '0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                   minWidth: '110px'
+                   fontWeight: '900', fontSize: '12px', transition: '0.4s ease', minWidth: '100px'
                  }}
                >
                  {social.id}
@@ -255,83 +249,86 @@ const Dashboard = () => {
            </div>
         </div>
 
-        {/* Generate Button / Post Text */}
+        {/* Generate Button */}
         {imagePreview && !generatedResults && (
            <button 
              disabled={isGenerating}
              onClick={handleGenerate}
+             className="gold-gradient font-modern"
              style={{
-               width: '100%', padding: '28px', borderRadius: '35px', border: 'none',
-               background: 'linear-gradient(135deg, #eab308, #fbbf24)',
-               color: 'black', fontWeight: '900', fontSize: '22px',
-               boxShadow: '0 30px 60px rgba(234,179,8,0.3)', cursor: 'pointer',
-               transition: 'transform 0.2s active:scale(0.98)'
+               width: '100%', padding: '24px', borderRadius: '20px', border: 'none',
+               color: 'black', fontWeight: '900', fontSize: '16px', letterSpacing: '1px',
+               boxShadow: '0 20px 40px rgba(234,179,8,0.2)', cursor: 'pointer',
+               transition: 'transform 0.2s'
              }}
            >
-             <Sparkles size={28} style={{ marginLeft: '12px', verticalAlign: 'middle' }} />
-             צור פוסט גאוני ✨
+             <Sparkles size={20} style={{ marginLeft: '10px', verticalAlign: 'middle' }} />
+             צור תוכן פרימיום ✨
            </button>
         )}
 
+        {/* Post Results - The Masterpiece View */}
         {currentText && !isGenerating && (
-          <div style={{ 
-            animation: 'fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1)', background: 'rgba(255,255,255,0.03)',
-            borderRadius: '40px', padding: '35px', border: '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 40px 80px rgba(0,0,0,0.3)'
+          <div className="glass-premium animate-luxury" style={{ 
+            borderRadius: '40px', padding: '40px', border: '1px solid rgba(255,255,255,0.08)'
           }}>
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '32px', height: '32px', background: '#eab308', borderRadius: '10px', display: 'flex', color: 'black' }}>
-                    <Check size={18} style={{ margin: 'auto' }} />
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="gold-gradient" style={{ width: '28px', height: '28px', borderRadius: '8px', display: 'flex', color: 'black' }}>
+                    <Check size={16} style={{ margin: 'auto' }} />
                   </div>
-                  <span style={{ fontWeight: '900', color: 'white', fontSize: '18px' }}>טקסט הפוסט המוכן</span>
+                  <span className="font-luxury" style={{ fontWeight: '900', color: 'white', fontSize: '20px' }}>הטקסט המוכן</span>
                 </div>
-                <button onClick={handleGenerate} style={{ background: 'transparent', border: 'none', color: '#eab308', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={14} /> נסי שוב
+                <button onClick={handleGenerate} style={{ background: 'transparent', border: 'none', color: '#eab308', fontWeight: '900', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  לנסות שוב
                 </button>
              </div>
-             <p style={{ fontSize: '19px', lineHeight: '1.9', color: '#ccc', whiteSpace: 'pre-wrap', textAlign: 'right', fontWeight: '500' }}>
+             
+             <p className="font-modern" style={{ 
+               fontSize: '18px', lineHeight: '1.8', color: '#e2e8f0', whiteSpace: 'pre-wrap', 
+               textAlign: 'right', fontWeight: '400', letterSpacing: '0.2px' 
+             }}>
                {currentText}
              </p>
              
-             <div style={{ marginTop: '30px', padding: '20px', background: 'rgba(234,179,8,0.05)', borderRadius: '20px', display: 'flex', gap: '12px' }}>
-                <Sparkles size={20} color="#eab308" />
-                <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>
-                  הטקסט הותאם במיוחד ל- {activeSocial} על בסיס העיצוב החדש.
+             <div style={{ marginTop: '40px', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                  <Sparkles size={14} color="#eab308" />
+                  <span className="gold-text" style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '1px' }}>AI STRATEGY</span>
+                </div>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: '1.5' }}>
+                  נוצר באמצעות Gemini 3.1 Pro בהתאמה אישית לפרטי התמונה והסגנון הייחודי שלך.
                 </p>
              </div>
           </div>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: '80px', color: '#1a1a1a', fontSize: '10px', letterSpacing: '4px', fontWeight: '900' }}>
-          BEAUTYOS AI PREMIUM SYSTEM
+        <div className="font-modern" style={{ textAlign: 'center', marginTop: '100px', color: '#1a1a1f', fontSize: '10px', letterSpacing: '6px', fontWeight: '900' }}>
+          BEAUTYOS • LUXURY AI SYSTEMS
         </div>
       </div>
 
-      {/* Navigation - Luxury Floating Style */}
-      <nav style={{
-        position: 'fixed', bottom: '30px', left: '20px', right: '20px', height: '84px',
-        background: 'rgba(10,10,15,0.7)', backdropFilter: 'blur(40px)', borderRadius: '35px',
-        border: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 100,
-        boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+      {/* Luxury Navigation */}
+      <nav className="glass-premium" style={{
+        position: 'fixed', bottom: '30px', left: '20px', right: '20px', height: '80px',
+        borderRadius: '24px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 100
       }}>
         {[
-          { id: 'smart', label: 'סמארט', icon: <Sparkles size={28} color="#eab308" /> },
-          { id: 'gallery', label: 'גלריה', icon: <Camera size={28} color="#444" /> },
-          { id: 'profile', label: 'פרופיל', icon: <User size={28} color="#444" /> }
+          { id: 'smart', label: 'סמארט', icon: <Sparkles size={24} color="#eab308" /> },
+          { id: 'gallery', label: 'גלריה', icon: <Camera size={24} color="#444" /> },
+          { id: 'profile', label: 'פרופיל', icon: <User size={24} color="#444" /> }
         ].map(item => (
-          <div key={item.id} style={{ textAlign: 'center', cursor: 'pointer' }}>
+          <div key={item.id} style={{ textAlign: 'center', cursor: 'pointer', flex: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'center' }}>{item.icon}</div>
-            <div style={{ fontSize: '11px', color: item.id === 'smart' ? '#eab308' : '#444', marginTop: '6px', fontWeight: '900' }}>{item.label}</div>
+            <div className="font-modern" style={{ fontSize: '9px', color: item.id === 'smart' ? '#eab308' : '#444', marginTop: '6px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.label}</div>
           </div>
         ))}
       </nav>
 
       <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(40px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .animate-spin { animation: spin 2s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 2s linear infinite; }
+        ::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   );

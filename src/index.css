@@ -1,69 +1,69 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@200;400;700;900&family=Playfair+Display:ital,wght@0,400;0,900;1,400&family=Inter:wght@100;400;900&display=swap');
 
 :root {
-  --bg-primary: #050505;
+  --bg-primary: #050508;
   --accent: #eab308;
+  --accent-light: #fef08a;
   --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
 }
 
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
 }
 
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #050505 !important;
+  background-color: var(--bg-primary) !important;
   color: #fff;
-  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-family: 'Assistant', sans-serif;
   overflow-x: hidden;
   width: 100vw;
   direction: rtl;
-  line-height: 1.8; /* Увеличенный межстрочный интервал по умолчанию */
+  line-height: 1.6;
 }
 
-/* Принудительная очистка обтекания */
 #root {
   width: 100%;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
-.glass-card {
-  background: rgba(255, 255, 255, 0.03) !important;
-  backdrop-filter: blur(25px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(25px) saturate(160%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 32px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  width: 100%;
-  margin-bottom: 48px; /* Большой зазор между блоками */
+/* Luxury Typography Classes */
+.font-luxury { font-family: 'Playfair Display', serif; }
+.font-modern { font-family: 'Inter', sans-serif; }
+.font-bold { font-weight: 900; }
+
+.glass-premium {
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important;
-  color: #000 !important;
-  font-weight: 900 !important;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 24px !important;
-  border-radius: 24px;
-  box-shadow: 0 15px 30px rgba(234, 179, 8, 0.2);
+.gold-gradient {
+  background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%);
 }
 
-.gradient-text {
+.gold-text {
   background: linear-gradient(135deg, #ffffff 0%, #eab308 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* Сетка для навигации - теперь бронебойная */
-.nav-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  width: 100%;
-  gap: 12px;
+/* Animations */
+@keyframes luxuryFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-luxury {
+  animation: luxuryFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
