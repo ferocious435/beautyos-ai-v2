@@ -15,9 +15,9 @@ export default async function handler(req: any, res: any) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // After diagnostics, gemini-2.0-flash returned a 429 (Quota limit: 0).
-    // gemini-flash-latest is the generic alias for the best stable model (1.5) with non-zero quota.
-    const visionModel = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    // Upgraded to Gemini 1.5 Pro for maximum intelligence (Smartest model available for Vision).
+    // Note: This requires the API project to be in the "Pay-as-you-go" tier for high volume.
+    const visionModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
     
     // Extract real MIME type from base64 string
     const mimeTypeSelector = image.match(/data:(.*);base64/)?.[1] || 'image/jpeg';
