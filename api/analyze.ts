@@ -15,10 +15,9 @@ export default async function handler(req: any, res: any) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const visionModel = genAI.getGenerativeModel(
-      { model: "gemini-1.5-flash" },
-      { apiVersion: 'v1' }
-    );
+    // Removed strict { apiVersion: 'v1' } override to stop the 404 Not Found error. 
+    // The official SDK will handle version dispatch naturally.
+    const visionModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     // Clean base64
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");

@@ -15,15 +15,13 @@ export class GeminiService {
     }
     this.genAI = new GoogleGenerativeAI(apiKey);
     
-    // Using gemini-1.5-flash for faster responses and lower latency
+    // Using gemini-1.5-pro for better text generation
     this.textModel = this.genAI.getGenerativeModel(
-      { model: "gemini-3.1-pro", generationConfig: { responseMimeType: "application/json" } },
-      { apiVersion: 'v1' }
+      { model: "gemini-1.5-pro" }
     );
     
     this.visionModel = this.genAI.getGenerativeModel(
-      { model: "gemini-3.1-flash" },
-      { apiVersion: 'v1' }
+      { model: "gemini-1.5-flash" }
     );
   }
 
@@ -34,18 +32,15 @@ export class GeminiService {
    */
   async generateText(prompt: string, systemInstruction?: string): Promise<string> {
     try {
-      const model = systemInstruction 
-        ? this.genAI.getGenerativeModel(
-            { 
-              model: "gemini-3.1-pro",
-              systemInstruction: systemInstruction,
-              generationConfig: { responseMimeType: "application/json" }
-            },
-            { apiVersion: 'v1' }
-          )
-        : this.textModel;
+      // Игнорируем systemInstruction в конфигурации модели, чтобы избежать ошибки API,
+      // вместо этого добавляем его к промпту, если он передан
+      const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
+      
+      const model = this.genAI.getGenerativeModel(
+        { model: "gemini-1.5-pro" }
+      );
 
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent(fullPrompt);
       const response = await result.response;
       return response.text();
     } catch (error) {
