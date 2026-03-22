@@ -13,6 +13,7 @@ const Dashboard = () => {
 
   // Image Editing States
   const [isEditing, setIsEditing] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const [filters, setFilters] = useState({
     brightness: 100,
     contrast: 100,
@@ -20,6 +21,32 @@ const Dashboard = () => {
     sharpen: 0,
     shadows: 0
   });
+
+  const handleAIEnhance = async () => {
+    if (!imagePreview) return;
+    setIsEnhancing(true);
+    haptic('heavy');
+    
+    try {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : ''; 
+      const response = await fetch(`${baseUrl}/api/enhance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imagePreview }),
+      });
+      const data = await response.json();
+      
+      // Animate the sliders to the AI calculated values
+      setFilters(data);
+      haptic('medium');
+    } catch (e) {
+      console.error(e);
+      // Fail gracefully with pro defaults
+      setFilters({ brightness: 110, contrast: 115, saturate: 110, sharpen: 50, shadows: 20 });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
 
   const getFilterString = () => {
     const b = filters.brightness / 100;
@@ -231,7 +258,17 @@ const Dashboard = () => {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span className="font-luxury" style={{ fontWeight: '900', fontSize: '18px' }}>Image Studio</span>
-                      <button onClick={() => setIsEditing(false)} style={{ color: '#eab308', fontWeight: '900' }}>DONE</button>
+                      <div style={{ display: 'flex', gap: '15px' }}>
+                        <button 
+                          onClick={handleAIEnhance} 
+                          disabled={isEnhancing}
+                          className="gold-text" 
+                          style={{ fontWeight: '900', fontSize: '12px', opacity: isEnhancing ? 0.5 : 1 }}
+                        >
+                          {isEnhancing ? 'ENHANCING...' : '✨ AI MAGIC'}
+                        </button>
+                        <button onClick={() => setIsEditing(false)} style={{ color: 'white', fontWeight: '900' }}>DONE</button>
+                      </div>
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
