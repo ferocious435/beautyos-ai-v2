@@ -15,39 +15,39 @@ export default async function handler(req: any, res: any) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // After deep diagnostics, the API key natively supports gemini-2.5-flash and gemini-3.1 preview models.
-    // gemini-1.5-flash is no longer supported on this edge routing.
-    const visionModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // Explicitly using gemini-2.0-flash which is confirmed to be supported and high-performance for Vision
+    const visionModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
-    // Clean base64
+    // Extract real MIME type from base64 string
+    const mimeTypeSelector = image.match(/data:(.*);base64/)?.[1] || 'image/jpeg';
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
     
-    // Prompt Generator inline
+    // Enhanced Prompt: STRICT VISION ANALYSIS
     const getPrompt = (name: string) => `
-Role: Senior Premium Beauty Content Creator in Israel.
+Role: Senior Premium Beauty Content Creator.
 Master Name: ${name}
-Task: Analyze this photo and write 4 variants of copy (Instagram, Facebook, WhatsApp, Image Overlay) in HEBREW (RTL).
 
-### STYLE REFERENCES (Premium Salon):
-- Focus on macro details: extreme cleanliness of cuticles, perfect light reflection (glare) on nails, symmetry of eyelash extensions.
-- Tone: High-end, exclusive, but welcoming. "Israeli Glamour".
-- NO generic AI words. Use professional terms like "צורה מושלמת" (perfect shape), "ברק גבוה" (high shine), "דיוק" (precision).
+CRITICAL TASK: Analyze the ATTACHED PHOTO in detail. 
+Identify exactly what is shown (nails, eyelashes, hair, etc.), the colors used, the style, and the quality of the work.
+Then write 4 variants of copy in HEBREW (RTL) based STRICTLY on what you see in the image.
 
 ### RESPONSE FORMAT (STRICT JSON):
 {
-  "instagram": "Creative post with hooks, emojis & hashtags. Focus on the vibe.",
-  "facebook": "Professional/Trust-building post. Focus on quality and master's experience.",
-  "whatsapp": "Short status update with Call to Action.",
-  "short_overlay": "Catchy 2-4 word hook (e.g., 'מושלם בדיוק עבורך')."
+  "instagram": "Creative post based on the visual details. Include hooks and emojis.",
+  "facebook": "Professional post focusing on the technique shown.",
+  "whatsapp": "Short status update.",
+  "short_overlay": "2-4 word catchy hook describing the image (e.g., 'ציפורניים מושלמות')."
 }`;
 
     const prompt = getPrompt(masterName);
     const result = await visionModel.generateContent([
-      prompt,
+      {
+        text: prompt
+      },
       {
         inlineData: {
           data: base64Data,
-          mimeType: 'image/jpeg'
+          mimeType: mimeTypeSelector
         }
       }
     ]);
