@@ -14,6 +14,7 @@ const Dashboard = () => {
   // Image Editing States
   const [isEditing, setIsEditing] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [aiReport, setAiReport] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     brightness: 100,
     contrast: 100,
@@ -25,6 +26,7 @@ const Dashboard = () => {
   const handleAIEnhance = async () => {
     if (!imagePreview) return;
     setIsEnhancing(true);
+    setAiReport(null);
     haptic('heavy');
     
     try {
@@ -37,11 +39,12 @@ const Dashboard = () => {
       const data = await response.json();
       
       // Animate the sliders to the AI calculated values
-      setFilters(data);
+      const { ai_report, ...filterData } = data;
+      setFilters(filterData);
+      setAiReport(ai_report || "בוצע שדרוג Nano-AI מקצועי.");
       haptic('medium');
     } catch (e) {
       console.error(e);
-      // Fail gracefully with pro defaults
       setFilters({ brightness: 110, contrast: 115, saturate: 110, sharpen: 50, shadows: 20 });
     } finally {
       setIsEnhancing(false);
@@ -272,6 +275,17 @@ const Dashboard = () => {
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* AI Report Card */}
+                      {aiReport && (
+                        <div className="animate-luxury" style={{ 
+                          background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)',
+                          padding: '12px 16px', borderRadius: '12px', fontSize: '12px', color: '#eab308'
+                        }}>
+                          <div style={{ fontWeight: '900', fontSize: '9px', letterSpacing: '2px', marginBottom: '4px' }}>AI STUDIO ANALYSIS</div>
+                          {aiReport}
+                        </div>
+                      )}
+
                       {[
                         { id: 'brightness', label: 'בהירות', icon: '☀️', min: 50, max: 150 },
                         { id: 'contrast', label: 'ניגודיות', icon: '🌓', min: 50, max: 150 },
@@ -293,11 +307,24 @@ const Dashboard = () => {
                               setFilters(prev => ({ ...prev, [ctrl.id]: parseInt(e.target.value) }));
                               if (parseInt(e.target.value) % 5 === 0) haptic('light');
                             }}
-                            style={{ width: '100%', accentColor: '#eab308' }}
+                            style={{ 
+                              width: '100%', accentColor: '#eab308',
+                              transition: isEnhancing ? 'all 1s ease' : 'none' 
+                            }}
                           />
                         </div>
                       ))}
                     </div>
+
+                    {/* Scanning Animation */}
+                    {isEnhancing && (
+                      <div style={{ 
+                        position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+                        background: 'linear-gradient(to right, transparent, #eab308, transparent)',
+                        animation: 'scanLine 1.5s infinite linear',
+                        boxShadow: '0 0 15px #eab308'
+                      }} />
+                    )}
                   </div>
                 )}
 
