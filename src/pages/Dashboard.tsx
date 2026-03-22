@@ -10,6 +10,25 @@ const Dashboard = () => {
   const [generatedResults, setGeneratedResults] = useState<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Image Editing States
+  const [isEditing, setIsEditing] = useState(false);
+  const [filters, setFilters] = useState({
+    brightness: 100,
+    contrast: 100,
+    saturate: 100,
+    sharpen: 0,
+    shadows: 0
+  });
+
+  const getFilterString = () => {
+    const b = filters.brightness / 100;
+    const c = (filters.contrast + filters.sharpen * 0.5) / 100;
+    const s = filters.saturate / 100;
+    const sh = filters.sharpen / 100;
+    const sw = filters.shadows / 100;
+    return `brightness(${b}) contrast(${c}) saturate(${s}) contrast(${1 + sh * 0.2}) brightness(${1 + sh * 0.05}) drop-shadow(0 0 ${sw * 5}px rgba(0,0,0,0.5))`;
+  };
   
   useEffect(() => {
     if (tg) {
@@ -167,14 +186,14 @@ const Dashboard = () => {
                   alt="Post" 
                   style={{ 
                     width: '100%', height: '100%', objectFit: 'contain',
-                    filter: isGenerating ? 'blur(20px) brightness(0.4)' : 'brightness(1.02) contrast(1.05)',
-                    transition: 'all 0.8s ease',
+                    filter: isGenerating ? 'blur(20px) brightness(0.4)' : getFilterString(),
+                    transition: 'all 0.4s ease',
                     backgroundColor: '#0a0a0f'
                   }} 
                 />
                 
                 {/* AI Overlay Text - Clean Premium Label */}
-                {generatedResults?.short_overlay && !isGenerating && (
+                {generatedResults?.short_overlay && !isGenerating && !isEditing && (
                   <div style={{ 
                     position: 'absolute', bottom: '12%', left: '0', right: '0', textAlign: 'center',
                     padding: '0 40px', animation: 'luxuryFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -204,11 +223,59 @@ const Dashboard = () => {
                   </div>
                 )}
 
+                {/* Editor Panel Overlay */}
+                {isEditing && (
+                  <div className="glass-premium animate-luxury" style={{ 
+                    position: 'absolute', inset: 0, background: 'rgba(5,5,8,0.7)', 
+                    display: 'flex', flexDirection: 'column', padding: '30px', justifyContent: 'space-between'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="font-luxury" style={{ fontWeight: '900', fontSize: '18px' }}>Image Studio</span>
+                      <button onClick={() => setIsEditing(false)} style={{ color: '#eab308', fontWeight: '900' }}>DONE</button>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {[
+                        { id: 'brightness', label: 'בהירות', icon: '☀️', min: 50, max: 150 },
+                        { id: 'contrast', label: 'ניגודיות', icon: '🌓', min: 50, max: 150 },
+                        { id: 'saturate', label: 'צבע', icon: '🌈', min: 0, max: 200 },
+                        { id: 'sharpen', label: 'חידוד', icon: '✨', min: 0, max: 100 },
+                        { id: 'shadows', label: 'צללים', icon: '👤', min: 0, max: 100 },
+                      ].map(ctrl => (
+                        <div key={ctrl.id}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '10px', color: '#666', fontWeight: '900', textTransform: 'uppercase' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>{ctrl.icon} {ctrl.label}</div>
+                            <span>{(filters as any)[ctrl.id]}%</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min={ctrl.min} 
+                            max={ctrl.max} 
+                            value={(filters as any)[ctrl.id]} 
+                            onChange={(e) => {
+                              setFilters(prev => ({ ...prev, [ctrl.id]: parseInt(e.target.value) }));
+                              if (parseInt(e.target.value) % 5 === 0) haptic('light');
+                            }}
+                            style={{ width: '100%', accentColor: '#eab308' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Edit Controls */}
-                <div style={{ position: 'absolute', top: '25px', left: '25px', display: 'flex', gap: '8px' }}>
-                   <button onClick={handleReset} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                   <button onClick={handleUploadClick} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Camera size={18} /></button>
-                </div>
+                {!isEditing && (
+                  <div style={{ position: 'absolute', top: '25px', left: '25px', display: 'flex', gap: '8px' }}>
+                    <button onClick={handleReset} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                    <button onClick={() => setIsEditing(true)} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '900' }}>EDIT</span>
+                    </button>
+                    <button onClick={handleUploadClick} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Camera size={18} />
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div 
