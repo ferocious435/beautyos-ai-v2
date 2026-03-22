@@ -34,8 +34,8 @@ export function createBot(token: string) {
         inline_keyboard: [
           [{ text: '📊 סטטיסטיקה (בקרוב)', callback_data: 'admin_stats' }],
           [{ text: '👥 רשימת מסטרים', callback_data: 'admin_masters' }],
-          [{ text: '🧪 בדיקת Studio AI', web_app: { url: `${process.env.WEBAPP_URL || 'https://beautyos-ai-v2.vercel.app'}?v=2.2.8` } }],
-          [{ text: '🚀 TEST V2.2.8 (Force Update)', web_app: { url: `${process.env.WEBAPP_URL || 'https://beautyos-ai-v2.vercel.app'}/test?v=2.2.8` } }]
+          [{ text: '🧪 בדיקת Studio AI', web_app: { url: `${process.env.WEBAPP_URL || 'https://beautyos-ai-v2.vercel.app'}?v=2.2.9` } }],
+          [{ text: '🚀 TEST V2.2.9 (Force Update)', web_app: { url: `${process.env.WEBAPP_URL || 'https://beautyos-ai-v2.vercel.app'}?v=2.2.9` } }]
         ]
       }
     });
@@ -94,7 +94,7 @@ export function createBot(token: string) {
       {
         reply_markup: {
           keyboard: [
-            [{ text: '✨ סטודיו AI', web_app: { url: 'https://beautyos-ai-v2.vercel.app/?v=2.2.2' } }, { text: '📝 הרשמה' }],
+            [{ text: '✨ סטודיו AI', web_app: { url: 'https://beautyos-ai-v2.vercel.app/?v=2.2.9' } }, { text: '📝 הרשמה' }],
             [{ text: '🖼️ תיק עבודות' }, { text: '⚙️ הגдерות' }]
           ],
           resize_keyboard: true
