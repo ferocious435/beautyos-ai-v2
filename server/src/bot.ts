@@ -4,6 +4,7 @@ import { setupPhotoHandler } from './handlers/photoHandler.js';
 import { registrationScene, REGISTRATION_SCENE } from './scenes/registration.js';
 import { contentScene, CONTENT_SCENE } from './scenes/content.js';
 import { supabase } from './services/supabase.js';
+import { trendAnalyzer } from './services/trendAnalyzer.js';
 
 export function createBot(token: string) {
   const bot = new Telegraf<BotContext>(token);
@@ -39,6 +40,18 @@ export function createBot(token: string) {
         ]
       }
     });
+  });
+
+  bot.command('force_trend', async (ctx) => {
+    if (ctx.from?.id !== ADMIN_ID) {
+      return ctx.reply('❌ אין לך הרשאות למצב זה.');
+    }
+    await ctx.reply('🚀 Запуск принудительного анализатора трендов Beauty-сферы (Loki Mode)...');
+    try {
+      await trendAnalyzer.runWeeklyAnalysis(ctx);
+    } catch (e) {
+      await ctx.reply('❌ Произошла ошибка при анализе.');
+    }
   });
 
   // Обработка одобрения

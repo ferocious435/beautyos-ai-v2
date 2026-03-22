@@ -1,25 +1,22 @@
 import { trendAnalyzer } from './trendAnalyzer.js';
-
 export class PromptEngineService {
-  /**
-   * Инъекция инструкций «гуманизации» и трендов в промпт для Gemini Vision.
-   */
-  static getHumanizedVisionPrompt(masterName: string): string {
-    const today = new Date().toLocaleDateString('he-IL');
-    const trend = trendAnalyzer.getLatestTrends();
-    
-    let trendContext = '';
-    if (trend) {
-      trendContext = `
+    /**
+     * Инъекция инструкций «гуманизации» и трендов в промпт для Gemini Vision.
+     */
+    static getHumanizedVisionPrompt(masterName) {
+        const today = new Date().toLocaleDateString('he-IL');
+        const trend = trendAnalyzer.getLatestTrends();
+        let trendContext = '';
+        if (trend) {
+            trendContext = `
 ### ТЕКУЩИЕ ТРЕНДЫ НЕДЕЛИ (ОБЯЗАТЕЛЬНО УЧИТЫВАТЬ):
 - **Стиль и якоря**: ${trend.visualAnchors}
 - **Смысловые якоря**: ${trend.semanticAnchors}
 - **Внимание к боли клиентов**: ${trend.hiddenDeficits}
 - **Скелет текста**: ${trend.postTemplate}
       `;
-    }
-
-    return `
+        }
+        return `
 Role: Senior Premium Beauty Content Creator in Israel.
 Task: Analyze this photo and write 4 variants of copy (Instagram, Facebook, WhatsApp, Image Overlay) in HEBREW (RTL).
 
@@ -36,6 +33,6 @@ ${trendContext}
   "short_overlay": "Catchy 2-4 word hook for the image (e.g., 'מותק של מניקור', 'מושלם בדיוק עבורך')."
 }
     `.trim();
-  }
+    }
 }
-
+//# sourceMappingURL=promptEngine.js.map

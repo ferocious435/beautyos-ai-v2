@@ -16,7 +16,7 @@ export default async function handler(req: any, res: any) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const visionModel = genAI.getGenerativeModel(
-      { model: "gemini-3.1-flash" },
+      { model: "gemini-1.5-flash" },
       { apiVersion: 'v1' }
     );
     

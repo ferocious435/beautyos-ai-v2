@@ -2,9 +2,11 @@ import { config } from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import cron from 'node-cron';
 import { createBot } from './bot.js';
 import { GeminiService } from './services/geminiService.js';
 import { PromptEngineService } from './services/promptEngine.js';
+import { trendAnalyzer } from './services/trendAnalyzer.js';
 
 config();
 
@@ -63,6 +65,18 @@ if (!token) {
 }
 
 const bot = createBot(token);
+
+trendAnalyzer.init().then(() => {
+  cron.schedule('0 9 * * 1', async () => {
+    console.log('⏰ Запуск еженедельного сканирования трендов...');
+    try {
+      await trendAnalyzer.runWeeklyAnalysis();
+      console.log('✅ Сканирование трендов успешно завершено.');
+    } catch (e) {
+      console.error('❌ Ошибка при сканировании трендов', e);
+    }
+  });
+});
 
 app.listen(port, () => {
   console.log(`🚀 Сервер v2 запущен на порту ${port}`);
