@@ -272,24 +272,41 @@ const Dashboard = () => {
                         <button 
                           onClick={handleAIEnhance} 
                           disabled={isEnhancing}
-                          className="gold-text" 
-                          style={{ fontWeight: '900', fontSize: '12px', opacity: isEnhancing ? 0.5 : 1 }}
+                          className="gold-text relative group" 
+                          style={{ fontWeight: '900', fontSize: '13px', opacity: isEnhancing ? 0.5 : 1, letterSpacing: '1px' }}
                         >
-                          {isEnhancing ? 'ENHANCING...' : '✨ AI MAGIC'}
+                          {isEnhancing ? (
+                            <span className="animate-pulse">NANO RECONSTRUCTING...</span>
+                          ) : (
+                            <>✨ AI MAGIC TOUCH</>
+                          )}
+                          <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-yellow-500 group-hover:w-full transition-all duration-300" />
                         </button>
                         <button onClick={() => setIsEditing(false)} style={{ color: 'white', fontWeight: '900' }}>DONE</button>
                       </div>
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      {/* AI Report Card */}
+                      {/* Master AI Studio Report */}
                       {aiReport && (
                         <div className="animate-luxury" style={{ 
-                          background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)',
-                          padding: '12px 16px', borderRadius: '12px', fontSize: '12px', color: '#eab308'
+                          background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)',
+                          padding: '20px', borderRadius: '20px', position: 'relative', overflow: 'hidden'
                         }}>
-                          <div style={{ fontWeight: '900', fontSize: '9px', letterSpacing: '2px', marginBottom: '4px' }}>AI STUDIO ANALYSIS</div>
-                          {aiReport}
+                          <div style={{ position: 'absolute', top: 0, right: 0, width: '40px', height: '40px', background: 'radial-gradient(circle at top right, rgba(234,179,8,0.2), transparent)' }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                             <Terminal size={14} color="#eab308" />
+                             <div style={{ fontWeight: '900', fontSize: '10px', letterSpacing: '3px', color: '#eab308' }}>MASTER AI STUDIO REPORT</div>
+                          </div>
+                          <p style={{ fontSize: '14px', color: 'white', textAlign: 'right', fontStyle: 'italic', margin: 0, lineHeight: '1.6' }}>
+                            "{aiReport}"
+                          </p>
+                          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                             <span style={{ fontSize: '8px', color: 'rgba(234,179,8,0.5)', letterSpacing: '1px' }}>NANO-BANANA PRO SYSTEM v3.1</span>
+                             <div style={{ display: 'flex', gap: '3px' }}>
+                               {[1,2,3].map(i => <div key={i} style={{ width: '3px', height: '3px', borderRadius: '50%', background: '#eab308' }} />)}
+                             </div>
+                          </div>
                         </div>
                       )}
 
