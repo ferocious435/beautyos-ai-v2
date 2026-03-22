@@ -14,7 +14,11 @@ const Dashboard = () => {
   useEffect(() => {
     if (tg) {
       tg.ready();
-      tg.expand();
+      if (tg.requestFullscreen) {
+        try { tg.requestFullscreen(); } catch(e) { tg.expand(); }
+      } else {
+        tg.expand();
+      }
       tg.enableClosingConfirmation();
     }
     const timer = setTimeout(() => setIsLoaded(true), 100);
@@ -48,7 +52,13 @@ const Dashboard = () => {
   ];
 
   const handleUploadClick = () => {
-    if (tg) tg.expand();
+    if (tg) {
+      if (tg.requestFullscreen) {
+        try { tg.requestFullscreen(); } catch(e) { tg.expand(); }
+      } else {
+        tg.expand();
+      }
+    }
     haptic('medium');
     fileInputRef.current?.click();
   };
@@ -152,9 +162,10 @@ const Dashboard = () => {
                   src={imagePreview} 
                   alt="Post" 
                   style={{ 
-                    width: '100%', height: '100%', objectFit: 'cover',
+                    width: '100%', height: '100%', objectFit: 'contain',
                     filter: isGenerating ? 'blur(15px) brightness(0.5)' : 'brightness(1.05) contrast(1.1) saturate(1.1)',
-                    transition: 'all 0.6s ease'
+                    transition: 'all 0.6s ease',
+                    backgroundColor: 'rgba(0,0,0,0.4)'
                   }} 
                 />
                 

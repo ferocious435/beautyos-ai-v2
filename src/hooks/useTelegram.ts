@@ -7,7 +7,11 @@ export function useTelegram() {
     const telegram = (window as any).Telegram?.WebApp;
     if (telegram) {
       telegram.ready();
-      telegram.expand();
+      if (telegram.requestFullscreen) {
+        try { telegram.requestFullscreen(); } catch(e) { telegram.expand(); }
+      } else {
+        telegram.expand();
+      }
       setTg(telegram);
     }
   }, []);
