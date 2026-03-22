@@ -1,5 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { execSync } from 'child_process';
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,77 +12,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { image } = req.body;
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+    if (!image) throw new Error('No image provided');
 
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY;
     if (!apiKey) throw new Error('API Key missing');
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Using Nano Banana Pro for real Image-to-Image analysis and retouching strategy
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" }); 
-
-    const mimeType = image.match(/data:(.*);base64/)?.[1] || 'image/jpeg';
+    // 1. Save input image to temp file
+    const tempDir = tmpdir();
+    const inputPath = join(tempDir, `enhance_in_${Date.now()}.png`);
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+    writeFileSync(inputPath, Buffer.from(base64Data, 'base64'));
 
-    const prompt = `
-Role: Global Master of Beauty Photography & Nano-Retouching.
-Task: Professionally ENHANCE this beauty masterpiece. 
-
-Instructions from AI Studio Image Skill:
-- Analyze as if taken with a modern smartphone (iPhone/Samsung).
-- Identify areas where natural skin texture (pores, subtle marks) should be preserved but lighting needs balance.
-- Look for 'micro-blur' and calculate the precise sharpening needed for nails/lashes.
-- Apply 'Golden Hour' or 'Natural Interior' lighting curves.
-
-STRICT JSON OUTPUT:
-{
-  "brightness": 100-120,
-  "contrast": 100-130,
-  "saturate": 100-120,
-  "sharpen": 30-80,
-  "shadows": 10-40,
-  "ai_report": "Short Hebrew description of the professional retouching performed"
-}`;
-
-    // For current SDK stability, we use Vision to analyze AND then we'll simulate the enhancement 
-    // BUT to satisfy the user, we will actually try to generate a NEW image if the model allows.
-    // NOTE: Generating a NEW image via Gemini Pro is currently a multi-modal feature.
+    // 2. Prepare the Skill Command
+    const skillScript = "C:\\Users\\SergeyRaihshtat\\.gemini\\antigravity\\skills\\ai-studio-image\\scripts\\generate.py";
+    const prompt = "High-end luxury beauty professional retouching. Ultra-sharp details on nails and skin. Perfect commercial lighting. Maintain the exact same composition and beauty work from the reference photo.";
     
-    // TEMPORARY PRO-GRADE FALLBACK that feels like a real change:
-    // We will use Gemini to generate the perfect social media text AND improved parameters.
-    // BUT we will ALSO add a message that the image is being 'Processed by Nano Banana'.
+    const command = [
+      `python "${skillScript}"`,
+      `--prompt "${prompt}"`,
+      `--reference-images "${inputPath}"`,
+      '--model gemini-pro-image',
+      '--mode influencer',
+      '--format square',
+      '--force-paid',
+      '--json'
+    ].join(' ');
 
-    const result = await model.generateContent([
-      { text: prompt },
-      { inlineData: { data: base64Data, mimeType } }
-    ]);
+    // 3. Execute the Skill
+    console.log('Executing AI Enhancement via Skill...');
+    const resultJson = execSync(command, { 
+      env: { ...process.env, GEMINI_API_KEY: apiKey },
+      encoding: 'utf-8' 
+    });
 
-    const responseText = await result.response.text();
-    let jsonResult;
-    try {
-      const sanitized = responseText.replace(/```json\n?|```/g, "").trim();
-      jsonResult = JSON.parse(sanitized);
-    } catch (e) {
-      jsonResult = {
-        brightness: 108,
-        contrast: 112,
-        saturate: 115,
-        sharpen: 55,
-        shadows: 20,
-        ai_report: "עריכת Nano Banana בוצעה באופן אוטומטי לשיפור התאורה והחדות."
-      };
+    const parsedResult = JSON.parse(resultJson);
+    if (!parsedResult.generated || parsedResult.generated.length === 0) {
+      throw new Error('AI generation failed to produce an image');
     }
+    
+    const generatedPath = parsedResult.generated[0];
 
-    return res.status(200).json(jsonResult);
+    // 4. Read the enhanced image and return it
+    const enhancedBuffer = readFileSync(generatedPath);
+    const enhancedBase64 = `data:image/png;base64,${enhancedBuffer.toString('base64')}`;
+
+    return res.status(200).json({
+      enhancedImage: enhancedBase64,
+      ai_report: "ננו-בננה שחזרה את התמונה ברמה מקצועית: שדרוג תאורה, חדות ומרקם עור יוקרתי.",
+      brightness: 100,
+      contrast: 100,
+      saturate: 100,
+      sharpen: 0,
+      shadows: 0
+    });
+
   } catch (error: any) {
     console.error('Enhance Error:', error);
-    // Fallback to reasonable professional defaults if AI fails
-    return res.status(200).json({
-      brightness: 105,
-      contrast: 110,
-      saturate: 115,
-      sharpen: 40,
-      shadows: 20
-    });
+    return res.status(500).json({ error: error.message || 'Enhancement failed' });
   }
 }

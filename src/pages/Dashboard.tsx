@@ -38,10 +38,17 @@ const Dashboard = () => {
       });
       const data = await response.json();
       
-      // Animate the sliders to the AI calculated values
-      const { ai_report, ...filterData } = data;
-      setFilters(filterData);
-      setAiReport(ai_report || "בוצע שדרוג Nano-AI מקצועי.");
+      // If AI returned a reconstructed image, replace the preview
+      if (data.enhancedImage) {
+        setImagePreview(data.enhancedImage);
+        setFilters({ brightness: 100, contrast: 100, saturate: 100, sharpen: 0, shadows: 0 });
+      } else {
+        // Fallback to slider-only enhancement if no image was generated
+        const { ai_report, ...filterData } = data;
+        setFilters(filterData);
+      }
+
+      setAiReport(data.ai_report || "שדרוג Nano-AI הסתיים בהצלחה.");
       haptic('medium');
     } catch (e) {
       console.error(e);
