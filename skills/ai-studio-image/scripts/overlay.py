@@ -11,12 +11,17 @@ def add_text_to_image(image_path, text_top, text_bottom, output_path):
             draw = ImageDraw.Draw(img)
             width, height = img.size
 
-            # 2. Setup Fonts (Windows Arial)
-            # Use smaller font size relative to image height
+            # 2. Setup Fonts (Local font.ttf for consistency)
             font_size = int(height * 0.04)
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            local_font = os.path.join(script_dir, "font.ttf")
+            
             try:
-                # Arial supports Hebrew
-                font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", font_size)
+                if os.path.exists(local_font):
+                    font = ImageFont.truetype(local_font, font_size)
+                else:
+                    # Fallback
+                    font = ImageFont.load_default()
             except:
                 font = ImageFont.load_default()
 

@@ -18,9 +18,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!apiKey) throw new Error('API Key missing');
 
     const studio = studioName || "סטודיו ליופי";
-    const contact = address || "הזמינו תור עכשיו";
+    const contact = address || "להזמנת תור ופרטים נוספים";
 
-    // 1. Save input image to temp file
     const tempDir = tmpdir();
     const ts = Date.now();
     const inputPath = join(tempDir, `enhance_in_${ts}.png`);
@@ -31,13 +30,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const skillScript = join(projectRoot, 'skills', 'ai-studio-image', 'scripts', 'generate.py');
     const overlayScript = join(projectRoot, 'skills', 'ai-studio-image', 'scripts', 'overlay.py');
 
-    // Universal Professional Hebrew Prompt
-    const hebrewPrompt = `
-      ערוך את התמונה המצורפת והפוך אותה לתמונה מקצועית ויוקרתית עבור עסק בתחום הביוטי (ציפורניים, שיער, גבות, איפור קבוע וכד').
-      מטרת העריכה: לשפר חדות, תאורה וצבעים בלי לשנות את העבודה המקורית של האמנית. לשמור על מראה ריאליסטי ונקי.
-      בצע ניקוי רעשים, שיפור רזולוציה ותיקון צבעים כך שגוון העור ייראה טבעי ומחמיא.
-      התאם את התאורה שתהיה רכה ואחידה כמו בצילום סטודיו.
-      שלילה: בלי פילטרים מוגזמים, בלי מראה מלאכותי, בלי להחליק את העור больше מדי, ובלי טקסט על התמונה עצמה.
+    // PROFESSIONAL LUXURY BEAUTY PROMPT (English for best Gemini performance)
+    const proPrompt = `
+      Professional high-end beauty retouched photograph. 
+      CRITICAL: Keep the actual work (nails/makeup/hair) EXACTLY as in the original. 
+      Focus on LUXURY enhancement:
+      - Crystal clear sharpness on the main subjects.
+      - Soft professional studio lighting with elegant shadows.
+      - Clean, uniform, and minimal aesthetic background.
+      - Vibrant but natural skin tones, removing distractions without plastic look.
+      - Editorial fashion magazine quality.
+      - High contrast, deep blacks, and brilliant highlights.
+      - Ensure the output is a polished masterpiece ready for high-end promotion.
     `.trim().replace(/"/g, "'").replace(/\n/g, ' ');
 
     const formats = [
@@ -48,19 +52,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const results: string[] = [];
 
-    console.log(`Starting generation for 3 formats...`);
-
     for (const fmt of formats) {
       try {
-        // AI Generation
         const genCommand = [
           `python "${skillScript}"`,
-          `--prompt "${hebrewPrompt}"`,
+          `--prompt "${proPrompt}"`,
           `--reference-images "${inputPath}"`,
-          `--model ${process.env.GEMINI_DEFAULT_MODEL || 'gemini-pro-image'}`, 
+          `--model gemini-pro-image`, 
           `--format ${fmt.arg}`,
-          '--mode influencer',
-          '--humanization polished',
+          '--skip-humanization', // DO NOT add smartphone noise
           '--force-paid',
           '--json'
         ].join(' ');
@@ -87,13 +87,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    if (results.length === 0) {
-      throw new Error('Failed to generate any enhanced images');
-    }
+    if (results.length === 0) throw new Error('Failed to generate any enhanced images');
 
     return res.status(200).json({
       enhancedImages: results, 
-      ai_report: "התמונות נוצרו בהצלחה ב-3 פורמטים עם נגיעה של יוקרה וטקסט מותאם אישית.",
+      ai_report: "בוצע שحזור Nano-Banana פרו: 3 פורמטים יוקרתיים מוכנים לפרסום.",
     });
 
   } catch (error: any) {
