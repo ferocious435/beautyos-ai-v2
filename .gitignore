@@ -19,7 +19,7 @@ dist-ssr
 .gemini
 .loki
 brain/
-skills/
+# skills/ - Removed from ignore to allow generate.py/overlay.py on Vercel
 
 # Editor
 .vscode/*

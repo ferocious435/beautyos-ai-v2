@@ -1,125 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Sparkles, User, Check } from 'lucide-react';
+import { Camera, Sparkles, User } from 'lucide-react'; 
 import { useTelegram } from '../hooks/useTelegram';
 
 const Dashboard = () => {
-  const { tg, haptic, setMainButton, hideMainButton, user } = useTelegram();
-  const [activeSocial, setActiveSocial] = useState('Instagram');
+  const { tg, haptic, user } = useTelegram(); // Убрал неиспользуемые setMainButton, hideMainButton
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedResults, setGeneratedResults] = useState<any>(null);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhancedVersions, setEnhancedVersions] = useState<string[]>([]);
+  const [currentFormatIndex, setCurrentFormatIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Studio Info
+  const [studioName, setStudioName] = useState(user?.first_name || 'סטודיו ליופי');
+  const [address, setAddress] = useState('הזמינו תור עכשיו');
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Image Editing States
-  const [isEditing, setIsEditing] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
-  const [aiReport, setAiReport] = useState<string | null>(null);
-  const [filters, setFilters] = useState({
-    brightness: 100,
-    contrast: 100,
-    saturate: 100,
-    sharpen: 0,
-    shadows: 0
-  });
-
-  const handleAIEnhance = async () => {
-    if (!imagePreview) return;
-    setIsEnhancing(true);
-    setAiReport(null);
-    haptic('heavy');
-    
-    try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : ''; 
-      const response = await fetch(`${baseUrl}/api/enhance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imagePreview }),
-      });
-      const data = await response.json();
-      
-      // If AI returned a reconstructed image, replace the preview
-      if (data.enhancedImage) {
-        setImagePreview(data.enhancedImage);
-        setFilters({ brightness: 100, contrast: 100, saturate: 100, sharpen: 0, shadows: 0 });
-      } else {
-        // Fallback to slider-only enhancement if no image was generated
-        const { ai_report, ...filterData } = data;
-        setFilters(filterData);
-      }
-
-      setAiReport(data.ai_report || "שדרוג Nano-AI הסתיים בהצלחה.");
-      haptic('medium');
-    } catch (e) {
-      console.error(e);
-      setFilters({ brightness: 110, contrast: 115, saturate: 110, sharpen: 50, shadows: 20 });
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
-
-  const getFilterString = () => {
-    const b = filters.brightness / 100;
-    const c = (filters.contrast + filters.sharpen * 0.5) / 100;
-    const s = filters.saturate / 100;
-    const sh = filters.sharpen / 100;
-    const sw = filters.shadows / 100;
-    return `brightness(${b}) contrast(${c}) saturate(${s}) contrast(${1 + sh * 0.2}) brightness(${1 + sh * 0.05}) drop-shadow(0 0 ${sw * 5}px rgba(0,0,0,0.5))`;
-  };
-  
   useEffect(() => {
     if (tg) {
       tg.ready();
-      // Force expansion and fullscreen as early as possible
-      const expandApp = () => {
-        tg.expand();
-        if (tg.requestFullscreen) {
-          try { tg.requestFullscreen(); } catch(e) { /* ignore */ }
-        }
-      };
-      expandApp();
-      // Double check expansion after small delay to handle slow loads
-      setTimeout(expandApp, 500);
-      tg.enableClosingConfirmation();
+      tg.expand();
     }
     const timer = setTimeout(() => setIsLoaded(true), 100);
     return () => clearTimeout(timer);
   }, [tg]);
 
-  useEffect(() => {
-    const currentText = generatedResults ? (generatedResults[activeSocial.toLowerCase()] || generatedResults.instagram) : null;
-    
-    if (tg && currentText && !isGenerating) {
-      setMainButton('פרסום עכשיו ✨', () => {
-        haptic('heavy');
-        tg.sendData(JSON.stringify({ 
-          action: 'publish', 
-          text: currentText, 
-          social: activeSocial,
-          image: imagePreview 
-        }));
-        alert('הפוסט נשלח לבוט לפרסום!');
-      });
-    } else {
-      hideMainButton();
-    }
-  }, [tg, haptic, setMainButton, hideMainButton, generatedResults, isGenerating, activeSocial, imagePreview]);
-
-  const socialNetworks = [
-    { id: 'Instagram', name: 'Instagram', ratio: '9/16' },
-    { id: 'Facebook', name: 'Facebook', ratio: '1.91/1' },
-    { id: 'Telegram', name: 'Telegram', ratio: '1/1' },
-    { id: 'WhatsApp', name: 'WhatsApp', ratio: '1/1' }
-  ];
-
   const handleUploadClick = () => {
-    if (tg) {
-      if (tg.requestFullscreen) {
-        try { tg.requestFullscreen(); } catch(e) { tg.expand(); }
-      } else {
-        tg.expand();
-      }
-    }
     haptic('medium');
     fileInputRef.current?.click();
   };
@@ -130,50 +36,62 @@ const Dashboard = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
-        setGeneratedResults(null);
+        setEnhancedVersions([]);
         haptic('light');
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerate = async () => {
+  const handleMagicFlow = async () => {
     if (!imagePreview) return;
-    setIsGenerating(true);
+    setIsEnhancing(true);
     haptic('heavy');
     
     try {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : ''; 
-      const response = await fetch(`${baseUrl}/api/analyze`, {
+      
+      const enhanceResponse = await fetch(`${baseUrl}/api/enhance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
           image: imagePreview,
-          masterName: user?.first_name || 'Beauty Master'
+          studioName,
+          address
         }),
       });
+      const enhanceData = await enhanceResponse.json();
+      
+      if (enhanceData.enhancedImages && enhanceData.enhancedImages.length > 0) {
+        setEnhancedVersions(enhanceData.enhancedImages);
+        setCurrentFormatIndex(0);
+      }
 
-      if (!response.ok) throw new Error('API error');
-      const data = await response.json();
-      setGeneratedResults(data);
       haptic('medium');
-    } catch (error) {
-      console.error('Generation Error:', error);
-      alert('שגיאה בחיבור ל-AI. נסי שוב מאוחר יותר.');
-      haptic('heavy');
+    } catch (e) {
+      console.error(e);
+      alert('שגיאה בעיבוד התמונה. נסי שוב.');
     } finally {
-      setIsGenerating(false);
+      setIsEnhancing(false);
     }
   };
 
   const handleReset = () => {
     setImagePreview(null);
-    setGeneratedResults(null);
+    setEnhancedVersions([]);
     haptic('light');
   };
 
-  const currentText = generatedResults ? (generatedResults[activeSocial.toLowerCase()] || generatedResults.instagram) : null;
-  const currentRatio = socialNetworks.find(s => s.id === activeSocial)?.ratio || '1/1';
+  const currentDisplayImage = enhancedVersions.length > 0 ? enhancedVersions[currentFormatIndex] : imagePreview;
+  const currentRatio = enhancedVersions.length > 0 
+    ? (currentFormatIndex === 2 ? '9/16' : currentFormatIndex === 1 ? '4/5' : '1/1') 
+    : '1/1';
+
+  const formats = [
+    { id: 'square', name: 'Instagram / Feed', index: 0 },
+    { id: 'portrait', name: 'Instagram Portrait', index: 1 },
+    { id: 'story', name: 'Stories / Reels', index: 2 }
+  ];
 
   return (
     <div className="animate-luxury" style={{ 
@@ -189,301 +107,193 @@ const Dashboard = () => {
         opacity: isLoaded ? 1 : 0, transition: 'opacity 1s ease'
       }}>
         
-        <header style={{ marginBottom: '50px', textAlign: 'right' }}>
-          <div className="font-modern" style={{ 
+        <header style={{ marginBottom: '40px', textAlign: 'right' }}>
+          <div style={{ 
             display: 'inline-block', padding: '6px 12px', background: 'rgba(234,179,8,0.1)',
             borderRadius: '8px', color: '#eab308', fontSize: '10px', fontWeight: '900',
-            letterSpacing: '3px', marginBottom: '12px', textTransform: 'uppercase'
+            letterSpacing: '3px', marginBottom: '12px'
           }}>
-            BeautyOS v2.2.9 • Ultra Premium
+            BeautyOS v2.3.1 • Magic Auto
           </div>
-          <h1 className="font-luxury" style={{ fontSize: '56px', fontWeight: '900', margin: '0', lineHeight: '1', letterSpacing: '-2px' }}>
-            <span className="gold-text">AI</span> Creative
+          <h1 className="font-luxury" style={{ fontSize: '48px', fontWeight: '900', margin: '0', lineHeight: '1', letterSpacing: '-1px' }}>
+            <span className="gold-text">Beauty</span> Magic
           </h1>
-          <p className="font-modern" style={{ color: '#64748b', fontSize: '14px', marginTop: '10px', fontWeight: '400' }}>
-            עיצוב תוכן ברמה של מותגי על
+          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '10px' }}>
+            מעלים תמונה - מקבלים פוסט מוכן מושלם.
           </p>
         </header>
 
-        {/* Post Designer View */}
-        <section style={{ marginBottom: '50px' }}>
+        {/* Main Display Area */}
+        <section style={{ marginBottom: '40px' }}>
           <div className="glass-premium" style={{ 
             width: '100%', 
             aspectRatio: currentRatio, 
-            borderRadius: '40px', 
+            borderRadius: '32px', 
             overflow: 'hidden',
             position: 'relative',
-            boxShadow: '0 50px 100px -20px rgba(0,0,0,0.9)',
-            transition: 'aspect-ratio 0.8s cubic-bezier(0.16, 1, 0.3, 1)'
+            boxShadow: '0 40px 80px -20px rgba(0,0,0,0.8)',
+            transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+            backgroundColor: '#0a0a0f'
           }}>
             {imagePreview ? (
               <>
                 <img 
-                  src={imagePreview} 
-                  alt="Post" 
+                  src={currentDisplayImage || ''} 
+                  alt="Preview" 
                   style={{ 
                     width: '100%', height: '100%', objectFit: 'contain',
-                    filter: isGenerating ? 'blur(20px) brightness(0.4)' : getFilterString(),
-                    transition: 'all 0.4s ease',
-                    backgroundColor: '#0a0a0f'
+                    filter: isEnhancing ? 'blur(15px) brightness(0.5)' : 'none',
+                    transition: 'all 0.4s ease'
                   }} 
                 />
                 
-                {/* AI Overlay Text - Clean Premium Label */}
-                {generatedResults?.short_overlay && !isGenerating && !isEditing && (
-                  <div style={{ 
-                    position: 'absolute', bottom: '12%', left: '0', right: '0', textAlign: 'center',
-                    padding: '0 40px', animation: 'luxuryFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1)'
-                  }}>
-                    <div className="glass-premium" style={{ 
-                      display: 'inline-block', padding: '16px 32px', borderRadius: '20px', 
-                      background: 'rgba(5,5,8,0.6)', color: 'white', fontWeight: '900', 
-                      fontSize: '22px', border: '1px solid rgba(255,255,255,0.15)'
-                    }}>
-                      <div className="gold-text" style={{ fontSize: '9px', marginBottom: '4px', fontWeight: '900', letterSpacing: '2px' }}>
-                        VISION CONCEPT
-                      </div>
-                      <span className="font-luxury">{generatedResults.short_overlay}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Loading State */}
-                {isGenerating && (
+                {isEnhancing && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ textAlign: 'center' }}>
-                      <div className="animate-spin" style={{ width: '60px', height: '60px', border: '2px solid rgba(234,179,8,0.1)', borderTopColor: '#eab308', borderRadius: '50%', margin: '0 auto' }} />
-                      <div className="font-modern" style={{ marginTop: '20px', fontWeight: '900', fontSize: '11px', color: '#eab308', letterSpacing: '3px', textTransform: 'uppercase' }}>
-                        מנתח ויזואלית...
+                      <div className="animate-spin" style={{ width: '50px', height: '50px', border: '2px solid rgba(234,179,8,0.1)', borderTopColor: '#eab308', borderRadius: '50%', margin: '0 auto' }} />
+                      <div style={{ marginTop: '20px', fontWeight: '900', fontSize: '12px', color: '#eab308', letterSpacing: '2px' }}>
+                        מבצע קסמים ב-3 פורמטים...
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Editor Panel Overlay */}
-                {isEditing && (
-                  <div className="glass-premium animate-luxury" style={{ 
-                    position: 'absolute', inset: 0, background: 'rgba(5,5,8,0.7)', 
-                    display: 'flex', flexDirection: 'column', padding: '30px', justifyContent: 'space-between'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="font-luxury" style={{ fontWeight: '900', fontSize: '18px' }}>Image Studio</span>
-                      <div style={{ display: 'flex', gap: '15px' }}>
-                        <button 
-                          onClick={handleAIEnhance} 
-                          disabled={isEnhancing}
-                          className="gold-text relative group" 
-                          style={{ fontWeight: '900', fontSize: '13px', opacity: isEnhancing ? 0.5 : 1, letterSpacing: '1px' }}
-                        >
-                          {isEnhancing ? (
-                            <span className="animate-pulse">NANO RECONSTRUCTING...</span>
-                          ) : (
-                            <>✨ AI MAGIC TOUCH</>
-                          )}
-                          <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-yellow-500 group-hover:w-full transition-all duration-300" />
-                        </button>
-                        <button onClick={() => setIsEditing(false)} style={{ color: 'white', fontWeight: '900' }}>DONE</button>
-                      </div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      {/* Master AI Studio Report */}
-                      {aiReport && (
-                        <div className="animate-luxury" style={{ 
-                          background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)',
-                          padding: '20px', borderRadius: '20px', position: 'relative', overflow: 'hidden'
-                        }}>
-                          <div style={{ position: 'absolute', top: 0, right: 0, width: '40px', height: '40px', background: 'radial-gradient(circle at top right, rgba(234,179,8,0.2), transparent)' }} />
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                             <Terminal size={14} color="#eab308" />
-                             <div style={{ fontWeight: '900', fontSize: '10px', letterSpacing: '3px', color: '#eab308' }}>MASTER AI STUDIO REPORT</div>
-                          </div>
-                          <p style={{ fontSize: '14px', color: 'white', textAlign: 'right', fontStyle: 'italic', margin: 0, lineHeight: '1.6' }}>
-                            "{aiReport}"
-                          </p>
-                          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-                             <span style={{ fontSize: '8px', color: 'rgba(234,179,8,0.5)', letterSpacing: '1px' }}>NANO-BANANA PRO SYSTEM v3.1</span>
-                             <div style={{ display: 'flex', gap: '3px' }}>
-                               {[1,2,3].map(i => <div key={i} style={{ width: '3px', height: '3px', borderRadius: '50%', background: '#eab308' }} />)}
-                             </div>
-                          </div>
-                        </div>
-                      )}
+                {/* Reset & Change Buttons */}
+                <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', gap: '8px' }}>
+                  <button onClick={handleReset} className="glass-premium" style={{ width: '36px', height: '36px', borderRadius: '10px', color: '#ef4444' }}>×</button>
+                  <button onClick={handleUploadClick} className="glass-premium" style={{ width: '36px', height: '36px', borderRadius: '10px', color: 'white' }}>
+                    <Camera size={16} />
+                  </button>
+                </div>
 
-                      {[
-                        { id: 'brightness', label: 'בהירות', icon: '☀️', min: 50, max: 150 },
-                        { id: 'contrast', label: 'ניגודיות', icon: '🌓', min: 50, max: 150 },
-                        { id: 'saturate', label: 'צבע', icon: '🌈', min: 0, max: 200 },
-                        { id: 'sharpen', label: 'חידוד', icon: '✨', min: 0, max: 100 },
-                        { id: 'shadows', label: 'צללים', icon: '👤', min: 0, max: 100 },
-                      ].map(ctrl => (
-                        <div key={ctrl.id}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '10px', color: '#666', fontWeight: '900', textTransform: 'uppercase' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>{ctrl.icon} {ctrl.label}</div>
-                            <span>{(filters as any)[ctrl.id]}%</span>
-                          </div>
-                          <input 
-                            type="range" 
-                            min={ctrl.min} 
-                            max={ctrl.max} 
-                            value={(filters as any)[ctrl.id]} 
-                            onChange={(e) => {
-                              setFilters(prev => ({ ...prev, [ctrl.id]: parseInt(e.target.value) }));
-                              if (parseInt(e.target.value) % 5 === 0) haptic('light');
-                            }}
-                            style={{ 
-                              width: '100%', accentColor: '#eab308',
-                              transition: isEnhancing ? 'all 1s ease' : 'none' 
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Scanning Animation */}
-                    {isEnhancing && (
-                      <div style={{ 
-                        position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
-                        background: 'linear-gradient(to right, transparent, #eab308, transparent)',
-                        animation: 'scanLine 1.5s infinite linear',
-                        boxShadow: '0 0 15px #eab308'
-                      }} />
-                    )}
-                  </div>
-                )}
-
-                {/* Edit Controls */}
-                {!isEditing && (
-                  <div style={{ position: 'absolute', top: '25px', left: '25px', display: 'flex', gap: '8px' }}>
-                    <button onClick={handleReset} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                    <button onClick={() => setIsEditing(true)} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: '14px', fontWeight: '900' }}>EDIT</span>
-                    </button>
-                    <button onClick={handleUploadClick} className="glass-premium" style={{ width: '40px', height: '40px', borderRadius: '12px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Camera size={18} />
-                    </button>
+                {/* Format Indicator Dots */}
+                {enhancedVersions.length > 0 && (
+                  <div style={{ position: 'absolute', bottom: '15px', left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                    {formats.map((_, idx) => (
+                      <div 
+                        key={idx}
+                        style={{ 
+                          width: idx === currentFormatIndex ? '16px' : '6px', 
+                          height: '6px', 
+                          borderRadius: '3px', 
+                          background: idx === currentFormatIndex ? '#eab308' : 'rgba(255,255,255,0.2)',
+                          transition: 'all 0.3s'
+                        }} 
+                      />
+                    ))}
                   </div>
                 )}
               </>
             ) : (
               <div 
                 onClick={handleUploadClick}
-                style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                <div className="gold-gradient" style={{ width: '80px', height: '80px', borderRadius: '25px', display: 'flex', color: 'black', marginBottom: '24px' }}>
-                   <Camera size={32} style={{ margin: 'auto' }} />
+                style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <div className="gold-gradient" style={{ width: '64px', height: '64px', borderRadius: '20px', display: 'flex', color: 'black', marginBottom: '20px' }}>
+                   <Camera size={28} style={{ margin: 'auto' }} />
                 </div>
-                <h3 className="font-luxury" style={{ fontWeight: '900', fontSize: '24px', color: 'white' }}>העלאת יצירה</h3>
-                <p style={{ color: '#444', fontSize: '14px', marginTop: '8px' }}>לחצי לבחירת צילום מהגלריה</p>
+                <h3 style={{ fontWeight: '900', fontSize: '20px', color: 'white' }}>העלאת תמונה</h3>
+                <p style={{ color: '#444', fontSize: '13px', marginTop: '6px' }}>לחצי לבחירה מהגלריה</p>
               </div>
             )}
           </div>
         </section>
 
-        {/* Social Network Picker */}
-        <div style={{ marginBottom: '40px' }}>
-           <div className="font-modern" style={{ fontSize: '10px', fontWeight: '900', color: '#444', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-             בחירת פורמט פרסום
-           </div>
-           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'none' }}>
-             {socialNetworks.map(social => (
-               <button
-                 key={social.id}
-                 onClick={() => { haptic('light'); setActiveSocial(social.id); }}
-                 className="font-modern"
-                 style={{
-                   padding: '14px 20px', borderRadius: '16px', border: '1px solid',
-                   borderColor: activeSocial === social.id ? '#eab308' : 'rgba(255,255,255,0.05)',
-                   background: activeSocial === social.id ? 'rgba(234,179,8,0.1)' : 'rgba(255,255,255,0.02)',
-                   color: activeSocial === social.id ? '#eab308' : '#666',
-                   fontWeight: '900', fontSize: '12px', transition: '0.4s ease', minWidth: '100px'
-                 }}
-               >
-                 {social.id}
-               </button>
-             ))}
-           </div>
-        </div>
-
-        {/* Generate Button */}
-        {imagePreview && !generatedResults && (
-           <button 
-             disabled={isGenerating}
-             onClick={handleGenerate}
-             className="gold-gradient font-modern"
-             style={{
-               width: '100%', padding: '24px', borderRadius: '20px', border: 'none',
-               color: 'black', fontWeight: '900', fontSize: '16px', letterSpacing: '1px',
-               boxShadow: '0 20px 40px rgba(234,179,8,0.2)', cursor: 'pointer',
-               transition: 'transform 0.2s'
-             }}
-           >
-             <Sparkles size={20} style={{ marginLeft: '10px', verticalAlign: 'middle' }} />
-             צור תוכן פרימיום ✨
-           </button>
-        )}
-
-        {/* Post Results - The Masterpiece View */}
-        {currentText && !isGenerating && (
-          <div className="glass-premium animate-luxury" style={{ 
-            borderRadius: '40px', padding: '40px', border: '1px solid rgba(255,255,255,0.08)'
-          }}>
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div className="gold-gradient" style={{ width: '28px', height: '28px', borderRadius: '8px', display: 'flex', color: 'black' }}>
-                    <Check size={16} style={{ margin: 'auto' }} />
+        {/* Action / Settings Area */}
+        {imagePreview && (
+          <div className="animate-luxury">
+            {enhancedVersions.length === 0 ? (
+              <>
+                <div className="glass-premium" style={{ marginBottom: '24px', padding: '20px', borderRadius: '20px' }}>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '10px', color: '#666', fontWeight: '900', display: 'block', marginBottom: '6px' }}>שם הסטודיו</label>
+                      <input 
+                        type="text" 
+                        value={studioName} 
+                        onChange={(e) => setStudioName(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px', color: 'white', fontSize: '14px' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '10px', color: '#666', fontWeight: '900', display: 'block', marginBottom: '6px' }}>כתובת / טלפון</label>
+                      <input 
+                        type="text" 
+                        value={address} 
+                        onChange={(e) => setAddress(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px', color: 'white', fontSize: '14px' }}
+                      />
+                    </div>
                   </div>
-                  <span className="font-luxury" style={{ fontWeight: '900', color: 'white', fontSize: '20px' }}>הטקסט המוכן</span>
                 </div>
-                <button onClick={handleGenerate} style={{ background: 'transparent', border: 'none', color: '#eab308', fontWeight: '900', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                  לנסות שוב
+
+                <button 
+                  onClick={handleMagicFlow}
+                  disabled={isEnhancing}
+                  className="gold-gradient"
+                  style={{
+                    width: '100%', padding: '20px', borderRadius: '16px', border: 'none',
+                    color: 'black', fontWeight: '900', fontSize: '16px', cursor: 'pointer',
+                    boxShadow: '0 15px 30px rgba(234,179,8,0.2)', opacity: isEnhancing ? 0.7 : 1
+                  }}
+                >
+                  <Sparkles size={18} style={{ marginLeft: '8px', verticalAlign: 'middle' }} />
+                  ללחוץ לקסם ✨
                 </button>
-             </div>
-             
-             <p className="font-modern" style={{ 
-               fontSize: '18px', lineHeight: '1.8', color: '#e2e8f0', whiteSpace: 'pre-wrap', 
-               textAlign: 'right', fontWeight: '400', letterSpacing: '0.2px' 
-             }}>
-               {currentText}
-             </p>
-             
-             <div style={{ marginTop: '40px', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                  <Sparkles size={14} color="#eab308" />
-                  <span className="gold-text" style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '1px' }}>AI STRATEGY</span>
+              </>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Format Selector */}
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '5px' }}>
+                  {formats.map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => { haptic('light'); setCurrentFormatIndex(f.index); }}
+                      style={{
+                        padding: '12px 16px', borderRadius: '12px', border: '1px solid',
+                        borderColor: currentFormatIndex === f.index ? '#eab308' : 'rgba(255,255,255,0.05)',
+                        background: currentFormatIndex === f.index ? 'rgba(234,179,8,0.1)' : 'rgba(255,255,255,0.02)',
+                        color: currentFormatIndex === f.index ? '#eab308' : '#666',
+                        fontWeight: '900', fontSize: '11px', whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {f.name}
+                    </button>
+                  ))}
                 </div>
-                <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: '1.5' }}>
-                  נוצר באמצעות Gemini 3.1 Pro בהתאמה אישית לפרטי התמונה והסגנון הייחודי שלך.
-                </p>
-             </div>
+
+                <button 
+                   onClick={() => alert('מדהים! התמונות נשמרו.')}
+                   className="gold-gradient"
+                   style={{ width: '100%', padding: '20px', borderRadius: '16px', color: 'black', fontWeight: '900' }}
+                 >
+                   שמור את הכל 🚀
+                 </button>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="font-modern" style={{ textAlign: 'center', marginTop: '100px', color: '#1a1a1f', fontSize: '10px', letterSpacing: '6px', fontWeight: '900' }}>
-          BEAUTYOS • LUXURY AI SYSTEMS
-        </div>
+        <footer style={{ textAlign: 'center', marginTop: '80px', color: '#1a1a1f', fontSize: '10px', letterSpacing: '4px', fontWeight: '900' }}>
+          BEAUTYOS • PREMIA AI
+        </footer>
       </div>
 
-      {/* Luxury Navigation */}
       <nav className="glass-premium" style={{
-        position: 'fixed', bottom: '30px', left: '20px', right: '20px', height: '80px',
-        borderRadius: '24px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 100
+        position: 'fixed', bottom: '25px', left: '20px', right: '20px', height: '70px',
+        borderRadius: '20px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 100
       }}>
-        {[
-          { id: 'smart', label: 'סמארט', icon: <Sparkles size={24} color="#eab308" /> },
-          { id: 'gallery', label: 'גלריה', icon: <Camera size={24} color="#444" /> },
-          { id: 'profile', label: 'פרופיל', icon: <User size={24} color="#444" /> }
-        ].map(item => (
-          <div key={item.id} style={{ textAlign: 'center', cursor: 'pointer', flex: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>{item.icon}</div>
-            <div className="font-modern" style={{ fontSize: '9px', color: item.id === 'smart' ? '#eab308' : '#444', marginTop: '6px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.label}</div>
-          </div>
-        ))}
+        <div style={{ textAlign: 'center', flex: 1 }}><Sparkles size={20} color="#eab308" /><div style={{ fontSize: '8px', color: '#eab308', marginTop: '4px', fontWeight: '900' }}>MAGIC</div></div>
+        <div style={{ textAlign: 'center', flex: 1 }}><Camera size={20} color="#444" /><div style={{ fontSize: '8px', color: '#444', marginTop: '4px', fontWeight: '900' }}>GALLERY</div></div>
+        <div style={{ textAlign: 'center', flex: 1 }}><User size={20} color="#444" /><div style={{ fontSize: '8px', color: '#444', marginTop: '4px', fontWeight: '900' }}>PROFILE</div></div>
       </nav>
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin { animation: spin 2s linear infinite; }
         ::-webkit-scrollbar { display: none; }
+        .gold-text { background: linear-gradient(135deg, #eab308 0%, #fef08a 50%, #eab308 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .gold-gradient { background: linear-gradient(135deg, #eab308 0%, #fef08a 100%); }
+        .glass-premium { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
       `}</style>
     </div>
   );

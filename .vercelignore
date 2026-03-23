@@ -1,0 +1,6 @@
+server/
+scripts/
+skills/
+tmp/
+.env
+*.log
