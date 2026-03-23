@@ -1,31 +1,21 @@
-import { Telegraf, session, Scenes } from 'telegraf';
-import { config } from 'dotenv';
+import { Telegraf } from 'telegraf';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
-config();
-
-// Константы и типы
-interface BotContext extends Scenes.SceneContext {}
-
+// Инициализация токена напрямую для надежности [loki-mode]
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://beautyos-ai-v2.vercel.app';
 
-if (!token) throw new Error('TELEGRAM_BOT_TOKEN is missing');
+if (!token) {
+  console.error('SERVER ERROR: TELEGRAM_BOT_TOKEN IS MISSING');
+}
 
-// Создание бота
-const bot = new Telegraf<BotContext>(token);
+const bot = new Telegraf(token || '');
 
-// Сцены (упрощено для стабильности на Vercel)
-const stage = new Scenes.Stage<BotContext>([]);
-bot.use(session());
-bot.use(stage.middleware());
-
-// Главная команда
+// Минимальная логика для старта [ai-studio-image]
 bot.start((ctx) => {
   return ctx.replyWithHTML(
     '✨ <b>ברוכים הבאים ל-BeautyOS AI v2</b> ✨\n\n' +
-    'העוזר החכם שלך ליצירת תוכן בשניות.\n\n' +
-    '📸 <b>פשוט לחצי על הכפתור למטה כדי להתחיל:</b>',
+    '📸 <b>לחצי על הכפתור למטה כדי להתחיל:</b>',
     {
       reply_markup: {
         keyboard: [
@@ -38,23 +28,25 @@ bot.start((ctx) => {
   );
 });
 
-// Обработчик вебхука для Vercel
+// Роут для вебхука
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method === 'POST') {
-    try {
-      await bot.handleUpdate(req.body);
-      res.status(200).send('OK');
-    } catch (err) {
-      console.error('Error handling bot update:', err);
-      res.status(500).send('Error');
-    }
-  } else {
-    // При GET запросе проверяем/устанавливаем вебхук [loki-mode]
-    try {
-      await bot.telegram.setWebhook(`${WEBAPP_URL}/api/bot`);
-      res.status(200).send('BeautyOS AI Bot Webhook is ACTIVE and re-set!');
-    } catch (e) {
-      res.status(500).send('Failed to set webhook');
-    }
+  if (req.method !== 'POST') {
+    return res.status(200).send('Bot is ready and waiting for POST from Telegram.');
+  }
+
+  try {
+    if (!token) throw new Error('Bot token is missing in environment variables');
+    
+    // Ручная обработка обновления [loki-mode]
+    await bot.handleUpdate(req.body);
+    return res.status(200).send('OK');
+  } catch (err: any) {
+    console.error('CRITICAL BOT ERROR:', err);
+    // Отправляем детали ошибки для диагностики на стороне Vercel
+    return res.status(500).json({ 
+      error: 'Internal Server Error', 
+      details: err.message,
+      token_exists: !!token 
+    });
   }
 }
