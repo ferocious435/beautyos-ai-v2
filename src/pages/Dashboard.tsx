@@ -107,7 +107,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="animate-luxury" style={{ 
+    <div style={{ 
       backgroundColor: '#050508', minHeight: '100vh', color: 'white', direction: 'rtl', 
       padding: '0 20px', fontFamily: "'Assistant', sans-serif", width: '100%', overflowX: 'hidden',
       backgroundImage: 'radial-gradient(circle at 50% 10%, #1e1e3f 0%, #050508 100%)'
@@ -117,7 +117,7 @@ const Dashboard = () => {
 
       <div style={{ 
         maxWidth: '460px', margin: '0 auto', paddingTop: '40px', paddingBottom: '160px',
-        opacity: isLoaded ? 1 : 0, transition: 'opacity 1s ease'
+        opacity: 1
       }}>
         
         <header style={{ marginBottom: '40px', textAlign: 'right' }}>
