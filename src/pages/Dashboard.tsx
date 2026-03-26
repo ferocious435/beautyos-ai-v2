@@ -4,7 +4,7 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useAppStore } from '../store/useAppStore';
 
 const Dashboard = () => {
-  const { tg, user } = useTelegram();
+  const { tg } = useTelegram();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   const subscriptionTier = useAppStore((state) => state.user.subscriptionTier);
@@ -15,12 +15,12 @@ const Dashboard = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    console.log('Dashboard: Mounted, Tier:', subscriptionTier);
+    console.log('Dashboard: Mounted, Tier:', subscriptionTier, 'Studio:', studioName);
     if (tg) {
       tg.ready();
       tg.expand();
     }
-  }, [tg, subscriptionTier]);
+  }, [tg, subscriptionTier, studioName]);
 
   return (
     <div style={{ backgroundColor: '#050508', minHeight: '100vh', color: 'white', padding: '20px', textAlign: 'center' }}>
@@ -50,11 +50,11 @@ const Dashboard = () => {
       {subscriptionTier === 'free' && (
         <div style={{ marginTop: '40px', padding: '20px', border: '1px dashed yellow' }}>
           <p>שדרגו ל-PRO וקבלו יותר לקוחות!</p>
-          <Link to="/pricing" style={{ color: 'yellow' }}>לפרטים נוספים</Link>
+          <Link to="/pricing" style={{ color: 'yellow' }}>לפרטים נוסфов</Link>
         </div>
       )}
-      <div style={{ marginTop: '20px', fontSize: '12px', color: '#333' }}>
-        Studio: {studioName}
+      <div style={{ marginTop: '20px', fontSize: '12px', color: '#222' }}>
+        v2.4.0 • {studioName}
       </div>
     </div>
   );
