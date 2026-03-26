@@ -1,79 +1,36 @@
-import { Telegraf, session } from 'telegraf';
+import { Telegraf } from 'telegraf';
 import { VercelRequest, VercelResponse } from '@vercel/node';
-
-// We import logic but we will call it only inside the handler
-import { BotContext, supabaseSessionMiddleware, setupBotHandlers } from './lib/bot-logic';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const WEBAPP_URL = process.env.WEBAPP_URL || 'https://beautyos-ai-v2.vercel.app';
-
-  console.log('BOT HANDLER: Start');
+  
+  // DIAGNOSTIC MODE: No external imports from ./lib/
+  console.log('DIAGNOSTIC BOT: Start');
 
   if (!token) {
-    console.error('BOT ERROR: Missing TELEGRAM_BOT_TOKEN');
     return res.status(200).json({ 
-      status: 'error', 
-      message: 'TELEGRAM_BOT_TOKEN is missing. Please check Vercel environment variables.' 
+      status: 'diagnostic', 
+      message: 'TELEGRAM_BOT_TOKEN is missing',
+      env_keys: Object.keys(process.env).filter(k => k.includes('BOT') || k.includes('SUPABASE'))
     });
   }
 
   try {
-    // Basic telegraf init should be safe here
-    const bot = new Telegraf<BotContext>(token);
+    const bot = new Telegraf(token);
     
-    // Middleware
-    bot.use(session());
-    bot.use(supabaseSessionMiddleware);
-    
-    // Handlers
-    setupBotHandlers(bot);
-
-    bot.start((ctx) => {
-      // Use Date.now() instead of uuid to avoid missing dependency
-      const cacheBust = Date.now();
-      return ctx.replyWithHTML(
-        '✨ <b>ברוכים הבאים ל-BeautyOS AI v2</b> ✨\n\n' +
-        'העוזר החכם שלך בשניות.\n\n' +
-        '📸 <b>טיפ:</b> שלחו לי תמונה!',
-        {
-          reply_markup: {
-            keyboard: [
-              [{ text: '✨ סטודיו AI', web_app: { url: `${WEBAPP_URL}/?v=${cacheBust}` } }]
-            ],
-            resize_keyboard: true
-          }
-        }
-      );
-    });
+    bot.start((ctx) => ctx.reply('BeautyOS Diagnostic: Online!'));
 
     if (req.method === 'POST') {
       await bot.handleUpdate(req.body);
       return res.status(200).send('OK');
     } else {
-      // For GET requests (browser/manual check)
-      try {
-        await bot.telegram.setWebhook(`${WEBAPP_URL}/api/bot`);
-        return res.status(200).json({ 
-          status: 'success', 
-          message: 'Webhook updated and bot ready',
-          bot_token_present: !!token,
-          webapp_url: WEBAPP_URL
-        });
-      } catch (webhookErr: any) {
-        return res.status(200).json({ 
-          status: 'partially_offline', 
-          message: 'Webhook update failed, but bot initialized',
-          error: webhookErr.message
-        });
-      }
+      return res.status(200).json({ 
+        status: 'diagnostic', 
+        message: 'Bot is ready (GET bypass)',
+        token_length: token.length
+      });
     }
   } catch (err: any) {
-    console.error('CRITICAL BOT ERROR:', err);
-    return res.status(200).json({ 
-      status: 'error', 
-      message: 'Internal Bot Error',
-      details: err.message 
-    });
+    return res.status(200).json({ status: 'diagnostic_error', error: err.message });
   }
 }
