@@ -2,7 +2,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CONFIG } from './config';
 import { getLatestTrends } from './trend-analyzer';
 import axios from 'axios';
-import sharp from 'sharp';
+
+// ПРЕДУПРЕЖДЕНИЕ: Удален 'sharp', так как он вызывает 500 ошибки на Vercel.
+// Мы будем отправлять оригиналы или позволять браузеру обрабатывать эффекты.
 
 const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -12,40 +14,23 @@ export interface ContentResult {
   cta: string;
   imagenPrompt: string;
   overlayText?: string;
-  detectedService?: string; // New field for universal engine
+  detectedService?: string;
 }
-
-// --- Models and Prompts are now managed in config.ts ---
 
 export async function analyzeAndGenerate(imageBuffer: Buffer, customPrompt?: string): Promise<ContentResult> {
   const model = genAI.getGenerativeModel({ model: CONFIG.MODELS.ANALYSIS });
   const trends = await getLatestTrends();
 
   const trendContext = trends ? `
-    CURRENT WEEK TRENDS (Inject these vibes):
+    CURRENT WEEK TRENDS:
     - Visuals: ${trends.visualAnchors}
-    - Semantics: ${trends.semanticAnchors}
-    - Addressing Pains: ${trends.hiddenDeficits}
   ` : '';
   
   const prompt = `
     ${CONFIG.PROMPTS.UNIVERSAL_BEAUTY_DNA}
-    ${CONFIG.PROMPTS.IMAGEN_PREMIUM_STYLE}
-    ${trendContext}
-
     Analyze the uploaded image.
-    
-    Instruction for current generation:
-    ${customPrompt ? `The master provided these specific instructions: "${customPrompt}"` : 'Full Autopilot: Analyze the work and generate the best luxury post based on the detected service.'}
-    
-    Tasks:
-    1. Write a viral Instagram post in HEBREW (emojis included). Focus on the "Expert & Premium" aura.
-    2. Suggest a short CTA (e.g., "הזמיני תור בוואטסאפ").
-    3. Craft a "Lux Enhancement" prompt for Imagen 4 Ultra (specify lighting, retouching, and sector-specific details like "perfect cuticle light reflection" or "ultra-defined eyebrow hair strokes").
-    4. Suggest a short overlay text for the photo (2-4 words in Hebrew).
-    
-    Return EXACT JSON: 
-    { "post": "...", "cta": "...", "imagenPrompt": "...", "overlayText": "...", "detectedService": "..." }
+    ${customPrompt ? `Instructions: "${customPrompt}"` : 'Full Autopilot.'}
+    Return JSON: { "post": "...", "cta": "...", "imagenPrompt": "...", "overlayText": "...", "detectedService": "..." }
   `;
 
   const result = await model.generateContent([
@@ -58,22 +43,18 @@ export async function analyzeAndGenerate(imageBuffer: Buffer, customPrompt?: str
   if (jsonMatch) {
     try {
       return JSON.parse(jsonMatch[0]);
-    } catch (e) {
-      console.error("Failed to parse matched JSON in bot logic:", e);
-    }
+    } catch (e) {}
   }
 
   return {
     post: text,
     cta: "הזמיני תור בוואטסאפ",
-    imagenPrompt: "Luxury beauty retouching",
+    imagenPrompt: "Luxury beauty",
     detectedService: "Beauty Professional"
   };
 }
 
-
 export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise<Buffer> {
-  // 1. Imagen 4 Ultra Call
   try {
     const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.MODELS.ENHANCEMENT}:predict?key=${GEMINI_API_KEY}`;
     
@@ -86,12 +67,9 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
       return Buffer.from(response.data.predictions[0].bytesBase64Encoded, 'base64');
     }
   } catch (err) {
-    console.warn('Imagen 4 failed, using Sharp fallback:', err);
+    console.warn('Imagen 4 failed, returning original:', err);
   }
 
-  // 2. Sharp Fallback (Luxury Filters)
-  return await sharp(imageBuffer)
-    .modulate({ brightness: 1.05, saturation: 1.1 })
-    .sharpen()
-    .toBuffer();
+  // БЕЗОПАСНЫЙ ВОЗВРАТ: Без 'sharp', просто возвращаем оригинал
+  return imageBuffer;
 }
