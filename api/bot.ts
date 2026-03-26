@@ -8,9 +8,22 @@ config();
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://beautyos-ai-v2.vercel.app';
 
-if (!token) throw new Error('TELEGRAM_BOT_TOKEN is missing');
+let bot: Telegraf<BotContext>;
 
-const bot = new Telegraf<BotContext>(token);
+try {
+  if (!token) {
+
+    console.warn('TELEGRAM_BOT_TOKEN is missing - bot is INACTIVE');
+    // We create a dummy bot or just skip initialization to prevent 500 error
+    bot = new Telegraf<BotContext>('DUMMY_TOKEN_PREVENT_500');
+  } else {
+    bot = new Telegraf<BotContext>(token);
+  }
+} catch (e) {
+  console.error('CRITICAL: Bot initialization failed:', e);
+  bot = new Telegraf<BotContext>('DUMMY_TOKEN_PREVENT_500');
+}
+
 
 // 1. Session & Middleware
 bot.use(session()); // Local session fallback
@@ -51,7 +64,15 @@ bot.hears('🛡️ ניהול תפקיד', (ctx) => {
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!token) {
+    return res.status(200).json({ 
+      status: 'error', 
+      message: 'TELEGRAM_BOT_TOKEN is missing on server. Check Vercel environment variables.' 
+    });
+  }
+
   if (req.method === 'POST') {
+
     try {
       await bot.handleUpdate(req.body);
       res.status(200).send('OK');
