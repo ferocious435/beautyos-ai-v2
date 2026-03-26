@@ -47,7 +47,7 @@ function App() {
           <Route path="/discovery" element={<Discovery />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/pricing" element={<Pricing />} />
-          <Route path="/settings" element={<div className="text-white p-8">Настройки системы в разработке...</div>} />
+          <Route path="/settings" element={<div className="text-white p-8 text-center mt-20">⚙️ הגדרות מערכת - בפיתוח...</div>} />
         </Routes>
       </MainLayout>
     </Router>

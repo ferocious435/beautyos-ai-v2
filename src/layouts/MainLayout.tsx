@@ -54,18 +54,21 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   ];
 
+  // Fallback: if role is not set (e.g. browser testing without Telegram), default to 'master'
+  const effectiveRole = userRole || 'master';
+
   const filteredItems = navItems.filter(item => {
-    if (userRole === 'admin') return true;
-    if (!item.roles.includes(userRole as string)) return false;
+    if (effectiveRole === 'admin') return true;
+    if (!item.roles.includes(effectiveRole)) return false;
     // Tier logic for masters
-    if (userRole === 'master' && item.minTier) {
+    if (effectiveRole === 'master' && item.minTier) {
        const tiers = ['free', 'essential', 'pro', 'elite'];
-       return tiers.indexOf(tier) >= tiers.indexOf(item.minTier);
+       return tiers.indexOf(tier || 'free') >= tiers.indexOf(item.minTier);
     }
     return true;
   });
 
-  console.log('[Nav] Rendering with role:', userRole, 'tier:', tier);
+  console.log('[Nav] Rendering with role:', effectiveRole, 'tier:', tier, 'items:', filteredItems.length);
 
   return (
     <div className="min-h-screen relative bg-[#050505] overflow-x-hidden text-white" dir="rtl">

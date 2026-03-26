@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Check, Star } from 'lucide-react';
+import { Camera, Check, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTelegram } from '../hooks/useTelegram';
 import { useAppStore } from '../store/useAppStore';
@@ -132,7 +132,7 @@ const Dashboard = () => {
             <span className="gold-text">Beauty</span> Magic
           </h1>
           <p style={{ color: '#64748b', fontSize: '14px', marginTop: '10px' }}>
-             Магия одной кнопки: фото и текст готовы за секунды.
+             קסם בכפתור אחד: תמונה וטקסט בשניות.
           </p>
         </header>
 
@@ -146,14 +146,14 @@ const Dashboard = () => {
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-yellow-500 font-bold text-xs uppercase tracking-widest">
-                  <Star size={14} />
-                  <span>Upgrade to Pro</span>
+                  <Sparkles size={14} />
+                  <span>שדרג ל-Pro</span>
                 </div>
-                <h3 className="text-white font-bold text-lg">Не теряйте клиентов!</h3>
-                <p className="text-gray-400 text-xs">Мастера на Pro-плане получают на 40% больше записей. Начните рост сейчас.</p>
+                <h3 className="text-white font-bold text-lg">אל תפסידו לקוחות!</h3>
+                <p className="text-gray-400 text-xs">מאסטרים בתוכנית Pro מקבלים 40% יותר תורים. התחילו לגדול עכשיו.</p>
               </div>
               <Link to="/pricing" className="gold-gradient px-4 py-3 rounded-xl text-black font-black text-sm whitespace-nowrap">
-                Узнать цену
+                לברר מחיר
               </Link>
             </div>
           </motion.div>
