@@ -12,7 +12,6 @@ const Dashboard = () => {
   const [enhancedVersions, setEnhancedVersions] = useState<string[]>([]);
   const [currentFormatIndex, setCurrentFormatIndex] = useState(0);
   const [generatedResults, setGeneratedResults] = useState<any>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
   
   // Studio Info (Настройка подписей на иврите)
   const [studioName, setStudioName] = useState(user?.first_name || 'סטודיו ליופי');
@@ -25,8 +24,6 @@ const Dashboard = () => {
       tg.ready();
       tg.expand();
     }
-    const timer = setTimeout(() => setIsLoaded(true), 100);
-    return () => clearTimeout(timer);
   }, [tg]);
 
   const handleUploadClick = () => {
