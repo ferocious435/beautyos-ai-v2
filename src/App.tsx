@@ -1,6 +1,3 @@
-import { useEffect } from 'react';
-import { useAppStore } from './store/useAppStore';
-
 function App() {
   console.log('App.tsx: Rendering simple version');
   
