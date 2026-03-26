@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { Telegraf, session } from 'telegraf';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -31,6 +30,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     setupBotHandlers(bot);
 
     bot.start((ctx) => {
+      // Use Date.now() instead of uuid to avoid missing dependency
+      const cacheBust = Date.now();
       return ctx.replyWithHTML(
         '✨ <b>ברוכים הבאים ל-BeautyOS AI v2</b> ✨\n\n' +
         'העוזר החכם שלך בשניות.\n\n' +
@@ -38,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         {
           reply_markup: {
             keyboard: [
-              [{ text: '✨ סטודיו AI', web_app: { url: `${WEBAPP_URL}/?v=${uuidv4()}` } }]
+              [{ text: '✨ סטודיו AI', web_app: { url: `${WEBAPP_URL}/?v=${cacheBust}` } }]
             ],
             resize_keyboard: true
           }
@@ -55,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await bot.telegram.setWebhook(`${WEBAPP_URL}/api/bot`);
         return res.status(200).json({ 
           status: 'success', 
-          message: 'Webhook updated',
+          message: 'Webhook updated and bot ready',
           bot_token_present: !!token,
           webapp_url: WEBAPP_URL
         });
