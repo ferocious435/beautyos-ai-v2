@@ -4,16 +4,13 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useAppStore } from '../store/useAppStore';
 
 const Dashboard = () => {
-  const { tg, haptic, user } = useTelegram();
+  const { tg, user } = useTelegram();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isEnhancing, setIsEnhancing] = useState(false);
-  const [enhancedVersions, setEnhancedVersions] = useState<string[]>([]);
   
   const subscriptionTier = useAppStore((state) => state.user.subscriptionTier);
   const studioNameFromStore = useAppStore((state) => state.user.name);
 
-  const [studioName, setStudioName] = useState(studioNameFromStore || 'סטודיו ליופי');
-  const [address, setAddress] = useState('להזמנת תור ופרטים נוספים');
+  const [studioName] = useState(studioNameFromStore || 'סטודיו ליופי');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,11 +27,11 @@ const Dashboard = () => {
       <h1 style={{ fontSize: '32px', marginBottom: '20px' }}>Beauty Magic (SAFE MODE)</h1>
       <p style={{ color: '#64748b', marginBottom: '40px' }}>אם אתם רואים את זה, המערכת עובדת!</p>
       
-      <div style={{ background: '#111', padding: '30px', borderRadius: '20px', border: '1px solid #333' }}>
+      <div style={{ background: '#111', padding: '30px', borderRadius: '20px', border: '1px solid #333', maxWidth: '400px', margin: '0 auto' }}>
         <h2 style={{ color: '#eab308' }}>העלאת תמונה</h2>
         <button 
           onClick={() => fileInputRef.current?.click()}
-          style={{ background: '#eab308', color: 'black', padding: '15px 30px', borderRadius: '10px', marginTop: '20px', fontWeight: 'bold' }}
+          style={{ background: '#eab308', color: 'black', padding: '15px 30px', borderRadius: '10px', marginTop: '20px', fontWeight: 'bold', cursor: 'pointer' }}
         >
           בחר תמונה
         </button>
@@ -46,7 +43,7 @@ const Dashboard = () => {
 
       {imagePreview && (
         <div style={{ marginTop: '20px' }}>
-          <img src={imagePreview} style={{ maxWidth: '100%', borderRadius: '10px' }} />
+          <img src={imagePreview} style={{ maxWidth: '100%', borderRadius: '10px' }} alt="Preview" />
         </div>
       )}
 
@@ -56,16 +53,9 @@ const Dashboard = () => {
           <Link to="/pricing" style={{ color: 'yellow' }}>לפרטים נוספים</Link>
         </div>
       )}
-    </div>
-  );
-};
-
-export default Dashboard;
-ansparent; }
-        .gold-gradient { background: linear-gradient(135deg, #eab308 0%, #fef08a 100%); transition: transform 0.2s; }
-        .gold-gradient:active { transform: scale(0.98); }
-        .glass-premium { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
-      `}</style>
+      <div style={{ marginTop: '20px', fontSize: '12px', color: '#333' }}>
+        Studio: {studioName}
+      </div>
     </div>
   );
 };
