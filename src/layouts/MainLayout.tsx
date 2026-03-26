@@ -71,7 +71,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   console.log('[Nav] Rendering with role:', effectiveRole, 'tier:', tier, 'items:', filteredItems.length);
 
   return (
-    <div className="min-h-screen relative bg-[#050505] overflow-x-hidden text-white" dir="rtl">
+    <div className="min-h-screen relative bg-[#050505] overflow-x-hidden text-white" dir="rtl" data-testid="main-layout" data-role={effectiveRole}>
       {/* Content */}
       <main className="w-full">
         {children}
