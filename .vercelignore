@@ -2,5 +2,7 @@ server/
 scripts/
 skills/
 tmp/
+_archive/
+.agents/
 .env
 *.log
