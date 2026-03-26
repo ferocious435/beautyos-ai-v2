@@ -53,9 +53,24 @@ export async function analyzeAndGenerate(imageBuffer: Buffer, customPrompt?: str
     { inlineData: { data: imageBuffer.toString('base64'), mimeType: 'image/jpeg' } }
   ]);
   
-  const text = result.response.text().replace(/```json|```/g, '').trim();
-  return JSON.parse(text);
+  const text = result.response.text();
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      console.error("Failed to parse matched JSON in bot logic:", e);
+    }
+  }
+
+  return {
+    post: text,
+    cta: "הזמיני תור בוואטסאפ",
+    imagenPrompt: "Luxury beauty retouching",
+    detectedService: "Beauty Professional"
+  };
 }
+
 
 export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise<Buffer> {
   // 1. Imagen 4 Ultra Call

@@ -16,27 +16,37 @@ export const REGISTRATION_SCENE_ID = 'REGISTRATION_SCENE';
 // --- Session Middleware (Supabase Stateless) ---
 export async function supabaseSessionMiddleware(ctx: any, next: () => Promise<void>) {
   const supabase = getSupabase();
-  if (!supabase || !ctx.from?.id) return next();
+  if (!supabase || !ctx.from?.id) {
+    ctx.session = ctx.session || {};
+    return next();
+  }
 
   const userId = ctx.from.id;
   
-  const { data } = await supabase
-    .from('bot_sessions')
-    .select('session_data')
-    .eq('user_id', userId)
-    .single();
+  try {
+    const { data } = await supabase
+      .from('bot_sessions')
+      .select('session_data')
+      .eq('user_id', userId)
+      .single();
 
-  ctx.session = data?.session_data || {};
-  await next();
+    ctx.session = data?.session_data || {};
+    await next();
 
-  await supabase
-    .from('bot_sessions')
-    .upsert({ 
-      user_id: userId, 
-      session_data: ctx.session,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' });
+    await supabase
+      .from('bot_sessions')
+      .upsert({ 
+        user_id: userId, 
+        session_data: ctx.session,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+  } catch (err) {
+    console.error('SESSION ERROR:', err);
+    ctx.session = ctx.session || {};
+    await next();
+  }
 }
+
 
 // --- Registration Wizard ---
 export const registrationWizard = new Scenes.WizardScene<BotContext>(
