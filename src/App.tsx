@@ -1,18 +1,16 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
+import Dashboard from './pages/Dashboard';
 
 function App() {
+  console.log('App: Rendering with Dashboard (Safe Mode)');
+  
   return (
     <Router>
       <MainLayout>
         <Routes>
-          <Route path="/" element={
-            <div style={{ color: 'lime', fontSize: '24px', padding: '100px', textAlign: 'center' }}>
-              RESTORATION SUCCESSFUL! 🚀
-              <br/>
-              <span style={{ fontSize: '14px', color: 'gray' }}>Infrastructure is stable. Reintroducing features shortly.</span>
-            </div>
-          } />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/settings" element={<div className="text-white p-8 text-center mt-20">⚙️ הגדרות מערכת - בפיתוח...</div>} />
         </Routes>
       </MainLayout>
     </Router>
