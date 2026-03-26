@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Check } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Camera, Check, Star } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useTelegram } from '../hooks/useTelegram';
+import { useAppStore } from '../store/useAppStore';
 
 const Dashboard = () => {
   const { tg, haptic, user } = useTelegram();
@@ -132,6 +135,29 @@ const Dashboard = () => {
              Магия одной кнопки: фото и текст готовы за секунды.
           </p>
         </header>
+
+        {/* Pro Upgrade Widget (Loss Aversion) */}
+        {useAppStore.getState().user.subscriptionTier === 'free' && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass-premium mb-8 overflow-hidden rounded-3xl p-6 border-l-4 border-yellow-500/50"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-yellow-500 font-bold text-xs uppercase tracking-widest">
+                  <Star size={14} />
+                  <span>Upgrade to Pro</span>
+                </div>
+                <h3 className="text-white font-bold text-lg">Не теряйте клиентов!</h3>
+                <p className="text-gray-400 text-xs">Мастера на Pro-плане получают на 40% больше записей. Начните рост сейчас.</p>
+              </div>
+              <Link to="/pricing" className="gold-gradient px-4 py-3 rounded-xl text-black font-black text-sm whitespace-nowrap">
+                Узнать цену
+              </Link>
+            </div>
+          </motion.div>
+        )}
 
         {/* Main Display Area */}
         <section style={{ marginBottom: '40px' }}>

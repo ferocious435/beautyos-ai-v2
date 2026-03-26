@@ -1,10 +1,9 @@
-import { Telegraf, session, Scenes } from 'telegraf';
+import { Telegraf, session, Markup } from 'telegraf';
 import { config } from 'dotenv';
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { BotContext, supabaseSessionMiddleware, setupBotHandlers } from './lib/bot-logic';
 
 config();
-
-interface BotContext extends Scenes.SceneContext {}
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://beautyos-ai-v2.vercel.app';
@@ -13,29 +12,41 @@ if (!token) throw new Error('TELEGRAM_BOT_TOKEN is missing');
 
 const bot = new Telegraf<BotContext>(token);
 
-bot.use(session());
-const stage = new Scenes.Stage<BotContext>([]);
-bot.use(stage.middleware());
+// 1. Session & Middleware
+bot.use(session()); // Local session fallback
+bot.use(supabaseSessionMiddleware); // Ultra persistence (stateless)
+
+// 2. Setup Scenes and Handlers
+setupBotHandlers(bot);
 
 bot.start((ctx) => {
   return ctx.replyWithHTML(
     '✨ <b>ברוכים הבאים ל-BeautyOS AI v2</b> ✨\n\n' +
-    'העוזר החכם שלך ליצירת תוכן בשניות.\n\n' +
+    'העוזר החכם שלך ליצירת תוכן בשניות ובניהול הסטודיו.\n\n' +
     '📸 <b>מה תמצאו כאן?</b>\n' +
-    '🤖 <b>סטודיו AI</b> — יצירת פוסטים וניתוח תמונות חכם.\n' +
+    '🤖 <b>סטודיו AI</b> — פוסטים וניתוח חכם.\n' +
     '📝 <b>הרשמה</b> — הגדרת הפרופיל האישי שלך.\n' +
-    '🖼️ <b>תיק עבודות</b> — ניהול וצפייה בעבודות שלך.\n' +
-    '⚙️ <b>הגדרות</b> — ניהול חשבон ויומן.\n\n' +
-    '📸 <b>טיפ:</b> פשוט שלחו לי תמונה של עבודה, ואני כבר אדаג לשפר אותה ולכתוב עבורכם פוסט!',
+    '🛡️ <b>ניהול</b> — הגדרת תפקיד ובדיקות.\n\n' +
+    '📸 <b>טיפ:</b> שלחו לי תמונה של עבודה, ואני כבר אדאג לשפר אותה ולכתוב עבורכם פוסט!',
     {
       reply_markup: {
         keyboard: [
           [{ text: '✨ סטודיו AI', web_app: { url: `${WEBAPP_URL}/?v=${Date.now()}` } }, { text: '📝 הרשמה' }],
-          [{ text: '🖼️ תיק עבודות' }, { text: '⚙️ הגדרות' }]
+          [{ text: '🛡️ ניהול תפקיד' }, { text: '⚙️ הגדרות' }]
         ],
         resize_keyboard: true
       }
     }
+  );
+});
+
+bot.hears('🛡️ ניהול תפקיד', (ctx) => {
+  return ctx.reply('בחר תפקיד לטסט:', 
+    Markup.inlineKeyboard([
+      [Markup.button.callback('💆‍♂️ Master', 'set_fast_role_master')],
+      [Markup.button.callback('🛍️ Client', 'set_fast_role_client')],
+      [Markup.button.callback('👑 Admin', 'set_fast_role_admin')]
+    ])
   );
 });
 

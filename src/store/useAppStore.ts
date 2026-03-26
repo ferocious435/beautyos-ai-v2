@@ -4,6 +4,7 @@ interface AppState {
   user: {
     name: string;
     role: string;
+    subscriptionTier: string;
     avatar?: string;
   };
   isLoading: boolean;
@@ -12,8 +13,9 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   user: {
-    name: 'Сергей Р.',
-    role: 'Владелец',
+    name: '',
+    role: '',
+    subscriptionTier: 'free',
   },
   isLoading: false,
   setLoading: (loading) => set({ isLoading: loading }),
