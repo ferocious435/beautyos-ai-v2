@@ -1,12 +1,21 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout';
+
 function App() {
-  console.log('App.tsx: Rendering simple version');
+  console.log('App.tsx: Rendering with Router and MainLayout');
   
   return (
-    <div style={{ color: 'lime', fontSize: '24px', padding: '100px', textAlign: 'center' }}>
-      APP COMPONENT LOADED (VERSION: CACHE_BUST_777)! ⚡️
-      <br/>
-      <span style={{ fontSize: '14px', color: 'gray' }}>Next step: Full Recovery...</span>
-    </div>
+    <Router>
+      <MainLayout>
+        <Routes>
+          <Route path="/" element={
+            <div style={{ color: 'lime', fontSize: '24px', padding: '100px', textAlign: 'center' }}>
+              LAYOUT & ROUTER LOADED! 🚀
+            </div>
+          } />
+        </Routes>
+      </MainLayout>
+    </Router>
   );
 }
 

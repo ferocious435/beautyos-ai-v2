@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
-console.log('CRITICAL: main.tsx is executing');
 const rootElement = document.getElementById('root');
 
 createRoot(rootElement!).render(
