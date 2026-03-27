@@ -11,7 +11,7 @@ const isConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith
 export const supabase = isConfigured 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : new Proxy({}, { 
-      get: (target, prop) => {
+      get: (_target, prop) => {
         if (prop === 'auth') return { onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) };
         return () => ({
           from: () => ({
