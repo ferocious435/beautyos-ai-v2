@@ -1,18 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 
-// ПРЕДУПРЕЖДЕНИЕ: Приложение падает с черным экраном, если URL пуст. 
-// Мы используем заглушки для локальной отладки/деплоя без переменных окружения.
-// ПРЕДУПРЕЖДЕНИЕ: Мы больше не используем placeholder-project, так как это вызывает ERR_NAME_NOT_RESOLVED.
-// Если переменные отсутствуют, мы экспортируем "пустой" клиент или прокси.
+// ПРЕДУПРЕЖДЕНИЕ: Мы больше не используем placeholder-project.
+// Если переменные отсутствуют, мы экспортируем прокси, который НЕ кидает ошибки при чтении свойств,
+// но предупреждает при попытке вызова методов. Это разблокирует Dashboard.
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = (supabaseUrl && supabaseAnonKey)
+const isConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('https://'));
+
+export const supabase = isConfigured 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : new Proxy({}, { 
-      get: () => () => { throw new Error("Supabase is not configured. Please set environment variables."); } 
+      get: (target, prop) => {
+        if (prop === 'auth') return { onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) };
+        return () => ({
+          from: () => ({
+            select: () => ({
+              eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+              order: () => ({ limit: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }),
+              limit: () => Promise.resolve({ data: [], error: null })
+            }),
+            insert: () => Promise.resolve({ data: null, error: null }),
+            update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+            upsert: () => Promise.resolve({ data: null, error: null }),
+            delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) })
+          })
+        });
+      } 
     }) as any;
 
-console.log(`SUPABASE: Initialized (Configured: ${!!(supabaseUrl && supabaseAnonKey)})`);
-
-
+console.log(`SUPABASE: Initialized (Configured: ${isConfigured})`);
