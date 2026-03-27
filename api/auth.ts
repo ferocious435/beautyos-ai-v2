@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createHmac } from 'crypto';
-import { getSupabase } from './lib/supabase';
+import { getSupabase } from './lib/supabase.js';
 
 /**
  * Validates Telegram Mini App initData using HMAC-SHA256.

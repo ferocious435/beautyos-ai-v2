@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabase } from './lib/supabase';
-import { createStripeSession } from './lib/stripe';
+import { getSupabase } from './lib/supabase.js';
+import { createStripeSession } from './lib/stripe.js';
 import { Telegraf } from 'telegraf';
 
 /**
