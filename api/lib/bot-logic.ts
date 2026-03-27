@@ -1,8 +1,8 @@
 import { Scenes, Context, Telegraf, Markup } from 'telegraf';
-import { getSupabase, uploadToPortfolio } from './supabase';
-import { analyzeAndGenerate, enhanceImage } from './content-engine';
-import { runWeeklyAnalysis } from './trend-analyzer';
-import { CONFIG } from './config';
+import { getSupabase, uploadToPortfolio } from './supabase.js';
+import { analyzeAndGenerate, enhanceImage } from './content-engine.js';
+import { runWeeklyAnalysis } from './trend-analyzer.js';
+import { CONFIG } from './config.js';
 import axios from 'axios';
 
 export interface BotContext extends Context {
