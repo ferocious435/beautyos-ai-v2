@@ -1,5 +1,5 @@
 import { Jimp, loadFont } from 'jimp';
-import { getVisualBidiText } from './graphic-utils';
+import { getVisualBidiText } from './graphic-utils.js';
 
 export type SocialFormat = 'INSTAGRAM_POST' | 'STORY_9_16' | 'SQUARE_1_1' | 'ORIGINAL';
 

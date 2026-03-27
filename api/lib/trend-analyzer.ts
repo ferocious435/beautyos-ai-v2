@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getSupabase } from './supabase';
-import { CONFIG } from './config';
+import { getSupabase } from './supabase.js';
+import { CONFIG } from './config.js';
 
 const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);

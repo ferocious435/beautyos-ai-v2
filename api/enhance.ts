@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import dotenv from 'dotenv';
-import { analyzeAndGenerate, enhanceImage } from './lib/content-engine';
-import { generateSocialPost, SocialFormat } from './lib/graphic-engine';
+import { analyzeAndGenerate, enhanceImage } from './lib/content-engine.js';
+import { generateSocialPost, SocialFormat } from './lib/graphic-engine.js';
 
 dotenv.config();
 

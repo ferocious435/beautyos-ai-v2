@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { CONFIG } from './config';
-import { getLatestTrends } from './trend-analyzer';
+import { CONFIG } from './config.js';
+import { getLatestTrends } from './trend-analyzer.js';
 import axios from 'axios';
 
 // ПРЕДУПРЕЖДЕНИЕ: Удален 'sharp', так как он вызывает 500 ошибки на Vercel.
