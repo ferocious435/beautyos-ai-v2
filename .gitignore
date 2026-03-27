@@ -31,3 +31,5 @@ brain/
 *.njsproj
 *.sln
 *.sw?
+
+.vercel

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTelegram } from '../hooks/useTelegram';
-import { Camera, Image as ImageIcon } from 'lucide-react';
+import { Camera, Sparkles } from 'lucide-react';
 
 const Portfolio = () => {
   const { user } = useTelegram();
@@ -34,7 +34,7 @@ const Portfolio = () => {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
           <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mb-6">
-            <ImageIcon size={32} />
+            <Sparkles size={32} />
           </div>
           <h2 className="text-xl font-bold mb-2">עוד אין עבודות בגלריה</h2>
           <p className="text-sm max-w-[200px]">התחילי ליצור בסטודיו החכם והן יופיעו כאן!</p>
@@ -42,7 +42,7 @@ const Portfolio = () => {
       )}
 
       <button onClick={() => window.location.href = '/'} className="fixed bottom-32 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-yellow-500">
-        <Camera size={16} /> מעבר לסטודיו
+        <Camera size={16} /> מעבר к סטודיו
       </button>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Sparkles, Check } from 'lucide-react';
+import { Camera, Sparkles } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 
 const Dashboard = () => {
