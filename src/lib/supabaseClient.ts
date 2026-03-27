@@ -1,32 +1,50 @@
 import { createClient } from '@supabase/supabase-js';
 
-// ПРЕДУПРЕЖДЕНИЕ: Мы больше не используем placeholder-project.
-// Если переменные отсутствуют, мы экспортируем прокси, который НЕ кидает ошибки при чтении свойств,
-// но предупреждает при попытке вызова методов. Это разблокирует Dashboard.
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const isConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('https://'));
 
-export const supabase = isConfigured 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : new Proxy({}, { 
-      get: (_target, prop) => {
-        if (prop === 'auth') return { onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) };
-        return () => ({
-          from: () => ({
-            select: () => ({
-              eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
-              order: () => ({ limit: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }),
-              limit: () => Promise.resolve({ data: [], error: null })
-            }),
-            insert: () => Promise.resolve({ data: null, error: null }),
-            update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
-            upsert: () => Promise.resolve({ data: null, error: null }),
-            delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) })
-          })
-        });
-      } 
-    }) as any;
+/**
+ * Идеальный цепной прокси для работы без БД.
+ * Поддерживает бесконечные вызовы: supabase.from('...').select().eq().single()
+ * И ведет себя как Promise для await.
+ */
+const createChainProxy = (): any => {
+    // В основе лежит функция, которая при вызове возвращает саму себя (этот же прокси)
+    const target: any = () => proxy;
+    
+    // Эмуляция промиса
+    target.then = (onRes: any) => Promise.resolve({ data: null, error: null }).then(onRes);
+    target.catch = (onErr: any) => Promise.resolve({ data: null, error: null }).catch(onErr);
 
-console.log(`SUPABASE: Initialized (Configured: ${isConfigured})`);
+    const proxy = new Proxy(target, {
+        get: (t, prop) => {
+            if (prop === 'then') return t.then;
+            if (prop === 'catch') return t.catch;
+            // Любое свойство (.from, .select, .eq) возвращает этот же прокси
+            return proxy;
+        }
+    });
+
+    return proxy;
+};
+
+const silentProxy = new Proxy({}, { 
+    get: (_target, prop) => {
+        if (prop === 'auth') return { 
+            onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+            getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+            getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+            signOut: () => Promise.resolve({ error: null })
+        };
+        // Любой доступ к свойствам (from, select) возвращает цепной прокси
+        return createChainProxy();
+    } 
+}) as any;
+
+export const supabase = isConfigured 
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : silentProxy;
+
+console.log(`SUPABASE: 2026 Resilient Engine Initialized (Configured: ${isConfigured})`);

@@ -6,9 +6,9 @@
 export const CONFIG = {
   // --- AI Model Versions ---
   MODELS: {
-    ANALYSIS: 'gemini-3.1-flash-image-preview', // Для анализа фото и трендов
+    ANALYSIS: 'gemini-3.1-pro-preview', // Для анализа фото и трендов
     ENHANCEMENT: 'imagen-4.0-ultra-generate-001', // Для генерации премиум-изображений
-    MARKET_TRENDS: 'gemini-1.5-pro', // Для глубокого еженедельного анализа
+    MARKET_TRENDS: 'gemini-3-flash', // Последнее поколение Flash для быстрой аналитики
   },
 
   // --- Style DNA & Prompts ---

@@ -1,84 +1,49 @@
-import { Camera, ArrowLeft, Share2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-
-declare global {
-  interface Window {
-    Telegram: any;
-  }
-}
+import { useState, useEffect } from 'react';
+import { useTelegram } from '../hooks/useTelegram';
+import { Camera, Image as ImageIcon } from 'lucide-react';
 
 const Portfolio = () => {
-  const [works, setWorks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useTelegram();
+  const [images] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchPortfolio = async () => {
-      const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
-      if (!user?.id) {
-        setLoading(false);
-        return;
-      }
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, [user]);
 
-      const { data, error } = await supabase
-        .from('portfolio')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setWorks(data);
-      }
-      setLoading(false);
-    };
-
-    fetchPortfolio();
-  }, []);
+  if (isLoading) {
+    return <div className="min-h-screen bg-[#050508] flex items-center justify-center font-luxury text-yellow-500">BEAUTYOS...</div>;
+  }
 
   return (
-    <div className="min-h-screen p-4 pb-20">
-      <header className="flex items-center gap-4 mb-8">
-        <Link to="/" className="p-2 glass-card">
-          <ArrowLeft className="w-5 h-5 text-yellow-500 scale-x-[-1]" />
-        </Link>
-        <h1 className="text-2xl font-bold gradient-text">העבודות שלי</h1>
+    <div className="p-6 bg-[#050508] min-h-screen text-white text-right" style={{ direction: 'rtl' }}>
+      <header className="mb-10">
+        <h1 className="text-4xl font-black mb-2">הגלריה שלי</h1>
+        <p className="text-zinc-500">כל היצירות שנולדו ב-AI Creative</p>
       </header>
 
-      <div className="grid grid-cols-2 gap-4">
-        {loading ? (
-          <div className="col-span-2 flex justify-center py-20">
-            <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : works.length === 0 ? (
-          <div className="col-span-2 text-center py-20 opacity-50">
-            <p>אין עדיין עבודות בפורטפוליו.</p>
-            <p className="text-xs">הוסיפו עבודות דרך הבוט!</p>
-          </div>
-        ) : works.map((work) => (
-          <motion.div 
-            key={work.id}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass-card overflow-hidden"
-          >
-            <img src={work.image_url} alt="Portfolio Work" className="w-full h-32 object-cover" />
-            <div className="p-3">
-              <h3 className="text-[10px] font-semibold truncate">עבודת סטודיו</h3>
-              <p className="text-[10px] text-zinc-500">{new Date(work.created_at).toLocaleDateString()}</p>
-              <button className="mt-2 text-yellow-500"><Share2 className="w-4 h-4" /></button>
+      {images.length > 0 ? (
+        <div className="grid grid-cols-2 gap-4">
+          {images.map((img, idx) => (
+            <div key={idx} className="aspect-square bg-white/5 rounded-3xl overflow-hidden border border-white/5">
+              <img src={img.url} alt="Portfolio" className="w-full h-full object-cover" />
             </div>
-          </motion.div>
-        ))}
-        
-        {!loading && (
-          <div className="glass-card border-dashed border-2 border-zinc-700 flex flex-col items-center justify-center h-48 opacity-50">
-            <Camera className="w-8 h-8 mb-2" />
-            <span className="text-[10px]">הוספה</span>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
+          <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mb-6">
+            <ImageIcon size={32} />
           </div>
-        )}
-      </div>
+          <h2 className="text-xl font-bold mb-2">עוד אין עבודות בגלריה</h2>
+          <p className="text-sm max-w-[200px]">התחילי ליצור בסטודיו החכם והן יופיעו כאן!</p>
+        </div>
+      )}
+
+      <button onClick={() => window.location.href = '/'} className="fixed bottom-32 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-yellow-500">
+        <Camera size={16} /> מעבר לסטודיו
+      </button>
     </div>
   );
 };

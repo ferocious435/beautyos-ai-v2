@@ -60,11 +60,6 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const filteredItems = navItems.filter(item => {
     if (effectiveRole === 'admin') return true;
     if (!item.roles.includes(effectiveRole)) return false;
-    // Tier logic for masters
-    if (effectiveRole === 'master' && item.minTier) {
-       const tiers = ['free', 'essential', 'pro', 'elite'];
-       return tiers.indexOf(tier || 'free') >= tiers.indexOf(item.minTier);
-    }
     return true;
   });
 

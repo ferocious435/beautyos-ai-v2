@@ -13,7 +13,9 @@ export interface ContentResult {
   post: string;
   cta: string;
   imagenPrompt: string;
-  overlayText?: string;
+  overlayTitle?: string;
+  overlaySubtitle?: string;
+  backgroundAction?: 'keep' | 'replace';
   detectedService?: string;
 }
 
@@ -30,11 +32,21 @@ export async function analyzeAndGenerate(imageBuffer: Buffer, customPrompt?: str
     ${CONFIG.PROMPTS.UNIVERSAL_BEAUTY_DNA}
     Analyze the uploaded image.
     ${customPrompt ? `Instructions: "${customPrompt}"` : 'Full Autopilot.'}
-    Return JSON: { "post": "...", "cta": "...", "imagenPrompt": "...", "overlayText": "...", "detectedService": "..." }
+    
+    CRITICAL: Return JSON ONLY in this format:
+    {
+      "post": "Insta-ready caption in Hebrew",
+      "cta": "WhatsApp CTA in Hebrew",
+      "imagenPrompt": "Ultra-realistic prompt for Imagen 4 Ultra to enhance this specific photo",
+      "overlayTitle": "Catchy 2-3 word Hebrew title for the image overlay (e.g. מניקור מושלם)",
+      "overlaySubtitle": "3 words representing values (e.g. דיוק. ברק. רגש)",
+      "backgroundAction": "keep or replace (replace if the current background is messy/unprofessional)",
+      "detectedService": "Short specific service name"
+    }
   `;
 
   const result = await model.generateContent([
-    prompt,
+    { text: prompt },
     { inlineData: { data: imageBuffer.toString('base64'), mimeType: 'image/jpeg' } }
   ]);
   
