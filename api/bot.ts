@@ -3,8 +3,8 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
-import { analyzeAndGenerate, enhanceImage } from './lib/content-engine.js';
-import { generateSocialPost, SocialFormat } from './lib/graphic-engine.js';
+import { analyzeAndGenerate, enhanceImage } from './_lib/content-engine.js';
+import { generateSocialPost, SocialFormat } from './_lib/graphic-engine.js';
 
 // --- HELPERS ---
 const getBusinessName = async (supabase: any, telegramId: number) => {
