@@ -1,24 +1,15 @@
--- BeautyOS AI v2 - Database Schema (Reconstructed)
--- Created: 2026-03-28
+-- BeautyOS AI v2 - Safe Database Sync
+-- Adds new columns and tables without deleting existing data.
 
--- 1. Users & Profiles
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    telegram_id BIGINT UNIQUE NOT NULL,
-    full_name TEXT,
-    first_name TEXT,
-    business_name TEXT,
-    role TEXT DEFAULT 'client', -- 'master', 'client', 'admin'
-    subscription_tier TEXT DEFAULT 'free', -- 'free', 'essential', 'pro', 'elite'
-    address TEXT,
-    district TEXT,
-    avatar_url TEXT,
-    last_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- 1. Users & Profiles (Adding missing columns)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'free';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS district TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name TEXT;
 
 -- 2. Portfolios / Creations
-CREATE TABLE portfolio (
+CREATE TABLE IF NOT EXISTS portfolio (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     image_url TEXT NOT NULL,
@@ -28,7 +19,7 @@ CREATE TABLE portfolio (
 );
 
 -- 3. Bookings & Appointments
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     master_id UUID REFERENCES users(id),
     client_id UUID REFERENCES users(id),
@@ -41,15 +32,15 @@ CREATE TABLE bookings (
 );
 
 -- 4. Bot Sessions (Telegraf Persistence)
-CREATE TABLE bot_sessions (
-    id BIGINT PRIMARY KEY, -- telegram_id
-    session JSONB NOT NULL,
+CREATE TABLE IF NOT EXISTS bot_sessions (
+    user_id BIGINT PRIMARY KEY,
+    session_data JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 5. Market Trends (AI Generated)
-CREATE TABLE market_trends (
+CREATE TABLE IF NOT EXISTS market_trends (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     type TEXT, -- 'weekly_global'
     visual_anchors TEXT,
@@ -61,7 +52,7 @@ CREATE TABLE market_trends (
 );
 
 -- 6. Analytics
-CREATE TABLE analytics_events (
+CREATE TABLE IF NOT EXISTS analytics_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     event_type TEXT NOT NULL,
     master_id UUID REFERENCES users(id),
@@ -70,7 +61,3 @@ CREATE TABLE analytics_events (
     metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- 7. Functions & RPCs (Placeholders for logic)
--- get_nearby_masters(lat float, long float, radius_km integer)
--- get_available_slots(master_id uuid, date date)
