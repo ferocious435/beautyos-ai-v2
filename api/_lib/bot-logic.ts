@@ -24,24 +24,29 @@ export async function supabaseSessionMiddleware(ctx: any, next: () => Promise<vo
   const userId = ctx.from.id;
   
   try {
-    const { data } = await supabase
+    const { data, error: sErr } = await supabase
       .from('bot_sessions')
       .select('session_data')
       .eq('user_id', userId)
       .single();
 
+    if (sErr && sErr.code !== 'PGRST116') { // PGRST116 is "No rows returned" - which is fine
+        console.error('SUPABASE_SESSION_READ:', sErr);
+    }
+    
     ctx.session = data?.session_data || {};
     await next();
 
+    // Persist session back to DB
     await supabase
       .from('bot_sessions')
       .upsert({ 
         user_id: userId, 
         session_data: ctx.session,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' });
+      });
   } catch (err) {
-    console.error('SESSION ERROR:', err);
+    console.error('SESSION_MIDDLEWARE_CRASH:', err);
     ctx.session = ctx.session || {};
     await next();
   }
@@ -137,6 +142,25 @@ export const registrationWizard = new Scenes.WizardScene<BotContext>(
 export function setupBotHandlers(bot: Telegraf<BotContext>) {
   const stage = new Scenes.Stage<BotContext>([registrationWizard]);
   bot.use(stage.middleware());
+
+  // Error Handling
+  bot.catch((err: any, ctx) => {
+    console.error(`Telegraf error for ${ctx.updateType}`, err);
+    ctx.reply('⚠️ חלה שגיאה במערכת. אנחנו כבר מטפלים בזה!');
+  });
+
+  // Start command
+  bot.start(async (ctx) => {
+    const name = ctx.from?.first_name || 'Beauty Expert';
+    await ctx.reply(`✨ **ברוכים הבאים ל-BeautyOS AI v2!** ✨\n\nהיי ${name}, המערכת המתקדמת ביותר לניהול העסק והפקת תוכן מבוסס בינה מלאכותית כאן לשירותך.`, 
+      Markup.inlineKeyboard([
+        [Markup.button.webApp('🚀 פתח את ה-Studio', process.env.WEBAPP_URL || '')],
+        [Markup.button.callback('📝 הרשמה למערכת', 'register_request')]
+      ])
+    );
+  });
+
+  bot.action('register_request', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
 
   // Command handlers
   bot.command('register', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
