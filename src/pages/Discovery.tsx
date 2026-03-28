@@ -29,7 +29,7 @@ const Discovery = () => {
         },
         (err) => {
           console.error('Geo error:', err);
-          setError('Пожалуйста, разрешите доступ к геолокации для поиска мастеров поблизости.');
+          setError('אנא אשרי גישה למיקום כדי למצוא מאסטרים בסביבה.');
           setLoading(false);
         }
       );
@@ -63,8 +63,8 @@ const Discovery = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-white">Рядом с вами 📍</h1>
-          <p className="text-zinc-400 text-sm">Мастера в радиусе 10 км</p>
+          <h1 className="text-2xl font-bold text-white">בסביבה שלך 📍</h1>
+          <p className="text-zinc-400 text-sm">מאסטרים ברדיוס של 10 ק"מ</p>
         </div>
         <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700">
            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-300"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -78,7 +78,7 @@ const Discovery = () => {
         </div>
         <input 
           type="text" 
-          placeholder="Поиск услуги или мастера..."
+          placeholder="חיפוש שירות או מאסטר..."
           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 transition-colors"
         />
       </div>
@@ -115,7 +115,7 @@ const Discovery = () => {
                       ))
                     ) : (
                       <div className="flex-1 flex items-center justify-center bg-zinc-900 text-zinc-600 rounded-xl font-medium">
-                        Нет фото
+                        אין תמונות
                       </div>
                     )}
                   </div>
@@ -127,7 +127,7 @@ const Discovery = () => {
                       </h3>
                       <div className="flex items-center gap-1.5 text-zinc-400 text-xs">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                        <span>{master.dist_km.toFixed(1)} км</span>
+                        <span>{master.dist_km.toFixed(1)} ק"מ</span>
                         <span className="text-zinc-700">•</span>
                         <div className="flex items-center gap-0.5">
                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#eab308" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -140,7 +140,7 @@ const Discovery = () => {
                       onClick={() => navigate(`/booking?masterId=${master.telegram_id}`)}
                       className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold active:scale-95 transition-transform"
                     >
-                      Записаться
+                      קביעת תור
                     </button>
                   </div>
                 </motion.div>
@@ -150,7 +150,7 @@ const Discovery = () => {
                 <div className="p-4 bg-zinc-900 w-16 h-16 rounded-full mx-auto flex items-center justify-center border border-zinc-800">
                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                 </div>
-                <h3 className="text-zinc-400">В радиусе 10 км мастеров не найдено</h3>
+                <h3 className="text-zinc-400">לא נמצאו מאסטרים ברדיוס של 10 ק"מ</h3>
               </div>
             )}
           </AnimatePresence>

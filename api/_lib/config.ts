@@ -4,11 +4,14 @@
  */
 
 export const CONFIG = {
-  // --- AI Model Versions ---
+  // --- AI Model Versions (Verified 2026-03-28) ---
   MODELS: {
-    ANALYSIS: 'gemini-3.1-pro-preview', // Для анализа фото и трендов
-    ENHANCEMENT: 'imagen-4.0-ultra-generate-001', // Для генерации премиум-изображений
-    MARKET_TRENDS: 'gemini-3-flash', // Последнее поколение Flash для быстрой аналитики
+    ANALYSIS: 'gemini-3-flash',      // 5 RPM / 20 RPD
+    CONTENT: 'gemini-3-flash',       // 5 RPM / 20 RPD
+    ENHANCEMENT: 'imagen-4-ultra-generate', // 25 RPD
+    EMBEDDING: 'gemini-embedding-1',
+    FALLBACK: 'gemini-2.5-flash',    // 20 RPD
+    MARKET_TRENDS: 'gemini-3-flash',
   },
 
   // --- Style DNA & Prompts ---

@@ -10,7 +10,9 @@ const Discovery = lazy(() => import('./pages/Discovery'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Portfolio = lazy(() => import('./pages/Portfolio'));
-const Booking = lazy(() => import('./pages/Discovery')); // Use discovery for now or create booking.tsx
+const Booking = lazy(() => import('./pages/Booking'));
+const ClientDashboard = lazy(() => import('./pages/ClientDashboard'));
+const MasterCalendar = lazy(() => import('./pages/MasterCalendar'));
 
 const PageLoader = () => (
   <div className="min-h-screen bg-[#050508] flex items-center justify-center">
@@ -26,17 +28,16 @@ function App() {
       console.log('APP: Initializing user session...');
       try {
         const tg = (window as any).Telegram?.WebApp;
-        if (!tg) {
-          console.warn('APP: Telegram WebApp API not found (running outside Telegram?)');
-        } else {
-          console.log('APP: Telegram WebApp version:', tg.version);
+        if (tg) {
           tg.ready();
           tg.expand();
+          console.log('APP: Telegram WebApp context ready');
         }
 
         const tgUser = tg?.initDataUnsafe?.user;
-        const tgId = tgUser?.id || 12345678; // Fallback for local testing
-        console.log('APP: Processing user ID:', tgId);
+        const tgId = tgUser?.id || 12345678; // Fallback для разработки
+        
+        console.log(`APP: Fetching profile for TG ID: ${tgId}`);
 
         const { data, error } = await supabase
           .from('users')
@@ -45,24 +46,29 @@ function App() {
           .single();
 
         if (error) {
-          console.error('APP: Supabase fetch error:', error.message);
+          console.warn('APP: Supabase error (expected if DB not seeded):', error.message);
         }
 
         if (data) {
-          console.log('APP: User loaded from Supabase:', data.full_name);
+          console.log('APP: Profile found:', data.business_name || data.full_name);
           useAppStore.setState({ 
             user: {
+              id: data.id,
               name: data.full_name,
-              role: data.role,
-              subscriptionTier: data.subscription_tier,
+              role: data.role || 'client',
+              subscriptionTier: data.subscription_tier || 'free',
               avatar: data.avatar_url
             }
           });
         } else {
-          console.warn('APP: User not found in database, using defaults');
+          console.warn('APP: No profile in DB. Setting default as client.');
+          // Если пользователя нет в базе, по умолчанию считаем его клиентом
+          useAppStore.setState(state => ({
+            user: { ...state.user, role: 'client' }
+          }));
         }
       } catch (err) {
-        console.error('APP: Critical error in fetchUser:', err);
+        console.error('APP: Critical initialization error:', err);
       }
     };
 
@@ -76,12 +82,12 @@ function App() {
         <MainLayout>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={userRole === 'client' ? <Discovery /> : <Dashboard />} />
+              <Route path="/" element={userRole === 'client' ? <ClientDashboard /> : <Dashboard />} />
               <Route path="/discovery" element={<Discovery />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/portfolio" element={<Portfolio />} />
-              <Route path="/booking" element={<Booking />} />
+              <Route path="/booking" element={userRole === 'client' ? <Booking /> : <MasterCalendar />} />
             </Routes>
           </Suspense>
         </MainLayout>

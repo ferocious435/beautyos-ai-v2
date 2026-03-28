@@ -24,5 +24,11 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/services?action=cron-trends",
+      "schedule": "0 0 * * 1"
+    }
   ]
 }

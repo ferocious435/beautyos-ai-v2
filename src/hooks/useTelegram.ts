@@ -40,8 +40,14 @@ export function useTelegram() {
     tg?.MainButton.hide();
   };
 
-  const haptic = (style: 'light' | 'medium' | 'heavy' = 'medium') => {
-    tg?.HapticFeedback?.impactOccurred(style);
+  const haptic = (style: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' = 'medium') => {
+    if (!tg?.HapticFeedback) return;
+    
+    if (['success', 'warning', 'error'].includes(style)) {
+      tg.HapticFeedback.notificationOccurred(style);
+    } else {
+      tg.HapticFeedback.impactOccurred(style);
+    }
   };
 
   return {

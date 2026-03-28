@@ -24,12 +24,15 @@ export async function analyzeAndGenerate(imageBuffer: Buffer, customPrompt?: str
   const trends = await getLatestTrends();
 
   const trendContext = trends ? `
-    CURRENT WEEK TRENDS:
-    - Visuals: ${trends.visualAnchors}
+    CURRENT MARKET CONTEXT (WEEKLY TRENDS):
+    - Visual Style: ${trends.visualAnchors}
+    - Content Focus: ${trends.semanticAnchors}
+    - Recommended Vibe: ${trends.postTemplate}
   ` : '';
   
   const prompt = `
     ${CONFIG.PROMPTS.UNIVERSAL_BEAUTY_DNA}
+    ${trendContext}
     Analyze the uploaded image.
     ${customPrompt ? `Instructions: "${customPrompt}"` : 'Full Autopilot.'}
     
@@ -68,10 +71,13 @@ export async function analyzeAndGenerate(imageBuffer: Buffer, customPrompt?: str
 
 export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise<Buffer> {
   try {
+    const trends = await getLatestTrends();
+    const visualDNA = trends?.visualAnchors || 'vibrant professional lighting, ultra-sharp focus, premium beauty aesthetics';
+    
     const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.MODELS.ENHANCEMENT}:predict?key=${GEMINI_API_KEY}`;
     
     const response = await axios.post(imagenUrl, {
-      instances: [{ prompt: `${prompt}. High-end beauty editorial photography.` }],
+      instances: [{ prompt: `${prompt}. Visual DNA: ${visualDNA}. High-end beauty editorial photography.` }],
       parameters: { sampleCount: 1, outputMimeType: "image/jpeg" }
     }, { timeout: 25000 });
 

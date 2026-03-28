@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import dotenv from 'dotenv';
 import { analyzeAndGenerate, enhanceImage } from './_lib/content-engine.js';
 import { generateSocialPost, SocialFormat } from './_lib/graphic-engine.js';
+import { CONFIG } from './_lib/config.js';
 
 dotenv.config();
 
@@ -25,8 +26,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. Интеллектуальное решение по фону
     let finalBaseBuffer: Buffer = imageBuffer;
     if (aiResult.backgroundAction === 'replace') {
-      console.log('REPLACING BACKGROUND...');
-      finalBaseBuffer = await enhanceImage(imageBuffer, aiResult.imagenPrompt);
+      try {
+        console.log(`ATTEMPTING BACKGROUND REPLACEMENT with ${CONFIG.MODELS.ENHANCEMENT}...`);
+        finalBaseBuffer = await enhanceImage(imageBuffer, aiResult.imagenPrompt);
+      } catch (err) {
+        console.error('BACKGROUND ENHANCEMENT FAILED (Quota or Timeout):', err);
+        // Fallback: keep original if AI generation fails
+      }
     }
 
     // 3. Маппинг формата
@@ -55,6 +61,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('Unified Generation Error:', error);
-    return res.status(500).json({ error: error.message || 'Generation failed' });
+    return res.status(500).json({ 
+      error: error.message || 'Generation failed',
+      details: error.response?.data || 'No detailed data',
+      model: CONFIG.MODELS.ANALYSIS 
+    });
   }
 }

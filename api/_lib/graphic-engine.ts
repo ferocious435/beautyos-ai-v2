@@ -50,11 +50,18 @@ export async function generateSocialPost(
     canvas.composite(image, 0, 0);
   }
 
-  // 4. Текст
+  // 4. Текст (Локальная загрузка с Fallback)
   try {
-    // Используем встроенные шрифты (теперь через loadFont из корня пакета)
-    const fontTitle = await loadFont('https://unpkg.com/@jimp/plugin-print/fonts/open-sans/open-sans-64-white/open-sans-64-white.fnt' as any);
-    const fontSmall = await loadFont('https://unpkg.com/@jimp/plugin-print/fonts/open-sans/open-sans-16-white/open-sans-16-white.fnt' as any);
+    const fontTitlePath = './api/_assets/fonts/open-sans-64-white.fnt';
+    const fontSmallPath = './api/_assets/fonts/open-sans-16-white.fnt';
+    
+    // Пытаемся загрузить локально, если нет - берем из CDN (временно до полной миграции)
+    const fontTitle = await loadFont(fontTitlePath).catch(() => 
+      loadFont('https://unpkg.com/@jimp/plugin-print/fonts/open-sans/open-sans-64-white/open-sans-64-white.fnt')
+    );
+    const fontSmall = await loadFont(fontSmallPath).catch(() => 
+      loadFont('https://unpkg.com/@jimp/plugin-print/fonts/open-sans/open-sans-16-white/open-sans-16-white.fnt')
+    );
 
     if (title) {
       canvas.print({

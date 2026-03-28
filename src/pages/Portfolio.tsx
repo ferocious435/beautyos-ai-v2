@@ -1,33 +1,59 @@
 import { useState, useEffect } from 'react';
 import { useTelegram } from '../hooks/useTelegram';
-import { Camera, Sparkles } from 'lucide-react';
+import * as Lucide from 'lucide-react';
+
+const { Camera, Sparkles, LoaderCircle } = Lucide as any;
+import { supabase } from '../lib/supabaseClient';
 
 const Portfolio = () => {
   const { user } = useTelegram();
-  const [images] = useState<any[]>([]);
+  const [images, setImages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
+    async function fetchImages() {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('portfolio')
+          .select('*')
+          .eq('user_id', user.id.toString())
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        if (data) setImages(data);
+      } catch (err) {
+        console.error('Error fetching portfolio:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchImages();
   }, [user]);
 
   if (isLoading) {
-    return <div className="min-h-screen bg-[#050508] flex items-center justify-center font-luxury text-yellow-500">BEAUTYOS...</div>;
+    return (
+      <div className="min-h-screen bg-[#050508] flex flex-col items-center justify-center font-luxury">
+        <LoaderCircle className="w-8 h-8 text-yellow-500 animate-spin mb-4" />
+        <span className="text-yellow-500 tracking-[0.3em] font-light text-xs uppercase">BeautyOS Gallery</span>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 bg-[#050508] min-h-screen text-white text-right" style={{ direction: 'rtl' }}>
-      <header className="mb-10">
-        <h1 className="text-4xl font-black mb-2">הגלריה שלי</h1>
-        <p className="text-zinc-500">כל היצירות שנולדו ב-AI Creative</p>
+    <div className="p-6 bg-[#050508] min-h-screen text-white text-right pb-24" style={{ direction: 'rtl' }}>
+      <header className="mb-10 pt-4">
+        <h1 className="text-4xl font-black mb-2 tracking-tight">הגלריה שלי</h1>
+        <p className="text-zinc-500 font-light">כל היצירות שנולדו ב-AI Creative</p>
       </header>
 
       {images.length > 0 ? (
         <div className="grid grid-cols-2 gap-4">
           {images.map((img, idx) => (
-            <div key={idx} className="aspect-square bg-white/5 rounded-3xl overflow-hidden border border-white/5">
-              <img src={img.url} alt="Portfolio" className="w-full h-full object-cover" />
+            <div key={img.id || idx} className="aspect-square bg-white/5 rounded-3xl overflow-hidden border border-white/5 shadow-2xl transition-transform active:scale-95">
+              <img src={img.image_url} alt="Portfolio" className="w-full h-full object-cover" />
             </div>
           ))}
         </div>

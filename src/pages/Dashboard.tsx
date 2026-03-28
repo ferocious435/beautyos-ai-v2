@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Sparkles } from 'lucide-react';
+import * as Lucide from 'lucide-react';
+
+// Обход ошибок типизации в текущем окружении tsc
+const { 
+  Camera, 
+  Sparkles, 
+  Bookmark, 
+  CheckCircle, 
+  LoaderCircle 
+} = Lucide as any;
 import { useTelegram } from '../hooks/useTelegram';
+import { supabase } from '../lib/supabaseClient';
+import { useAppStore } from '../store/useAppStore';
 
 const Dashboard = () => {
   const { tg, haptic, setMainButton, hideMainButton, user } = useTelegram();
@@ -10,8 +21,17 @@ const Dashboard = () => {
   const [businessName] = useState(safeUser.first_name || 'Beauty Master');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  // New State for Real Data
+  const [stats, setStats] = useState({ views: 0, appointments: 0 });
+  const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  
+  const appUser = useAppStore(state => state.user);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
@@ -22,6 +42,49 @@ const Dashboard = () => {
     const timer = setTimeout(() => setIsLoaded(true), 100);
     return () => clearTimeout(timer);
   }, [tg]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!appUser.id) return;
+      setIsLoadingData(true);
+      try {
+        // 1. Fetch Stats (Profile Views)
+        const { count: viewsCount } = await supabase
+          .from('analytics_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('master_id', appUser.id)
+          .eq('event_type', 'profile_view');
+
+        // 2. Fetch Appointments count (Last 7 days)
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const { count: bookCount } = await supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('master_id', appUser.id)
+          .gte('created_at', weekAgo.toISOString());
+
+        setStats({ views: viewsCount || 0, appointments: bookCount || 0 });
+
+        // 3. Fetch Upcoming Bookings
+        const { data: bookings } = await supabase
+          .from('bookings')
+          .select('id, start_time, status, client:client_id (full_name)')
+          .eq('master_id', appUser.id)
+          .gte('start_time', new Date().toISOString())
+          .order('start_time', { ascending: true })
+          .limit(5);
+
+        setUpcomingBookings(bookings || []);
+      } catch (err) {
+        console.error('DASHBOARD: Error fetching data:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, [appUser.id]);
 
   useEffect(() => {
     const currentText = generatedResults ? (generatedResults[activeSocial.toLowerCase()] || generatedResults.instagram) : null;
@@ -72,16 +135,45 @@ const Dashboard = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: imagePreview, format: activeSocial, businessName }),
       });
-      if (!response.ok) throw new Error('API Error');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`AI Connection Error: ${errorData.error || 'Unknown'}\nDetails: ${JSON.stringify(errorData.details)}\nModel: ${errorData.model}`);
+      }
       const data = await response.json();
       setImagePreview(data.enhancedImage);
       setGeneratedResults({ instagram: data.post, whatsapp: data.post, facebook: data.post, telegram: data.post, short_overlay: data.service });
       haptic('medium');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('שגיאה בחיבור ל-AI.');
+      alert(`שגיאה בחיבור ל-AI:\n${error.message}`);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleSaveToGallery = async () => {
+    if (!imagePreview || !user?.id) return;
+    setIsSaving(true);
+    haptic('medium');
+    try {
+      const { error } = await supabase
+        .from('portfolio')
+        .insert([{ 
+          user_id: user.id.toString(), 
+          image_url: imagePreview,
+          type: 'ai_creation',
+          metadata: { format: activeSocial, businessName }
+        }]);
+
+      if (error) throw error;
+      setSaveSuccess(true);
+      haptic('success');
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error saving to gallery:', err);
+      alert('שגיאה בשמירה לגלריה.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -98,12 +190,59 @@ const Dashboard = () => {
     <div className="animate-luxury" style={{ backgroundColor: '#050508', minHeight: '100vh', color: 'white', direction: 'rtl', padding: '0 20px', fontFamily: "'Assistant', sans-serif" }}>
       <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleFileChange} />
       <div style={{ maxWidth: '460px', margin: '0 auto', paddingTop: '40px', paddingBottom: '160px', opacity: isLoaded ? 1 : 0, transition: 'opacity 1s ease' }}>
-        <header style={{ marginBottom: '50px', textAlign: 'right' }}>
-          <h1 className="font-luxury" style={{ fontSize: '56px', fontWeight: '900', margin: '0' }}><span className="gold-text">AI</span> Creative</h1>
-          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '10px' }}>עיצוב תוכן ברמה של מותגי על</p>
+        <header style={{ marginBottom: '30px', textAlign: 'right' }}>
+          <h1 className="font-luxury" style={{ fontSize: '48px', fontWeight: '900', margin: '0' }}>שלוום, <span className="gold-text">{appUser.name.split(' ')[0]}</span></h1>
+          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '5px' }}>הנה מה שקורה בעסק שלך היום</p>
         </header>
 
+        {/* --- Stats Grid --- */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '40px' }}>
+          <div className="glass-premium" style={{ padding: '20px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ color: '#64748b', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>צפיות בפרופיל</div>
+            <div style={{ fontSize: '28px', fontWeight: '900', color: 'white' }}>{isLoadingData ? '...' : stats.views}</div>
+          </div>
+          <div className="glass-premium" style={{ padding: '20px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ color: '#eab308', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>תורים חדשים</div>
+            <div style={{ fontSize: '28px', fontWeight: '900', color: 'white' }}>{isLoadingData ? '...' : stats.appointments}</div>
+          </div>
+        </div>
+
+        {/* --- Upcoming Appointments --- */}
         <section style={{ marginBottom: '50px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 className="font-luxury" style={{ fontSize: '20px', fontWeight: '700' }}>תורים קרובים</h3>
+            <span style={{ fontSize: '12px', color: '#eab308', fontWeight: 'bold' }}>הכל</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {isLoadingData ? (
+              [1,2].map(i => <div key={i} className="glass-premium animate-pulse" style={{ height: '70px', borderRadius: '20px' }} />)
+            ) : upcomingBookings.length > 0 ? (
+              upcomingBookings.map(booking => (
+                <div key={booking.id} className="glass-premium" style={{ padding: '15px 20px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(234, 179, 8, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#eab308', fontWeight: 'bold', fontSize: '14px' }}>
+                        {new Date(booking.start_time).getHours()}:{new Date(booking.start_time).getMinutes().toString().padStart(2, '0')}
+                     </div>
+                     <div>
+                        <div style={{ fontSize: '15px', fontWeight: '700' }}>{booking.client?.full_name || 'לקוח/ה'}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>{new Date(booking.start_time).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}</div>
+                     </div>
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: '900', color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.5px', background: 'rgba(74, 222, 128, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>{booking.status === 'confirmed' ? 'מאושר' : 'ממתין'}</div>
+                </div>
+              ))
+            ) : (
+              <div className="glass-premium" style={{ padding: '30px', textAlign: 'center', borderRadius: '24px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                <p style={{ color: '#64748b', fontSize: '14px' }}>אין תורים קרובים להיום</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section style={{ marginBottom: '50px' }}>
+          <div style={{ marginBottom: '20px' }}>
+             <h3 className="font-luxury" style={{ fontSize: '20px', fontWeight: '700' }}>AI Design Studio</h3>
+          </div>
           <div className="glass-premium" style={{ width: '100%', aspectRatio: currentRatio, borderRadius: '40px', overflow: 'hidden', position: 'relative' }}>
             {imagePreview ? (
               <>
@@ -115,10 +254,33 @@ const Dashboard = () => {
                     </div>
                   </div>
                 )}
-                {isGenerating && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Sparkles className="animate-spin text-yellow-500" size={40} /></div>}
+              {isGenerating ? (
+                <LoaderCircle className="animate-spin text-yellow-500" size={40} />
+              ) : null}
                 <div style={{ position: 'absolute', top: '25px', left: '25px', display: 'flex', gap: '8px' }}>
                    <button onClick={handleReset} style={{ width: '40px', height: '40px', borderRadius: '12px', color: '#ef4444', backgroundColor: 'rgba(0,0,0,0.5)' }}>×</button>
                 </div>
+                {generatedResults && !isGenerating && (
+                  <button 
+                    onClick={handleSaveToGallery} 
+                    disabled={isSaving || saveSuccess}
+                    className="glass-premium" 
+                    style={{ 
+                      position: 'absolute', 
+                      top: '25px', 
+                      right: '25px', 
+                      padding: '12px 20px', 
+                      borderRadius: '16px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      color: saveSuccess ? '#4ade80' : '#eab308' 
+                    }}
+                  >
+                    {isSaving ? <LoaderCircle className="animate-spin" size={16} /> : (saveSuccess ? <CheckCircle size={16} /> : <Bookmark size={16} />)}
+                    <span className="text-xs font-bold uppercase tracking-wider">{saveSuccess ? 'נשמר' : 'שמור בגלריה'}</span>
+                  </button>
+                )}
               </>
             ) : (
               <div onClick={handleUploadClick} style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>

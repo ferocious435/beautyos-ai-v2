@@ -14,7 +14,7 @@ const Booking = () => {
   const [loading, setLoading] = useState(false);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  // 1. Load Master Info
+  // 1. Загрузка данных мастера
   useEffect(() => {
     const loadMaster = async () => {
       if (!masterId) return;
@@ -28,47 +28,56 @@ const Booking = () => {
     loadMaster();
   }, [masterId]);
 
-  // 2. Load Available Slots via RPC
+  // 2. Загрузка доступных слотов через RPC
   useEffect(() => {
     const loadSlots = async () => {
       if (!masterId || !selectedDate) return;
       setLoading(true);
+      // RPC get_available_slots ожидает m_id (bigint) и select_date (date)
       const { data, error } = await supabase.rpc('get_available_slots', {
         m_id: parseInt(masterId),
         select_date: selectedDate
       });
       if (!error) setSlots(data || []);
+      else console.error('BOOKING: RPC Error:', error);
       setLoading(false);
     };
     loadSlots();
   }, [masterId, selectedDate]);
 
   const handleBook = async (slotTime: string) => {
-    const user = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-    if (!user?.id || !masterId) return;
+    const tg = (window as any).Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+    
+    // В продакшене используем реальный ID, в деве — заглушку
+    const clientTelegramId = user?.id || 12345678;
+
+    if (!masterId) return;
 
     setBookingStatus('loading');
     
-    // Create Booking Table Record
-    const { error } = await supabase
-      .from('bookings')
-      .insert({
-        master_id: parseInt(masterId),
-        client_id: user.id,
-        start_time: slotTime,
-        end_time: new Date(new Date(slotTime).getTime() + 60 * 60 * 1000).toISOString(),
-        status: 'confirmed'
-      })
-      .select()
-      .single();
+    try {
+      const response = await fetch(`/api/services?action=create-booking`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          masterTelegramId: parseInt(masterId),
+          clientTelegramId: clientTelegramId,
+          startTime: slotTime
+        })
+      });
 
-    if (error) {
+      if (response.ok) {
+        setBookingStatus('success');
+        setTimeout(() => navigate('/'), 2500);
+      } else {
+        const errorData = await response.json();
+        console.error('BOOKING: API Error:', errorData);
+        setBookingStatus('error');
+      }
+    } catch (err) {
+      console.error('BOOKING: Fetch Error:', err);
       setBookingStatus('error');
-    } else {
-      setBookingStatus('success');
-      // Note: Backend handles QStash scheduling via DB webhooks or direct call if we had it here
-      // But for simplicity in this demo, the master will just see it on dashboard
-      setTimeout(() => navigate('/'), 2000);
     }
   };
 
@@ -78,14 +87,14 @@ const Booking = () => {
         <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
       </div>
       <div className="space-y-2">
-        <h2 className="text-xl font-bold text-white">מאסטר לא נבחר</h2>
-        <p className="text-zinc-500 text-sm">אנא בחרו מאסטר מהרדאר כדי לצפות ביומן התורים.</p>
+        <h2 className="text-xl font-bold text-white">Мастер не выбран</h2>
+        <p className="text-zinc-500 text-sm">Пожалуйста, выберите мастера на странице поиска, чтобы увидеть расписание.</p>
       </div>
       <button 
         onClick={() => navigate('/discovery')}
         className="gold-gradient px-8 py-4 rounded-2xl text-black font-black"
       >
-        חזרה לרדאר
+        К поиску мастеров
       </button>
     </div>
   );
@@ -100,13 +109,13 @@ const Booking = () => {
     <div className="p-4 space-y-8 pb-20">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-white">Выбор времени 🗓️</h1>
-        <p className="text-zinc-400">Запись к: <span className="text-white font-medium">{master.business_name || master.full_name}</span></p>
+        <h1 className="text-2xl font-bold text-white">Запись на визит 🗓️</h1>
+        <p className="text-zinc-400">К специалисту: <span className="text-white font-medium">{master.business_name || master.full_name}</span></p>
       </div>
 
-      {/* Date Picker (Simple Native) */}
+      {/* Date Picker */}
       <div className="space-y-3">
-        <label className="text-sm font-medium text-zinc-500">Выберите дату</label>
+        <label className="text-sm font-medium text-zinc-500 uppercase tracking-widest">Выберите дату</label>
         <input 
           type="date" 
           value={selectedDate}
@@ -118,10 +127,10 @@ const Booking = () => {
 
       {/* Slots Grid */}
       <div className="space-y-4">
-        <h3 className="text-sm font-medium text-zinc-500">Доступные слоты</h3>
+        <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-widest">Доступное время</h3>
         <div className="grid grid-cols-3 gap-3">
           {loading ? (
-             [1,2,3,4,5,6].map(i => <div key={i} className="h-12 bg-zinc-900 rounded-xl animate-pulse" />)
+             [1,2,3,4,5,6].map(i => <div key={i} className="h-14 bg-zinc-900 rounded-xl animate-pulse border border-white/5" />)
           ) : slots.length > 0 ? (
             slots.map((slot) => {
               const time = new Date(slot.slot_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -129,21 +138,21 @@ const Booking = () => {
                 <button
                   key={slot.slot_time}
                   onClick={() => handleBook(slot.slot_time)}
-                  className="bg-zinc-900 border border-zinc-800 hover:border-zinc-500 py-3 rounded-xl text-white font-medium transition-all active:scale-95"
+                  className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 hover:border-yellow-500/50 py-3 rounded-xl text-white font-medium transition-all active:scale-95 text-lg"
                 >
                   {time}
                 </button>
               );
             })
           ) : (
-            <div className="col-span-3 text-center py-10 text-zinc-600 bg-zinc-900/50 rounded-2xl border border-dashed border-zinc-800">
-              На этот день всё занято или мастер не работает
+            <div className="col-span-3 text-center py-10 text-zinc-600 bg-zinc-900/30 rounded-2xl border border-dashed border-zinc-800">
+              На этот день свободного времени нет
             </div>
           )}
         </div>
       </div>
 
-      {/* Success Modal Overlay */}
+      {/* Success Modal */}
       <AnimatePresence>
         {bookingStatus === 'success' && (
           <motion.div 
@@ -159,8 +168,8 @@ const Booking = () => {
               <div className="w-20 h-20 bg-green-500/20 rounded-full mx-auto flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <h2 className="text-2xl font-bold text-white">Успешная запись!</h2>
-              <p className="text-zinc-400">Мы отправили уведомление мастеру. До встречи!</p>
+              <h2 className="text-2xl font-bold text-white">Запись подтверждена!</h2>
+              <p className="text-zinc-400">Мы уведомили мастера. До встречи!</p>
             </motion.div>
           </motion.div>
         )}

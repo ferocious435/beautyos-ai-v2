@@ -111,8 +111,8 @@ export const registrationWizard = new Scenes.WizardScene<BotContext>(
     if (supabase) {
       const { error } = await supabase
         .from('users')
-        .upsert({ // Changed to upsert for easier testing/updates
-          telegram_id: telegramId,
+        .upsert({ 
+          telegram_id: Number(telegramId),
           full_name: name,
           business_name: businessName,
           phone: phone,
@@ -221,24 +221,68 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         caption: `🚀 **התוצאה מוכנה!** (${ai.detectedService})\n\n${ai.post}\n\n📸 **CTA:** ${ai.cta}`,
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.webApp('✨ עריכה בстуדיо (Mini App)', `${process.env.WEBAPP_URL}/?photo=${encodeURIComponent(imageUrl)}`) ],
-          [Markup.button.callback('⭐ הוספה לפורטפוליו', `star_portfolio_${photo.file_id}`)],
-          [Markup.button.callback('📸 פרסום באינסטגרם', 'publish_ig')]
+          [Markup.button.callback('📸 Instagram (4:5)', `fmt_INST_#_${photo.file_id.slice(-10)}`)],
+          [Markup.button.callback('🟢 WhatsApp (9:16)', `fmt_WATS_#_${photo.file_id.slice(-10)}`)],
+          [Markup.button.callback('📘 Facebook (1:1)', `fmt_FACE_#_${photo.file_id.slice(-10)}`)],
+          [Markup.button.webApp('✨ עריכה בסטודיו (Mini App)', `${process.env.WEBAPP_URL}/?photo=${encodeURIComponent(imageUrl)}`) ],
+          [Markup.button.callback('⭐ הוספה לפורטפוליו', `star_portfolio_${photo.file_id}`)]
         ])
       });
 
-      // Temporary cache for the starred image (Vercel has no disk, so we use session or memory? Session is async in Supabase)
-      // For now, let's keep it in session via Supabase.
-      ctx.session.lastEnhancedImage = {
-        buffer: imageData.toString('base64'), // Save original for now, or Imagen output? 
-        imagenPrompt: ai.imagenPrompt
+      // Храним в сессии данные для генерации форматов
+      ctx.session.lastImageScan = {
+        file_id: photo.file_id,
+        ai: ai
       };
 
       await ctx.deleteMessage(msg.message_id);
 
     } catch (err) {
       console.error('Bot Studio Error:', err);
-      await ctx.reply('⚠️ חלה שגיאה ביצירת התוכן. נסו שוב מאوחר יותר.');
+      await ctx.reply('⚠️ חלה שגיאה ביצירת התוכן. נסו שוב מאוחר יותר.');
+    }
+  });
+
+  // Handler for Formats
+  bot.action(/^fmt_(.*)/, async (ctx) => {
+    try {
+      const parts = ctx.match[1].split('_#_');
+      const formatType = parts[0]; 
+      
+      await ctx.answerCbQuery('🎨 מעצב עבורך...');
+      
+      const session = ctx.session.lastImageScan;
+      if (!session) return ctx.reply('מצטערים, המידע על התמונה אבד. אנא שלחו תמונה חדשה.');
+
+      const loadingMsg = await ctx.reply('🪄 מעבד את העיצוב הסופי...');
+      
+      const fileLink = await ctx.telegram.getFileLink(session.file_id);
+      const response = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
+      const originalBuffer = Buffer.from(response.data);
+
+      const { generateSocialPost } = await import('./graphic-engine.js');
+      
+      let jimpFormat: any = 'INSTAGRAM_POST';
+      if (formatType === 'WATS') jimpFormat = 'STORY_9_16';
+      if (formatType === 'FACE') jimpFormat = 'SQUARE_1_1';
+
+      const designedBuffer = await generateSocialPost(originalBuffer, {
+        format: jimpFormat,
+        businessName: 'Beauty Expert', // Мы можем получить это из БД, если захотим
+        title: session.ai.overlayTitle,
+        subtitle: session.ai.overlaySubtitle,
+        theme: 'LUXURY_BLACK'
+      });
+
+      await ctx.replyWithPhoto({ source: designedBuffer }, {
+        caption: `✨ העיצוב שלך מושקע ומוכן ל- ${formatType}!`
+      });
+      
+      await ctx.deleteMessage(loadingMsg.message_id);
+
+    } catch (err) {
+      console.error('FORMAT ERROR:', err);
+      ctx.reply('שגיאה ביצירת הפורמט.');
     }
   });
 
