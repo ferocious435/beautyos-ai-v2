@@ -42,7 +42,28 @@ const ClientDashboard = () => {
     fetchMyBookings();
   }, [appUser.id]);
 
-  const upcoming = bookings.filter(b => b.status === 'confirmed' && new Date(b.start_time) > new Date())[0];
+  const handleCancel = async (bookingId: string) => {
+    if (!window.confirm('האם את/ה בטוח/ה שברצונך לבטל את התור? המאסטר יקבל הודעה על כך.')) return;
+    
+    try {
+      const response = await fetch('/api/services?action=cancel-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, userId: appUser.id, role: 'client' })
+      });
+      
+      if (response.ok) {
+        setBookings(prev => prev.filter(b => b.id !== bookingId));
+      } else {
+        throw new Error('Cancel failed');
+      }
+    } catch (err) {
+      console.error('Cancel error:', err);
+      alert('שגיאה בביטול התור');
+    }
+  };
+
+  const upcoming = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && new Date(b.start_time) > new Date())[0];
   const others = bookings.filter(b => b.id !== upcoming?.id);
 
   const getDirections = (lat: number, lng: number) => {
@@ -93,18 +114,29 @@ const ClientDashboard = () => {
               </div>
               <div className="bg-zinc-900/50 p-4 rounded-2xl border border-white/5">
                 <div className="flex items-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">
-                  <Bell size={10} /> תזכורת
+                  <Bell size={10} /> סטטוס
                 </div>
-                <div className="text-xs font-bold text-green-500">פעילה (24 שעות)</div>
+                <div className={`text-xs font-bold ${upcoming.status === 'confirmed' ? 'text-green-500' : 'text-yellow-500'}`}>
+                   {upcoming.status === 'confirmed' ? 'מאושר' : 'ממתין לאישור מאסטר'}
+                </div>
               </div>
             </div>
 
-            <button 
-              onClick={() => getDirections(upcoming.master.latitude, upcoming.master.longitude)}
-              className="w-full bg-white text-black py-4 rounded-2xl font-black flex items-center justify-center gap-2 active:scale-95 transition-all"
-            >
-              <Navigation size={18} /> איך מגיעים? (Waze)
-            </button>
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => upcoming.status === 'confirmed' && getDirections(upcoming.master.latitude, upcoming.master.longitude)}
+                style={{ opacity: upcoming.status === 'confirmed' ? 1 : 0.5 }}
+                className="flex-1 bg-white text-black py-4 rounded-2xl font-black flex items-center justify-center gap-2 active:scale-95 transition-all text-sm disabled:opacity-50"
+              >
+                <Navigation size={18} /> {upcoming.status === 'confirmed' ? 'ניווט (Waze)' : 'ממתין לאישור'}
+              </button>
+              <button 
+                onClick={() => handleCancel(upcoming.id)}
+                className="px-6 bg-red-500/10 text-red-500 py-4 rounded-2xl font-black active:scale-95 transition-all text-sm border border-red-500/20"
+              >
+                ביטול תור
+              </button>
+            </div>
           </motion.div>
         </section>
       ) : (

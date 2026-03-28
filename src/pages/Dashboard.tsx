@@ -29,6 +29,7 @@ const Dashboard = () => {
   // New State for Real Data
   const [stats, setStats] = useState({ views: 0, appointments: 0 });
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
+  const [pendingBookings, setPendingBookings] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
   const appUser = useAppStore(state => state.user);
@@ -66,16 +67,19 @@ const Dashboard = () => {
 
         setStats({ views: viewsCount || 0, appointments: bookCount || 0 });
 
-        // 3. Fetch Upcoming Bookings
-        const { data: bookings } = await supabase
+        // 3. Fetch Bookings
+        const { data: allBookings } = await supabase
           .from('bookings')
           .select('id, start_time, status, client:client_id (full_name)')
           .eq('master_id', appUser.id)
           .gte('start_time', new Date().toISOString())
-          .order('start_time', { ascending: true })
-          .limit(5);
+          .order('start_time', { ascending: true });
 
-        setUpcomingBookings(bookings || []);
+        const pending = allBookings?.filter((b: any) => b.status === 'pending') || [];
+        const upcoming = allBookings?.filter((b: any) => b.status === 'confirmed').slice(0, 5) || [];
+
+        setPendingBookings(pending);
+        setUpcomingBookings(upcoming);
       } catch (err) {
         console.error('DASHBOARD: Error fetching data:', err);
       } finally {
@@ -183,6 +187,65 @@ const Dashboard = () => {
     haptic('light');
   };
 
+  const handleApproveBooking = async (bookingId: string) => {
+    try {
+      const resp = await fetch('/api/services?action=approve-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+      if (resp.ok) {
+        haptic('success');
+        const approved = pendingBookings.find(b => b.id === bookingId);
+        setPendingBookings(prev => prev.filter(b => b.id !== bookingId));
+        if (approved) {
+          setUpcomingBookings(prev => [...prev, { ...approved, status: 'confirmed' }].sort((a,b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
+        }
+      }
+    } catch (err) {
+      console.error('Approve error:', err);
+    }
+  };
+
+  const handleRejectBooking = async (bookingId: string) => {
+    if (!window.confirm('האם לדחות את בקשת התור? הלקוח/ה יקבל הודעה.')) return;
+    try {
+      const resp = await fetch('/api/services?action=reject-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+      if (resp.ok) {
+        haptic('medium');
+        setPendingBookings(prev => prev.filter(b => b.id !== bookingId));
+      }
+    } catch (err) {
+      console.error('Reject error:', err);
+    }
+  };
+
+  const handleCancelBooking = async (bookingId: string) => {
+    if (!window.confirm('האם את בטוחה שברצונך לבטל את התור? הלקוח/ה יקבל הודעה אוטומטית.')) return;
+    
+    try {
+      const response = await fetch('/api/services?action=cancel-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, userId: appUser.id, role: 'master' })
+      });
+      
+      if (response.ok) {
+        haptic('success');
+        setUpcomingBookings(prev => prev.filter(b => b.id !== bookingId));
+      } else {
+        throw new Error('Failed to cancel');
+      }
+    } catch (err) {
+       console.error('Cancel error:', err);
+       alert('שגיאה בביטול התור');
+    }
+  };
+
   const currentText = generatedResults ? (generatedResults[activeSocial.toLowerCase()] || generatedResults.instagram) : null;
   const currentRatio = socialNetworks.find(s => s.id === activeSocial)?.ratio || '1/1';
 
@@ -207,6 +270,45 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* --- Pending Requests --- */}
+        {pendingBookings.length > 0 && (
+          <section style={{ marginBottom: '40px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
+               <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#eab308', boxShadow: '0 0 10px #eab308' }}></div>
+               <h3 className="font-luxury" style={{ fontSize: '18px', fontWeight: '800' }}>בקשות ממתינות ({pendingBookings.length})</h3>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {pendingBookings.map(request => (
+                <div key={request.id} className="glass-premium" style={{ padding: '15px', borderRadius: '24px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ fontSize: '20px' }}>🔔</div>
+                      <div>
+                        <div style={{ fontSize: '15px', fontWeight: '800' }}>{request.client?.full_name || 'לקוח/ה'}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>{new Date(request.start_time).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                       <button 
+                         onClick={() => handleApproveBooking(request.id)}
+                         style={{ padding: '10px 15px', borderRadius: '12px', background: 'rgba(74, 222, 128, 0.1)', color: '#4ade80', fontWeight: '900', fontSize: '13px' }}
+                       >
+                         אישור
+                       </button>
+                       <button 
+                         onClick={() => handleRejectBooking(request.id)}
+                         style={{ padding: '10px 15px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontWeight: '900', fontSize: '13px' }}
+                       >
+                         דחייה
+                       </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* --- Upcoming Appointments --- */}
         <section style={{ marginBottom: '50px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -228,7 +330,15 @@ const Dashboard = () => {
                         <div style={{ fontSize: '12px', color: '#64748b' }}>{new Date(booking.start_time).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}</div>
                      </div>
                   </div>
-                  <div style={{ fontSize: '11px', fontWeight: '900', color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.5px', background: 'rgba(74, 222, 128, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>{booking.status === 'confirmed' ? 'מאושר' : 'ממתין'}</div>
+                  <div className="flex items-center gap-2">
+                    <div style={{ fontSize: '11px', fontWeight: '900', color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.5px', background: 'rgba(74, 222, 128, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>{booking.status === 'confirmed' ? 'מאושר' : 'ממתין'}</div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleCancelBooking(booking.id); }}
+                      style={{ padding: '8px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                    >
+                      <Lucide.X size={14} />
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (
