@@ -33,3 +33,4 @@ brain/
 *.sw?
 
 .vercel
+.env*.local

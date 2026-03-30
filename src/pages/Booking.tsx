@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
-import { useAppStore } from '../store/useAppStore';
 
 const Booking = () => {
   const [searchParams] = useSearchParams();
