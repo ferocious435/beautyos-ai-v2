@@ -152,12 +152,6 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   // Start command
   bot.start(async (ctx) => {
-    // 🧹 הסרת מקלדת ישנה (טרנדים שבועיים וכו')
-    try {
-      const clearMsg = await ctx.reply('מנקה ממשק...', Markup.removeKeyboard());
-      await ctx.deleteMessage(clearMsg.message_id);
-    } catch (e) {}
-
     const name = ctx.from?.first_name || 'Beauty Expert';
     const payload = (ctx.message as any).text.split(' ')[1]; // Payload: /start <payload>
 
@@ -178,20 +172,32 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         }, { onConflict: 'telegram_id' });
       }
       
-      return ctx.reply(`👑 **ברוך שובך, מנהל המערכת (${name})!**\n\nקיבלת הרשאת Admin מלאה. \n💡 *הערה: כל כלי ה-AI (שיפור תמונות, פוסטים) עובדים ישירות כאן בצ'אט (פשוט שלח/י תמונה).*`, 
+      await ctx.reply(`👑 **ברוך שובך, מנהל המערכת (${name})!**\n\nקיבלת הרשאת Admin מלאה. \n💡 *הערה: כל כלי ה-AI (שיפור תמונות, פוסטים) עובדים ישירות כאן בצ'אט (פשוט שלח/י תמונה).*`, 
         Markup.inlineKeyboard([
           [Markup.button.webApp('⚙️ ניהול תורים (Admin)', process.env.WEBAPP_URL || '')]
         ])
       );
+    } else {
+      // 🛍 REGULAR USER FLOW
+      await ctx.reply(`✨ **ברוכים הבאים ל-BeautyOS AI v2!** ✨\n\nהיי ${name}, המערכת מזהה אותך.\n💡 *יצירת פוסטים ושיפור תמונות מתבצעים ישירות כאן בצ'אט - פשוט שלח/י ויזואליה!*`, 
+        Markup.inlineKeyboard([
+          [Markup.button.webApp('🗓️ יומן והזמנת תורים', process.env.WEBAPP_URL || '')],
+          [Markup.button.callback('📝 הרשמה למערכת', 'register_request')]
+        ])
+      );
     }
 
-    // 🛍 REGULAR USER FLOW
-    await ctx.reply(`✨ **ברוכים הבאים ל-BeautyOS AI v2!** ✨\n\nהיי ${name}, המערכת מזהה אותך.\n💡 *יצירת פוסטים ושיפור תמונות מתבצעים ישירות כאן בצ'אט - פשוט שלח/י ויזואליה!*`, 
-      Markup.inlineKeyboard([
-        [Markup.button.webApp('🗓️ יומן והזמנת תורים', process.env.WEBAPP_URL || '')],
-        [Markup.button.callback('📝 הרשמה למערכת', 'register_request')]
-      ])
-    );
+    // 📱 Persistent Reply Menu
+    const webAppUrl = process.env.WEBAPP_URL || '';
+    const kb: any[] = [
+      [{ text: '✨ סטודיו AI (Smart)', web_app: { url: webAppUrl } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }],
+      [{ text: '📜 תנאי שימוש' }]
+    ];
+    if (payload === 'root' || payload === 'admin') {
+       kb[1].push({ text: '👑 תפריט בדיקות (Admin)' });
+    }
+    
+    await ctx.reply('תפריט הניווט הראשי עודכן בתחתית המסך 👇', Markup.keyboard(kb).resize());
   });
 
   bot.action('register_request', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
@@ -252,6 +258,18 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     } catch (err) {
       await ctx.reply('❌ שגיאה בניתוח השוק.');
     }
+  });
+
+  bot.hears('👑 תפריט בדיקות (Admin)', (ctx) => {
+    ctx.reply('🛠 **מצב בדיקות מערכת**\nמעבר מהיר בין תפקידים לבדיקת הרשאות:', Markup.inlineKeyboard([
+      [Markup.button.callback('🛍️ שחק בתור לקוח (Client)', 'set_fast_role_client')],
+      [Markup.button.callback('💆‍♂️ שחק בתור מאסטר (Master)', 'set_fast_role_master')],
+      [Markup.button.callback('👑 חזור לניהול (Admin)', 'set_fast_role_admin')]
+    ]));
+  });
+
+  bot.hears('📜 תנאי שימוש', (ctx) => {
+    ctx.reply('💄 **BeautyOS AI v2**\nכל הזכויות שמורות. מופעל באמצעות בינה מלאכותית מתקדמת.');
   });
 
   // Photo handler
