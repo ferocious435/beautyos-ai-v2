@@ -17,9 +17,10 @@ export async function scheduleNotification(delaySeconds: number, type: '24h' | '
 
   try {
     const destinationUrl = `${APP_URL}/api/webhooks/reminders`;
+    const baseUrl = QSTASH_URL || 'https://qstash.upstash.io';
     
     await axios.post(
-      `https://qstash.upstash.io/v1/publish/${destinationUrl}`,
+      `${baseUrl}/v1/publish/${destinationUrl}`,
       { bookingId, type },
     );
     console.log(`Scheduled ${type} notification for booking ${bookingId} with delay ${delaySeconds}s`);
@@ -39,8 +40,10 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
 
   try {
     const destinationUrl = `${APP_URL}/api/ai-worker`;
+    const baseUrl = QSTASH_URL || 'https://qstash.upstash.io';
+    
     await axios.post(
-      `https://qstash.upstash.io/v1/publish/${destinationUrl}`,
+      `${baseUrl}/v1/publish/${destinationUrl}`,
       { chatId, messageId, fileUrl, fileId, caption },
       {
         headers: {
