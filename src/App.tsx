@@ -105,12 +105,21 @@ function App() {
         <MainLayout>
           <Suspense fallback={<PageLoader />}>
             <Routes>
+              {/* Main Entry Points with conditional logic */}
               <Route path="/" element={userRole === 'client' ? <ClientDashboard /> : <Dashboard />} />
+              <Route path="/booking" element={userRole === 'client' ? <Booking /> : <MasterCalendar />} />
+              
+              {/* Explicit Admin/Unified Routes */}
+              <Route path="/dashboard/master" element={<Dashboard />} />
+              <Route path="/dashboard/client" element={<ClientDashboard />} />
+              <Route path="/calendar" element={<MasterCalendar />} />
+              <Route path="/order" element={<Booking />} />
+
+              {/* Shared Routes */}
               <Route path="/discovery" element={<Discovery />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/portfolio" element={<Portfolio />} />
-              <Route path="/booking" element={userRole === 'client' ? <Booking /> : <MasterCalendar />} />
             </Routes>
           </Suspense>
         </MainLayout>
