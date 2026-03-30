@@ -152,6 +152,12 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   // Start command
   bot.start(async (ctx) => {
+    // 🧹 הסרת מקלדת ישנה (טרנדים שבועיים וכו')
+    try {
+      const clearMsg = await ctx.reply('מנקה ממשק...', Markup.removeKeyboard());
+      await ctx.deleteMessage(clearMsg.message_id);
+    } catch (e) {}
+
     const name = ctx.from?.first_name || 'Beauty Expert';
     const payload = (ctx.message as any).text.split(' ')[1]; // Payload: /start <payload>
 
@@ -172,17 +178,17 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         }, { onConflict: 'telegram_id' });
       }
       
-      return ctx.reply(`👑 **ברוך שובך, מנהל המערכת (${name})!**\n\nזיהיתי את פקודת המעקף שלך. קיבלת הרשאת Admin מלאה לכל המערכת, ללא צורך בהרשמה או אישור.\nכל התכונות, הפונקציות וההגדרות פתוחות בפניך.`, 
+      return ctx.reply(`👑 **ברוך שובך, מנהל המערכת (${name})!**\n\nקיבלת הרשאת Admin מלאה. \n💡 *הערה: כל כלי ה-AI (שיפור תמונות, פוסטים) עובדים ישירות כאן בצ'אט (פשוט שלח/י תמונה).*`, 
         Markup.inlineKeyboard([
-          [Markup.button.webApp('🚀 פתח את ה-Studio (פאנל ניהול)', process.env.WEBAPP_URL || '')]
+          [Markup.button.webApp('⚙️ ניהול תורים (Admin)', process.env.WEBAPP_URL || '')]
         ])
       );
     }
 
     // 🛍 REGULAR USER FLOW
-    await ctx.reply(`✨ **ברוכים הבאים ל-BeautyOS AI v2!** ✨\n\nהיי ${name}, המערכת המתקדמת ביותר לניהול העסק והפקת תוכן מבוסס בינה מלאכותית כאן לשירותך.`, 
+    await ctx.reply(`✨ **ברוכים הבאים ל-BeautyOS AI v2!** ✨\n\nהיי ${name}, המערכת מזהה אותך.\n💡 *יצירת פוסטים ושיפור תמונות מתבצעים ישירות כאן בצ'אט - פשוט שלח/י ויזואליה!*`, 
       Markup.inlineKeyboard([
-        [Markup.button.webApp('🚀 פתח את ה-Studio', process.env.WEBAPP_URL || '')],
+        [Markup.button.webApp('🗓️ יומן והזמנת תורים', process.env.WEBAPP_URL || '')],
         [Markup.button.callback('📝 הרשמה למערכת', 'register_request')]
       ])
     );

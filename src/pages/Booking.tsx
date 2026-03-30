@@ -8,7 +8,6 @@ const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const masterId = searchParams.get('masterId');
-  const appUser = useAppStore(state => state.user);
   
   const [master, setMaster] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
@@ -111,11 +110,11 @@ const Booking = () => {
         <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
       </div>
       <div className="space-y-2">
-        <h2 className="text-xl font-bold text-white">Мастер не выбран</h2>
-        <p className="text-zinc-500 text-sm">Пожалуйста, выберите мастера на странице поиска.</p>
+        <h2 className="text-xl font-bold text-white">לא נבחר מומחה ❌</h2>
+        <p className="text-zinc-500 text-sm">אנא בחר/י מומחה מרשימת המומחים על מנת להציג את היומן ולקבוע תור.</p>
       </div>
-      <button onClick={() => navigate('/discovery')} className="gold-gradient px-8 py-4 rounded-2xl text-black font-black">
-        К поиску мастеров
+      <button onClick={() => navigate('/')} className="gold-gradient px-8 py-4 rounded-2xl text-black font-black">
+        חזרה לדף הבית
       </button>
     </div>
   );
