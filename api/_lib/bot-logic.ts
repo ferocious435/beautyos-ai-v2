@@ -152,6 +152,12 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   // Start command
   bot.start(async (ctx) => {
+    // 🧹 Очистка старых меню (тех самых Трендов и Настроек из скриншота)
+    try {
+      const clearMsg = await ctx.reply('Обновление интерфейса...', Markup.removeKeyboard());
+      await ctx.deleteMessage(clearMsg.message_id);
+    } catch (e) {}
+
     const name = ctx.from?.first_name || 'Beauty Expert';
     const payload = (ctx.message as any).text.split(' ')[1]; // Payload: /start <payload>
 
