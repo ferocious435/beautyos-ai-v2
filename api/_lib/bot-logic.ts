@@ -2,6 +2,7 @@ import { Scenes, Context, Telegraf, Markup } from 'telegraf';
 import { getSupabase, uploadToPortfolio } from './supabase.js';
 import { analyzeAndGenerate, enhanceImage } from './content-engine.js';
 import { runWeeklyAnalysis } from './trend-analyzer.js';
+import { enqueueAiProcessing } from './qstash.js';
 import { CONFIG } from './config.js';
 import axios from 'axios';
 
@@ -226,44 +227,17 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     if (!photo) return;
 
     const caption = (ctx.message as any).caption; 
-    const msg = await ctx.reply('⏳ **מנתח את התמונה (Gemini 3.1)...** ✨');
+    const msg = await ctx.reply('⏳ **מנתח את התמונה ויוצר קסם... (תהליך זה מתבצע ברקע ויושלם בקרוב)** ✨');
 
     try {
       const fileLink = await ctx.telegram.getFileLink(photo.file_id);
-      const imageUrl = fileLink.href;
-
-      const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-      const imageData = Buffer.from(response.data);
-
-      const ai = await analyzeAndGenerate(imageData, caption);
-
-      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, undefined, `📸 **משפר ${ai.detectedService || 'תמונה'} (Imagen 4 Ultra)...** 🪄`);
-
-      const finalImage = await enhanceImage(imageData, ai.imagenPrompt);
-
-      await ctx.replyWithPhoto({ source: finalImage }, {
-        caption: `🚀 **התוצאה מוכנה!** (${ai.detectedService})\n\n${ai.post}\n\n📸 **CTA:** ${ai.cta}`,
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('📸 Instagram (4:5)', `fmt_INST_#_${photo.file_id.slice(-10)}`)],
-          [Markup.button.callback('🟢 WhatsApp (9:16)', `fmt_WATS_#_${photo.file_id.slice(-10)}`)],
-          [Markup.button.callback('📘 Facebook (1:1)', `fmt_FACE_#_${photo.file_id.slice(-10)}`)],
-          [Markup.button.webApp('✨ עריכה בסטודיו (Mini App)', `${process.env.WEBAPP_URL}/?photo=${encodeURIComponent(imageUrl)}`) ],
-          [Markup.button.callback('⭐ הוספה לפורטפוליו', `star_portfolio_${photo.file_id}`)]
-        ])
-      });
-
-      // Храним в сессии данные для генерации форматов
-      ctx.session.lastImageScan = {
-        file_id: photo.file_id,
-        ai: ai
-      };
-
-      await ctx.deleteMessage(msg.message_id);
-
+      
+      // Ставим задачу в очередь
+      await enqueueAiProcessing(ctx.chat.id, msg.message_id, fileLink.href, photo.file_id, caption);
     } catch (err) {
-      console.error('Bot Studio Error:', err);
-      await ctx.reply('⚠️ חלה שגיאה ביצירת התוכן. נסו שוב מאוחר יותר.');
+      console.error('Bot Queue Error:', err);
+      // Fallback если QStash не настроен:
+      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, undefined, '⚠️ שירות העיבוד ברקע לא זמין או שלא מוגדר QSTASH_TOKEN. המערכת דורשת QStash לתפקוד תקין.');
     }
   });
 

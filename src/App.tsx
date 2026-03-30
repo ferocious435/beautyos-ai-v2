@@ -61,11 +61,34 @@ function App() {
             }
           });
         } else {
-          console.warn('APP: No profile in DB. Setting default as client.');
-          // Если пользователя нет в базе, по умолчанию считаем его клиентом
-          useAppStore.setState(state => ({
-            user: { ...state.user, role: 'client' }
-          }));
+          console.warn('APP: No profile in DB. Auto-registering as client to prevent E2E flow break.');
+          const defaultName = tgUser?.first_name ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : `User ${tgId}`;
+          
+          const { data: newUser, error: insertErr } = await supabase
+            .from('users')
+            .upsert({ 
+              telegram_id: tgId, 
+              full_name: defaultName,
+              role: 'client' 
+            }, { onConflict: 'telegram_id' })
+            .select()
+            .single();
+
+          if (newUser) {
+            useAppStore.setState({ 
+              user: {
+                id: newUser.id,
+                name: newUser.full_name,
+                role: 'client',
+                subscriptionTier: 'free',
+              }
+            });
+          } else {
+            console.error('APP: Auto-registration failed:', insertErr);
+            useAppStore.setState(state => ({
+              user: { ...state.user, role: 'client' }
+            }));
+          }
         }
       } catch (err) {
         console.error('APP: Critical initialization error:', err);
