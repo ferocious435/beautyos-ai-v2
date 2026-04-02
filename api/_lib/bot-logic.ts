@@ -423,7 +423,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   });
 
   // Handler for Formats
-  bot.action(/^fmt_(.*)/, async (ctx) => {
+  bot.action(/^format_(.*)/, async (ctx) => {
     try {
       const parts = ctx.match[1].split('_#_');
       const formatType = parts[0]; 
