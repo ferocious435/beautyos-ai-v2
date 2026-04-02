@@ -81,3 +81,32 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
     throw new Error(`QStash Error: ${errorMsg}`);
   }
 }
+
+/**
+ * Ставит задачу на финальный рендеринг и ретушь (NANO BANANA PRO)
+ */
+export async function enqueueRenderProcessing(chatId: number, formatType: string) {
+  const token = (process.env.QSTASH_TOKEN || '').trim();
+  const appUrl = (process.env.WEBAPP_URL || '').trim();
+  const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
+
+  if (!token || !appUrl) return;
+
+  const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/render-worker`;
+  
+  try {
+    await axios.post(
+      `${qUrl}/v2/publish/${destinationUrl}`,
+      { chatId, formatType },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log(`[QStash] Enqueued render task: ${formatType} for chat ${chatId}`);
+  } catch (error) {
+    console.error('Error enqueuing render task:', error);
+  }
+}

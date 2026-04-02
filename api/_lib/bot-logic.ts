@@ -431,74 +431,17 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       await ctx.answerCbQuery('🎨 מעבד את הבקשה...');
       
       const userId = ctx.from?.id;
-      const supabase = getSupabase();
-      if (!supabase || !userId) return ctx.reply('שגיאת מערכת: לא ניתן להתחבר לבסיס הנתונים.');
+      if (!userId) return;
 
-      // 🔍 1. FETCH ORIGINAL (v51.1 Zero-Waste Strategy)
-      const { data: session, error: sessErr } = await supabase
-        .from('bot_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      // 🚀 ASYNC MODE (v51.3): Offload heavy AI (3.1 Pro + Nano Banana) to background worker
+      await ctx.reply(`🚀 **מעבד את העיצוב... זה ייקח כ-30 שניות.**\nאנחנו נשלח לך את התוצאה הסופית לכאן ברגע שהיא תהיה מוכנה! ✨`);
 
-      if (sessErr || !session?.session_data?.originalBuffer) {
-        return ctx.reply('מצטערים, המידע על התמונה אבד. אנא שלחו תמונה חדשה.');
-      }
-
-      const originalBuffer = Buffer.from(session.session_data.originalBuffer, 'base64');
-      const fileId = session.session_data.lastImageId || 'image';
-
-      // 🧠 2. ADVANCED ANALYSIS (Gemini 3.1 Pro Preview)
-      const statusMsg = await ctx.reply('🧠 **מנתח טכניקה ויוצר תוכן (Gemini 3.1 Pro)...**');
-      
-      let aiResult;
-      try {
-        aiResult = await analyzeAndGenerate(originalBuffer, 'Luxury Beauty Design');
-      } catch (err: any) {
-        console.error('[Bot-Logic] Analysis failed:', err.message);
-        throw new Error('FAILED_ANALYSIS');
-      }
-
-      // 📸 3. HIGH-FIDELITY RETOUCH (NANO BANANA PRO)
-      await ctx.telegram.editMessageText(ctx.chat?.id, statusMsg.message_id, undefined, '✨ **מבצע רטוש אמנותי (NANO BANANA PRO)...**');
-      
-      let finalBaseBuffer;
-      try {
-        finalBaseBuffer = await enhanceImage(originalBuffer, aiResult.imagenPrompt);
-      } catch (err: any) {
-        console.warn('[Bot-Logic] Retouch failed, using original:', err.message);
-        finalBaseBuffer = originalBuffer;
-      }
-
-      // 🎨 4. DESIGN & RENDER
-      await ctx.telegram.editMessageText(ctx.chat?.id, statusMsg.message_id, undefined, '🖌 **מרכיב את העיצוב הסופי...**');
-
-      const { generateSocialPost } = await import('./graphic-engine.js');
-      
-      let socialFormat: any = 'SQUARE_1_1';
-      let formatName = 'Facebook (1:1)';
-      
-      if (formatType === 'INST') { socialFormat = 'INSTAGRAM_POST'; formatName = 'Instagram (4:5)'; }
-      if (formatType === 'WATS') { socialFormat = 'STORY_9_16'; formatName = 'WhatsApp/Story (9:16)'; }
-      if (formatType === 'FACE') { socialFormat = 'SQUARE_1_1'; formatName = 'Facebook (1:1)'; }
-
-      const designedBuffer = await generateSocialPost(finalBaseBuffer, {
-        format: socialFormat,
-        businessName: 'Beauty Expert',
-        overlay: aiResult.overlay || [],
-        theme: 'ORIGINAL_CLEAN'
-      });
-
-      // 🚀 5. FINAL SEND
-      await ctx.replyWithPhoto({ source: designedBuffer }, {
-        caption: `🚀 **התוצאה מוכנה!**\n📐 פורמט: **${formatName}**\n\n📝 **פוסט:** ${aiResult.post}\n\n✨ המערכת השתמשה ב-Gemini 3.1 Pro וב-Nano Banana Pro לאיכות מקסימלית.`
-      });
-      
-      await ctx.deleteMessage(statusMsg.message_id);
+      const { enqueueRenderProcessing } = await import('./qstash.js');
+      await enqueueRenderProcessing(userId, formatType);
 
     } catch (err) {
       console.error('FORMAT ERROR:', err);
-      ctx.reply('שגיאה ביצירת הפורמט.');
+      ctx.reply('שגיאה בתקשורת עם השרת.');
     }
   });
 
