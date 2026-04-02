@@ -37,20 +37,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // 3. Final Send: Selection Buttons
-    await bot.telegram.sendMessage(chatId, `📸 **התמונה התקבלה! עבור איזו רשת חברתית נכין אותה?**`, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '📸 Instagram (4:5)', callback_data: 'format_INST' }],
-          [{ text: '📱 WhatsApp Story (9:16)', callback_data: 'format_WATS' }],
-          [{ text: '👥 Facebook (1:1)', callback_data: 'format_FACE' }]
+    // 🚀 STEP 3: SHOW DESIGN MENU (Premium Design Studio Flow)
+    const fId = fileId || 'image';
+    const menu = {
+      inline_keyboard: [
+        [
+          { text: '💰 הוסף מחיר', callback_data: `design_PRICE_#_${fId.slice(-6)}` },
+          { text: '🖌 הוסף כותרת', callback_data: `design_TITLE_#_${fId.slice(-6)}` }
+        ],
+        [
+          { text: '💎 הוסף לוגו/שם', callback_data: `design_LOGO_#_${fId.slice(-6)}` },
+          { text: '🎁 מבצע מיוחד', callback_data: `design_PROMO_#_${fId.slice(-6)}` }
+        ],
+        [
+          { text: '✨ סיימתי! בחר רשת חברתית', callback_data: `design_DONE_#_${fId.slice(-6)}` }
         ]
-      }
+      ]
+    };
+
+    await bot.telegram.sendMessage(chatId, `🎨 **סטודיו BeautyOS פתוח!**\n\nהתמונה התקבלה. השתמש בכפתורים כדי להוסיף טקסט, מחיר או לוגו.\nבסיום, נבצע **רטוש AI משולב** (Nano Banana) ליצירת הפוסט המושלם. ✨`, {
+      parse_mode: 'Markdown',
+      reply_markup: menu
     });
 
-    console.log('[AI-Worker v51.1] Silent Success (Stored Original Buffer)');
-
-    // Success response to QStash
+    console.log('[AI-Worker v52.2] Success: Design Menu Sent');
     return res.status(200).send('Completed');
 
   } catch (err: any) {

@@ -15,7 +15,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getSupabase();
     if (!supabase) throw new Error('Supabase integration missing');
 
-    // 🔍 1. FETCH ORIGINAL (v51.1 Zero-Waste Strategy)
     const { data: session, error: sessErr } = await supabase
       .from('bot_sessions')
       .select('*')
@@ -27,25 +26,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).send('Session not found');
     }
 
-    const originalBuffer = Buffer.from(session.session_data.originalBuffer, 'base64');
+    const { generateSocialPost } = await import('./_lib/graphic-engine.js');
+    let enhancedMaster: Buffer;
+    let imagenPrompt = 'Luxury Beauty Design';
 
-    // 🧠 2. ADVANCED ANALYSIS (Gemini 3.1 Pro Preview)
-    console.log('[Render-Worker] Running Gemini 3.1 Pro Analysis...');
-    const aiResult = await analyzeAndGenerate(originalBuffer, 'Luxury Beauty Design');
+    // 🏆 CONSISTENCY SYSTEM (v52.2): Check for cached Master-File
+    if (session.session_data.enhancedMaster) {
+      console.log('[Render-Worker v52.2] Cache HIT: Using existing Master-File');
+      enhancedMaster = Buffer.from(session.session_data.enhancedMaster, 'base64');
+    } else {
+      console.log('[Render-Worker v52.2] Cache MISS: Creating new Master-File');
+      const originalBuffer = Buffer.from(session.session_data.originalBuffer, 'base64');
 
-    // 📸 3. HIGH-FIDELITY RETOUCH (NANO BANANA PRO)
-    console.log('[Render-Worker] Running NANO BANANA PRO Enhancement...');
-    let finalBaseBuffer;
-    try {
-      finalBaseBuffer = await enhanceImage(originalBuffer, aiResult.imagenPrompt);
-    } catch (err: any) {
-      console.warn('[Render-Worker] Retouch failed, using original:', err.message);
-      finalBaseBuffer = originalBuffer;
+      // 1. Apply UI Design to Original (Integrated Processing)
+      console.log('[Render-Worker] Applying design layer to original...');
+      const designedOriginal = await generateSocialPost(originalBuffer, {
+        format: 'ORIGINAL',
+        overlay: session.session_data.lastOverlay || [],
+        theme: 'WATERMARK'
+      });
+
+      // 2. AI Analysis
+      console.log('[Render-Worker] Running Gemini 3.1 Pro Analysis...');
+      const aiResult = await analyzeAndGenerate(designedOriginal, 'Professional Luxury Beauty');
+      imagenPrompt = aiResult.imagenPrompt;
+
+      // 3. High-Fidelity Retouch (NANO BANANA PRO)
+      console.log('[Render-Worker] Running NANO BANANA PRO on Designed Original...');
+      try {
+        enhancedMaster = await enhanceImage(designedOriginal, imagenPrompt);
+      } catch (err: any) {
+        console.warn('[Render-Worker] Retouch failed, using current draft:', err.message);
+        enhancedMaster = designedOriginal;
+      }
+
+      // 4. Persistence (Save Master-File for consistency in next clicks)
+      await supabase.from('bot_sessions').update({
+        session_data: {
+          ...session.session_data,
+          enhancedMaster: enhancedMaster.toString('base64'),
+          lastImagenPrompt: imagenPrompt,
+          lastPost: aiResult.post
+        }
+      }).eq('user_id', chatId);
     }
 
-    // 🎨 4. DESIGN & RENDER
-    console.log('[Render-Worker] Rendering final design...');
-    const { generateSocialPost } = await import('./_lib/graphic-engine.js');
+    // 🎨 FINAL SOCIAL RENDER (Formatting Only)
+    console.log('[Render-Worker] Preparing final social crop...');
     
     let socialFormat: any = 'SQUARE_1_1';
     let formatName = 'Facebook (1:1)';
@@ -54,20 +81,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (formatType === 'WATS') { socialFormat = 'STORY_9_16'; formatName = 'WhatsApp/Story (9:16)'; }
     if (formatType === 'FACE') { socialFormat = 'SQUARE_1_1'; formatName = 'Facebook (1:1)'; }
 
-    const designedBuffer = await generateSocialPost(finalBaseBuffer, {
+    const finalResult = await generateSocialPost(enhancedMaster, {
       format: socialFormat,
       businessName: 'Beauty Expert',
-      overlay: aiResult.overlay || [],
+      overlay: [], // Already integrated into master
       theme: 'ORIGINAL_CLEAN'
     });
 
+    const captionText = session.session_data.lastPost || 'התוצאה מוכנה!';
+
     // 🚀 5. FINAL SEND
-    await bot.telegram.sendPhoto(chatId, { source: designedBuffer }, {
-      caption: `🚀 **התוצאה מוכנה!**\n📐 פורמט: **${formatName}**\n\n📝 **פוסט:** ${aiResult.post}\n\n✨ המערכת השתמשה ב-Gemini 3.1 Pro וב-Nano Banana Pro לאיכות מקסימלית.`,
+    await bot.telegram.sendPhoto(chatId, { source: finalResult }, {
+      caption: `🚀 **התוצאה מוכנה!**\n📐 פורמט: **${formatName}**\n\n📝 **פוסט:** ${captionText}\n\n✨ רטוש AI ועיצוב משולב (3.1 Pro + Nano Banana).`,
       parse_mode: 'Markdown'
     });
 
-    console.log('[Render-Worker v51.3] Background Task Complete Success');
+    console.log('[Render-Worker v52.2] Success Complete');
     return res.status(200).send('Render Complete');
 
   } catch (err: any) {

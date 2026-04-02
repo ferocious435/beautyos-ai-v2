@@ -295,36 +295,35 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   ]);
 
   async function triggerDesignRender(ctx: BotContext, fileId: string) {
-    const loadingMsg = await ctx.reply('🪄 מעדכן את העיצוב...');
+    const loadingMsg = await ctx.reply('🪄 מעדכן את העיצוב (תצוגה מקדימה)...');
     try {
       const { generateSocialPost } = await import('./graphic-engine.js');
       
       let imgBuffer: Buffer;
-      if (ctx.session.lastEnhancedImage?.buffer) {
-        console.log('[BotLogic] Using enhanced buffer from session');
-        imgBuffer = Buffer.from(ctx.session.lastEnhancedImage.buffer, 'base64');
+      if (ctx.session?.originalBuffer) {
+        console.log('[BotLogic v52.2] Using original buffer from session');
+        imgBuffer = Buffer.from(ctx.session.originalBuffer, 'base64');
       } else {
-        console.log('[BotLogic] Falling back to Telegram fileId:', fileId);
         const fileLink = await ctx.telegram.getFileLink(fileId);
         const response = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
         imgBuffer = Buffer.from(response.data);
       }
 
       const designed = await generateSocialPost(imgBuffer, {
-        format: 'SQUARE_1_1',
+        format: 'ORIGINAL', // Keep original size for editing
         overlay: ctx.session.lastOverlay || [],
         theme: 'WATERMARK'
       });
 
       await ctx.replyWithPhoto({ source: designed }, {
-        caption: '✅ העיצוב עודכן! ניתן להוסיף שכבות נוספות או לסיים:',
+        caption: '✅ העיצוב עודכן! ניתן להוסיף שכבות נוספות או לסיים ולהפיק את הפוסט:',
         ...designMenu(fileId)
       });
     } catch (e) {
       console.error('DESIGN_RENDER_ERR:', e);
       ctx.reply('❌ שגיאה בעדכון העיצוב.');
     } finally {
-      await ctx.deleteMessage(loadingMsg.message_id);
+      await ctx.deleteMessage(loadingMsg.message_id).catch(() => {});
     }
   }
 
@@ -368,17 +367,16 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     return triggerDesignRender(ctx, fileId);
   });
 
-  // 3. Finalize
+  // 3. Finalize & Show Social Selection
   bot.action(/design_DONE_#_(.+)/, async (ctx) => {
     const fileId = ctx.match[1];
     await ctx.answerCbQuery();
     ctx.session.designWaitingFor = null;
 
-    return ctx.reply('✨ העיצוב הושלם! בחר פורמט לשיתוף:', Markup.inlineKeyboard([
-      [Markup.button.callback('📸 Instagram (4:5)', `fmt_INST_#_${fileId}`)],
-      [Markup.button.callback('🟢 WhatsApp (9:16)', `fmt_WATS_#_${fileId}`)],
-      [Markup.button.callback('📘 Facebook (1:1)', `fmt_FACE_#_${fileId}`)],
-      [Markup.button.callback('⭐ הוספה לפורטפוליו', `star_pf_${fileId}`)]
+    return ctx.reply('✨ העיצוב הושלם! בחר רשת חברתית לביצוע **רטוש AI משולב** (Nano Banana):', Markup.inlineKeyboard([
+      [Markup.button.callback('📸 Instagram (4:5)', `format_INST_#_${fileId}`)],
+      [Markup.button.callback('🟢 WhatsApp Story (9:16)', `format_WATS_#_${fileId}`)],
+      [Markup.button.callback('📘 Facebook (1:1)', `format_FACE_#_${fileId}`)]
     ]));
   });
 
@@ -392,9 +390,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       ctx.session.lastOverlay = ctx.session.lastOverlay || [];
       
       let line: any = { text };
-      if (type === 'PRICE') line = { text: `${text} ₪`, fontSize: 72, yPosition: 0.75, color: '#FFFFFF' };
-      else if (type === 'TITLE') line = { text: text.toUpperCase(), fontSize: 64, yPosition: 0.15, color: '#FFFFFF' };
-      else if (type === 'PROMO') line = { text: `✨ ${text} ✨`, fontSize: 80, yPosition: 0.5, color: '#FFD700' };
+      if (type === 'PRICE') line = { text: `${text} ₪`, fontSize: 72, yPosition: 0.75, color: '#FFFFFF', highlightColor: 'rgba(0,0,0,0.5)' };
+      else if (type === 'TITLE') line = { text: text.toUpperCase(), fontSize: 64, yPosition: 0.15, color: '#FFFFFF', highlightColor: 'rgba(0,0,0,0.5)' };
+      else if (type === 'PROMO') line = { text: `✨ ${text} ✨`, fontSize: 80, yPosition: 0.5, color: '#FFD700', highlightColor: 'rgba(0,0,0,0.7)' };
 
       ctx.session.lastOverlay.push(line);
       ctx.session.designWaitingFor = null;
@@ -415,6 +413,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     try {
       const fileLink = await ctx.telegram.getFileLink(photo.file_id);
       
+      const { enqueueAiProcessing } = await import('./qstash.js');
       await enqueueAiProcessing(ctx.chat.id, msg.message_id, fileLink.href, photo.file_id, caption);
     } catch (error: any) {
       console.error('PHOTO HANDLER ERROR:', error);
@@ -422,19 +421,21 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     }
   });
 
-  // Handler for Formats
+  // Handler for Formats (Triggering the background worker)
   bot.action(/^format_(.*)/, async (ctx) => {
     try {
       const parts = ctx.match[1].split('_#_');
       const formatType = parts[0]; 
       
-      await ctx.answerCbQuery('🎨 מעבד את הבקשה...');
+      await ctx.answerCbQuery('🎨 בונה את המופע הסופי...');
       
       const userId = ctx.from?.id;
       if (!userId) return;
 
-      // 🚀 ASYNC MODE (v51.3): Offload heavy AI (3.1 Pro + Nano Banana) to background worker
-      await ctx.reply(`🚀 **מעבד את העיצוב... זה ייקח כ-30 שניות.**\nאנחנו נשלח לך את התוצאה הסופית לכאן ברגע שהיא תהיה מוכנה! ✨`);
+      // Reset Master Cache for the new request (Safe-sync v52.2)
+      if (ctx.session) ctx.session.enhancedMasterId = null;
+
+      await ctx.reply(`🚀 **מבצע רטוש AI ועיצוב סופי...**\nזה ייקח כ-30 שניות. אנחנו נשלח לך את התוצאה לכאן! ✨`);
 
       const { enqueueRenderProcessing } = await import('./qstash.js');
       await enqueueRenderProcessing(userId, formatType);
