@@ -414,8 +414,17 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       ctx.session.lastOverlay.push(line);
       ctx.session.designWaitingFor = null;
 
-      // 🔄 Immediate Responsive Feedback (v52.8)
-      // Update the Master-Panel message immediately
+      // 🔄 Immediate Responsive Feedback (v52.9 Force Sync)
+      // Save to Supabase first for absolute persistence
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('bot_sessions').upsert({
+          user_id: ctx.from.id,
+          session_data: ctx.session,
+          updated_at: new Date().toISOString()
+        });
+      }
+
       await triggerDesignRender(ctx, fileId);
 
       // Delete the input message to keep chat clean

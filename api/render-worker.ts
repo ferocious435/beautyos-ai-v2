@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log('[Render-Worker] Applying design layer to original...');
       const designedOriginal = await generateSocialPost(originalBuffer, {
         format: 'ORIGINAL',
-        overlay: session.session_data.lastOverlay || [],
+        overlay: [], // ✅ Moved to Post-Process for 100% clarity
         theme: 'WATERMARK'
       });
 
@@ -92,10 +92,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (formatType === 'WATS') { socialFormat = 'STORY_9_16'; formatName = 'WhatsApp/Story (9:16)'; }
     if (formatType === 'FACE') { socialFormat = 'SQUARE_1_1'; formatName = 'Facebook (1:1)'; }
 
+    // 🎨 FINAL RENDER (POST-PROCESS DESIGN - v52.9 FIX)
+    // We apply overlays AFTER AI retouching to prevent erasure
     const finalResult = await generateSocialPost(enhancedMaster, {
       format: socialFormat,
       businessName: 'Beauty Expert',
-      overlay: [], // Already integrated into master
+      overlay: session.session_data.lastOverlay || [], // ✅ Guaranteed Visibility
       theme: 'ORIGINAL_CLEAN'
     });
 

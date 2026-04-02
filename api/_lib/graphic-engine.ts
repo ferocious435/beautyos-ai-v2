@@ -59,12 +59,13 @@ export async function generateSocialPost(
     return Buffer.from(originalCanvas.toBuffer('image/jpeg'));
   }
 
-  // 🚀 OUTPAINTING PREP (v52.8 Innovation)
-  // Step 1: Base Layer (Neutral Black for AI Expansion)
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
+  // 🚀 AI RECONSTRUCTION SEED (v52.9 Improvement)
+  // Step 1: Context Layer (Blurred Backdrop - Giving AI clues to build reality)
+  ctx.filter = 'blur(40px) brightness(0.6) saturate(1.2)';
+  ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+  ctx.filter = 'none';
 
-  // Step 2: Main Image (Contain Mode - Focal Point for AI)
+  // Step 2: Main Image (Original Focus)
   const imgAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
 
