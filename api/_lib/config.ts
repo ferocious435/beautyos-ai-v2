@@ -4,11 +4,11 @@ export const CONFIG = {
   GEMINI_API_KEY: process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
   // --- AI Model Versions (Verified 2026-04-02) ---
   MODELS: {
-    ANALYSIS: 'models/gemini-2.5-flash',           // Stable (v37)
-    CONTENT: 'models/gemini-2.5-flash',            // Fast (v37)
-    ENHANCEMENT: 'models/gemini-3.1-flash',        // SOTA Image/Multimodal (v37)
-    EMBEDDING: 'models/gemini-embedding-001',
-    FALLBACK: 'models/gemini-2.5-pro',              // Legacy Stable
+    ANALYSIS: 'models/gemini-3.1-pro',              // Standard Analysis (Admin Dashboard)
+    CONTENT: 'models/gemini-3-flash',               // Fast Content Generation
+    ENHANCEMENT: 'models/gemini-3-pro-image',       // NANO BANANA PRO (Image SOTA)
+    EMBEDDING: 'models/gemini-embedding-1',
+    FALLBACK: 'models/gemini-2.5-flash',
   },
 
   // --- Style DNA & Master prompts ---

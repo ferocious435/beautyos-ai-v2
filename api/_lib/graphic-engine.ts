@@ -45,37 +45,51 @@ export async function generateSocialPost(
   const canvas = createCanvas(targetWidth, targetHeight);
   const ctx = canvas.getContext('2d');
 
-  // 1. Фото (Smart Scaling Fix v37)
+  // 1. Фото (Salamat v46 - Smart Full Frame)
   const image = await loadImage(imageBuffer);
   
-  // Если картинка слишком маленькая и НЕ ретуширована, мы не растягиваем её на весь холст (чтобы не было мыла)
-  const isTooSmall = image.width < 600 || image.height < 600;
-  const shouldStretch = options.isEnhanced || !isTooSmall;
+  // Если выбран формат ORIGINAL, мы просто возвращаем буфер без изменений (или с наложением текста на оригинал)
+  if (format === 'ORIGINAL') {
+    // Для оригинала мы создаем холст точно под размер фото
+    const originalCanvas = createCanvas(image.width, image.height);
+    const octx = originalCanvas.getContext('2d');
+    octx.drawImage(image, 0, 0);
+    // Продолжаем работу с octx вместо ctx
+    renderOverlay(octx, image.width, image.height, options);
+    return Buffer.from(originalCanvas.toBuffer('image/jpeg'));
+  }
 
+  // Для соцсетей: ВСЕГДА используем Smart Crop (Full Frame)
   const imgAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
 
   let sx = 0, sy = 0, sw = image.width, sh = image.height;
   
-  if (shouldStretch) {
-    if (imgAspect > canvasAspect) {
-      sw = image.height * canvasAspect;
-      sx = (image.width - sw) / 2;
-    } else {
-      sh = image.width / canvasAspect;
-      sy = (image.height - sh) / 2;
-    }
-    ctx.drawImage(image, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
+  if (imgAspect > canvasAspect) {
+    // Фото шире холста -> обрезаем бока
+    sw = image.height * canvasAspect;
+    sx = (image.width - sw) / 2;
   } else {
-    // Режим "Без мыла": Центрируем оригинал на черном фоне или используем его как есть
-    ctx.fillStyle = '#050508';
-    ctx.fillRect(0, 0, targetWidth, targetHeight);
-    const drawW = Math.min(image.width, targetWidth);
-    const drawH = drawW / imgAspect;
-    ctx.drawImage(image, (targetWidth - drawW) / 2, (targetHeight - drawH) / 2, drawW, drawH);
+    // Фото выше холста -> обрезаем верх/низ
+    sh = image.width / canvasAspect;
+    sy = (image.height - sh) / 2;
   }
 
-  // 2. Универсальный градиент (Luxury Contrast)
+  // Рисуем с заполнением всего пространства
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
+
+  // 2. Наложение дизайна (Текст, градиент, брендинг)
+  renderOverlay(ctx, targetWidth, targetHeight, options);
+
+  const buffer = canvas.toBuffer('image/jpeg');
+  return Buffer.from(buffer);
+}
+
+/**
+ * Вспомогательная функция для наложения дизайна (DNA BeautyOS)
+ */
+function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, options: RenderOptions) {
+  const { businessName = 'BeautyOS', overlay = [], theme = 'ORIGINAL_CLEAN' } = options;
   const gradH = targetHeight * 0.5;
   const grad = ctx.createLinearGradient(0, targetHeight - gradH, 0, targetHeight);
   grad.addColorStop(0, 'rgba(0,0,0,0)');
@@ -167,7 +181,4 @@ export async function generateSocialPost(
     ctx.fillText(businessName, targetWidth / 2, targetHeight - 40);
     ctx.shadowBlur = 0;
   }
-
-  const buffer = canvas.toBuffer('image/jpeg');
-  return Buffer.from(buffer);
 }
