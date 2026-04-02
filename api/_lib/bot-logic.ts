@@ -428,31 +428,50 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       const parts = ctx.match[1].split('_#_');
       const formatType = parts[0]; 
       
-      await ctx.answerCbQuery('🎨 מעצב עבורך...');
+      await ctx.answerCbQuery('🎨 מעבד את הבקשה...');
       
-      const session = ctx.session.lastImageScan;
-      if (!session) return ctx.reply('מצטערים, המידע על התמונה אבד. אנא שלחו תמונה חדשה.');
+      const userId = ctx.from?.id;
+      const supabase = getSupabase();
+      if (!supabase || !userId) return ctx.reply('שגיאת מערכת: לא ניתן להתחבר לבסיס הנתונים.');
 
-      // 🚀 NANO BANANA PRO: On-Demand Quality Enhancement (v47)
-      const loadingMsgContext = await ctx.reply(`📸 **משפר איכות ומשלים עיצוב (NANO BANANA PRO)...**`);
-      
-      let finalBaseBuffer: Buffer;
-      const originalB64 = ctx.session.originalBuffer || ctx.session.lastEnhancedImage?.buffer;
-      
-      if (!originalB64) {
+      // 🔍 1. FETCH ORIGINAL (v51.1 Zero-Waste Strategy)
+      const { data: session, error: sessErr } = await supabase
+        .from('bot_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (sessErr || !session?.session_data?.originalBuffer) {
         return ctx.reply('מצטערים, המידע על התמונה אבד. אנא שלחו תמונה חדשה.');
       }
+
+      const originalBuffer = Buffer.from(session.session_data.originalBuffer, 'base64');
+      const fileId = session.session_data.lastImageId || 'image';
+
+      // 🧠 2. ADVANCED ANALYSIS (Gemini 3.1 Pro Preview)
+      const statusMsg = await ctx.reply('🧠 **מנתח טכניקה ויוצר תוכן (Gemini 3.1 Pro)...**');
       
-      // Real AI Improvement ONLY NOW per Sergey's Cost Optimization
-      const rawBuffer = Buffer.from(originalB64, 'base64');
-      const prompt = ctx.session.lastEnhancedImage?.imagenPrompt || 'Luxury beauty photography';
-      
+      let aiResult;
       try {
-        finalBaseBuffer = await enhanceImage(rawBuffer, prompt);
-      } catch (e) {
-        console.warn('[BotLogic] On-demand enhancement failed, using original-res');
-        finalBaseBuffer = rawBuffer;
+        aiResult = await analyzeAndGenerate(originalBuffer, 'Luxury Beauty Design');
+      } catch (err: any) {
+        console.error('[Bot-Logic] Analysis failed:', err.message);
+        throw new Error('FAILED_ANALYSIS');
       }
+
+      // 📸 3. HIGH-FIDELITY RETOUCH (NANO BANANA PRO)
+      await ctx.telegram.editMessageText(ctx.chat?.id, statusMsg.message_id, undefined, '✨ **מבצע רטוש אמנותי (NANO BANANA PRO)...**');
+      
+      let finalBaseBuffer;
+      try {
+        finalBaseBuffer = await enhanceImage(originalBuffer, aiResult.imagenPrompt);
+      } catch (err: any) {
+        console.warn('[Bot-Logic] Retouch failed, using original:', err.message);
+        finalBaseBuffer = originalBuffer;
+      }
+
+      // 🎨 4. DESIGN & RENDER
+      await ctx.telegram.editMessageText(ctx.chat?.id, statusMsg.message_id, undefined, '🖌 **מרכיב את העיצוב הסופי...**');
 
       const { generateSocialPost } = await import('./graphic-engine.js');
       
@@ -463,20 +482,19 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       if (formatType === 'WATS') { socialFormat = 'STORY_9_16'; formatName = 'WhatsApp/Story (9:16)'; }
       if (formatType === 'FACE') { socialFormat = 'SQUARE_1_1'; formatName = 'Facebook (1:1)'; }
 
-      const overlay = ctx.session.lastOverlay || [];
-
       const designedBuffer = await generateSocialPost(finalBaseBuffer, {
         format: socialFormat,
         businessName: 'Beauty Expert',
-        overlay: overlay,
+        overlay: aiResult.overlay || [],
         theme: 'ORIGINAL_CLEAN'
       });
 
+      // 🚀 5. FINAL SEND
       await ctx.replyWithPhoto({ source: designedBuffer }, {
-        caption: `✨ **התוצאה מוכנה!**\n📐 פורמט: **${formatName}**\n\nניתן להמשיך לבחור פורמטים נוספים מהתפריט למעלה.`
+        caption: `🚀 **התוצאה מוכנה!**\n📐 פורמט: **${formatName}**\n\n📝 **פוסט:** ${aiResult.post}\n\n✨ המערכת השתמשה ב-Gemini 3.1 Pro וב-Nano Banana Pro לאיכות מקסימלית.`
       });
       
-      await ctx.deleteMessage(loadingMsgContext.message_id);
+      await ctx.deleteMessage(statusMsg.message_id);
 
     } catch (err) {
       console.error('FORMAT ERROR:', err);

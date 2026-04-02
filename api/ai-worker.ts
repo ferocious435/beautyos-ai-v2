@@ -18,53 +18,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log(`[AI-Worker v44] Starting processing for chat: ${chatId}`);
 
   try {
-    // 📢 IMMEDIATE FEEDBACK: Linear Start
-    await bot.telegram.sendMessage(chatId, `📡 **מערכת הענן קיבלה את הבקשה!** (התחלת עיבוד...)`).catch(() => {});
-    
+    // 🧼 SILENT MODE (v51.1): No auto-processing. Zero initial AI cost.
     // 1. Download
     const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
     const imageData = Buffer.from(response.data);
 
-    // 2. Analysis
-    await bot.telegram.sendMessage(chatId, `🧠 **מנתח טכניקה ויוצר תוכן (Gemini)...**`).catch(() => {});
-    const ai = await analyzeAndGenerate(imageData, caption || 'Beauty');
-
-    // 3. (v47 - ON-DEMAND Enhancement: Skip automatic retouching)
-    // Ретушь теперь запускается только при нажатии на кнопку формата (Instagram, WhatsApp и т.д.)
-    let retouchStatus = '⏳ **ממתין לבחירת רשת חברתית לשיפור...**';
-    const finalImage = imageData;
-
-    const isRetouched = finalImage.length !== imageData.length;
-    
-    // 4. Persistence (Supabase v47 Economy Mode)
+    // 2. Persistence (Storage for later AI Analysis + Retouching)
     const supabase = getSupabase();
     if (supabase) {
       await supabase.from('bot_sessions').upsert({
          user_id: chatId,
          session_data: {
-           lastImageScan: { file_id: fileId, ai: ai, enhancedFileId: fileId },
-           originalBuffer: imageData.toString('base64'), // Save original for later NANO BANANA PRO
-           lastEnhancedImage: { 
-             buffer: imageData.toString('base64'), 
-             imagenPrompt: ai.imagenPrompt,
-             status: 'pending_retouch'
-           },
-           lastOverlay: ai.overlay || []
+           originalBuffer: imageData.toString('base64'),
+           lastImageId: fileId,
+           status: 'pending_selection'
          },
          updated_at: new Date().toISOString()
       });
     }
 
-    // 5. Final Send (Telegram)
-    await bot.telegram.sendPhoto(chatId, { source: finalImage }, {
-        caption: `🚀 **התוצאה מוכנה!** (${ai.detectedService})\n\n${ai.post}\n\n📸 **Status:** ${retouchStatus}\n✨ **Action:** ${ai.cta}`,
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('💰 הוסף מחיר', `design_PRICE_#_${fileId.slice(-6)}`), Markup.button.callback('🖌 הוסף כותרת', `design_TITLE_#_${fileId.slice(-6)}`)],
-          [Markup.button.callback('💎 הוסף לוגו/שם', `design_LOGO_#_${fileId.slice(-6)}`), Markup.button.callback('🎁 מבצע מיוחד', `design_PROMO_#_${fileId.slice(-6)}`)],
-          [Markup.button.callback('✨ סיימתי / ללא טקסט', `design_DONE_#_${fileId.slice(-6)}`)]
-        ])
+    // 3. Final Send: Selection Buttons
+    await bot.telegram.sendMessage(chatId, `📸 **התמונה התקבלה! עבור איזו רשת חברתית נכין אותה?**`, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📸 Instagram (4:5)', callback_data: 'format_INST' }],
+          [{ text: '📱 WhatsApp Story (9:16)', callback_data: 'format_WATS' }],
+          [{ text: '👥 Facebook (1:1)', callback_data: 'format_FACE' }]
+        ]
+      }
     });
+
+    console.log('[AI-Worker v51.1] Silent Success (Stored Original Buffer)');
 
     // Success response to QStash
     return res.status(200).send('Completed');
