@@ -55,13 +55,13 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
     throw new Error(`Missing env: TOKEN=${!!token}, APPURL=${!!appUrl}`);
   }
 
+  // GPS-Sync: Automatic URL detection to prevent "Stuck" status
   const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/ai-worker`;
   
-  // LOG THE URL FOR TRUTH
-  await telegraf.telegram.editMessageText(chatId, messageId, undefined, `⏳ המערכת מכינה את הערוץ לכתובת: ${appUrl.slice(0, 20)}...`);
+  await telegraf.telegram.editMessageText(chatId, messageId, undefined, `⏳ המערכת מזהה את השרת... ✨`);
 
   try {
-    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `📡 שולח לעיבוד ענן...`);
+    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `📡 שולח פקודה לעיבוד ענן...`);
     
     await axios.post(
       `${qUrl}/v2/publish/${destinationUrl}`,
