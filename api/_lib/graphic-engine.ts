@@ -59,13 +59,12 @@ export async function generateSocialPost(
     return Buffer.from(originalCanvas.toBuffer('image/jpeg'));
   }
 
-  // 🎯 UNIVERSAL SMART-FIT (v52.7 Professional Polish)
-  // Step 1: Background Layer (Blurred & Darkened Original)
-  ctx.filter = 'blur(50px) brightness(0.6) saturate(1.2)';
-  ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
-  ctx.filter = 'none';
+  // 🚀 OUTPAINTING PREP (v52.8 Innovation)
+  // Step 1: Base Layer (Neutral Black for AI Expansion)
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-  // Step 2: Foreground Layer (Contain Mode - No Cropping Ever)
+  // Step 2: Main Image (Contain Mode - Focal Point for AI)
   const imgAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
 

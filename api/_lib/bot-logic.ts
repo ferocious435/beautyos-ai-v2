@@ -414,10 +414,13 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       ctx.session.lastOverlay.push(line);
       ctx.session.designWaitingFor = null;
 
+      // 🔄 Immediate Responsive Feedback (v52.8)
+      // Update the Master-Panel message immediately
+      await triggerDesignRender(ctx, fileId);
+
       // Delete the input message to keep chat clean
       try { await ctx.deleteMessage(); } catch (e) {}
-
-      return triggerDesignRender(ctx, fileId);
+      return;
     }
     return next();
   });

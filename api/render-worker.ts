@@ -46,14 +46,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         theme: 'WATERMARK'
       });
 
-      // 2. AI Analysis & Multi-Modal Prompt Generation (v52.7)
-      console.log('[Render-Worker] Running Gemini 3.1 Pro Analysis...');
+      // 2. AI Analysis & Multi-Modal Expansion Generation (v52.8)
+      console.log('[Render-Worker] Running Gemini 3.1 Pro Outpainting Analysis...');
       const uiPromptAddon = (session.session_data.lastOverlay || []).length > 0
-        ? ` IMPORTANT: This image has embedded graphic design elements (Price/Title). 
-           Integrate them into the Luxury Beauty Studio aesthetic. Sharpen the text and treat it as a professional overlay.`
+        ? ` IMPORTANT: This image has price/title design. Integrate it as premium studio graphics. 
+           SHARPEN THE TEXT OVERLAYS.`
         : '';
       
-      const aiResult = await analyzeAndGenerate(designedOriginal, `Professional Luxury Beauty. ${uiPromptAddon}`);
+      const expansionPrompt = `
+        OUTPAINTING & CREATIVE EXPANSION MODE.
+        Task: Center image is nails/beauty art. 
+        Action: PROFESSIONALLY FILL the black surrounding areas with a realistic luxury beauty studio background. 
+        Style: Cinematic lighting, matching the textures of the center piece. 
+        ${uiPromptAddon}
+      `;
+
+      const aiResult = await analyzeAndGenerate(designedOriginal, expansionPrompt);
       imagenPrompt = aiResult.imagenPrompt;
 
       // 3. High-Fidelity Retouch (NANO BANANA PRO)
@@ -102,9 +110,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ]
     ];
 
-    // 🚀 5. FINAL SEND (Professional Caption & Share UI)
+    // 🚀 5. FINAL SEND (Professional Clean Caption & Share UI)
     await bot.telegram.sendPhoto(chatId, { source: finalResult }, {
-      caption: `🚀 **התוצאה מוכנה! ✨**\n\n📐 פורמט: **${formatName}**\n\n📝 **פוסט שיווקי:**\n${captionText}\n\n✨ רטוש AI ועיצוב משולב (Nano Banana Pro).`,
+      caption: captionText,
       parse_mode: 'Markdown',
       reply_markup: { inline_keyboard: shareButtons }
     });
