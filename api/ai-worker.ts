@@ -29,31 +29,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await bot.telegram.sendMessage(chatId, `🧠 **מנתח טכניקה ויוצר תוכן (Gemini)...**`).catch(() => {});
     const ai = await analyzeAndGenerate(imageData, caption || 'Beauty');
 
-    // 3. Enhancement (Imagen)
-    await bot.telegram.sendMessage(chatId, `📸 **משפר איכות עבור ${ai.detectedService || 'העבודה'}...**`).catch(() => {});
-    
-    let finalImage = imageData;
-    let retouchStatus = '✨ **AI Retouch Applied**';
-    try {
-      finalImage = await enhanceImage(imageData, ai.imagenPrompt);
-    } catch (e: any) {
-      console.warn('[AI-Worker] Enhancement failed, using original', e.message);
-      retouchStatus = '⚠️ **(Original Quality: AI Busy)**';
-    }
+    // 3. (v47 - ON-DEMAND Enhancement: Skip automatic retouching)
+    // Ретушь теперь запускается только при нажатии на кнопку формата (Instagram, WhatsApp и т.д.)
+    let retouchStatus = '⏳ **ממתין לבחירת רשת חברתית לשיפור...**';
+    const finalImage = imageData;
 
     const isRetouched = finalImage.length !== imageData.length;
     
-    // 4. Persistence (Supabase)
+    // 4. Persistence (Supabase v47 Economy Mode)
     const supabase = getSupabase();
     if (supabase) {
       await supabase.from('bot_sessions').upsert({
          user_id: chatId,
          session_data: {
            lastImageScan: { file_id: fileId, ai: ai, enhancedFileId: fileId },
+           originalBuffer: imageData.toString('base64'), // Save original for later NANO BANANA PRO
            lastEnhancedImage: { 
-             buffer: finalImage.toString('base64'), 
+             buffer: imageData.toString('base64'), 
              imagenPrompt: ai.imagenPrompt,
-             status: isRetouched ? 'enhanced' : 'original'
+             status: 'pending_retouch'
            },
            lastOverlay: ai.overlay || []
          },

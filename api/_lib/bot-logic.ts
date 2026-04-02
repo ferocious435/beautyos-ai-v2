@@ -433,40 +433,50 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       const session = ctx.session.lastImageScan;
       if (!session) return ctx.reply('מצטערים, המידע על התמונה אבד. אנא שלחו תמונה חדשה.');
 
-      const loadingMsg = await ctx.reply('🪄 מעבד את העיצוב הסופי...');
+      // 🚀 NANO BANANA PRO: On-Demand Quality Enhancement (v47)
+      const loadingMsgContext = await ctx.reply(`📸 **משפר איכות ומשלים עיצוב (NANO BANANA PRO)...**`);
       
-      let imgBuffer: Buffer;
-      if (ctx.session.lastEnhancedImage?.buffer) {
-        console.log('[BotLogic] (Format) Using enhanced buffer');
-        imgBuffer = Buffer.from(ctx.session.lastEnhancedImage.buffer, 'base64');
-      } else {
-        const fileLink = await ctx.telegram.getFileLink(session.file_id);
-        const response = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
-        imgBuffer = Buffer.from(response.data);
+      let finalBaseBuffer: Buffer;
+      const originalB64 = ctx.session.originalBuffer || ctx.session.lastEnhancedImage?.buffer;
+      
+      if (!originalB64) {
+        return ctx.reply('מצטערים, המידע על התמונה אבד. אנא שלחו תמונה חדשה.');
+      }
+      
+      // Real AI Improvement ONLY NOW per Sergey's Cost Optimization
+      const rawBuffer = Buffer.from(originalB64, 'base64');
+      const prompt = ctx.session.lastEnhancedImage?.imagenPrompt || 'Luxury beauty photography';
+      
+      try {
+        finalBaseBuffer = await enhanceImage(rawBuffer, prompt);
+      } catch (e) {
+        console.warn('[BotLogic] On-demand enhancement failed, using original-res');
+        finalBaseBuffer = rawBuffer;
       }
 
       const { generateSocialPost } = await import('./graphic-engine.js');
       
-      let socialFormat: any = 'INSTAGRAM_POST';
-      if (formatType === 'WATS') socialFormat = 'STORY_9_16';
-      if (formatType === 'FACE') socialFormat = 'SQUARE_1_1';
+      let socialFormat: any = 'SQUARE_1_1';
+      let formatName = 'Facebook (1:1)';
+      
+      if (formatType === 'INST') { socialFormat = 'INSTAGRAM_POST'; formatName = 'Instagram (4:5)'; }
+      if (formatType === 'WATS') { socialFormat = 'STORY_9_16'; formatName = 'WhatsApp/Story (9:16)'; }
+      if (formatType === 'FACE') { socialFormat = 'SQUARE_1_1'; formatName = 'Facebook (1:1)'; }
 
-      const overlay = ctx.session.lastOverlay || session.ai?.overlay || [];
-      const isEnhanced = (ctx.session.lastEnhancedImage as any)?.status === 'enhanced';
+      const overlay = ctx.session.lastOverlay || [];
 
-      const designedBuffer = await generateSocialPost(imgBuffer, {
+      const designedBuffer = await generateSocialPost(finalBaseBuffer, {
         format: socialFormat,
         businessName: 'Beauty Expert',
         overlay: overlay,
-        isEnhanced,
         theme: 'ORIGINAL_CLEAN'
       });
 
       await ctx.replyWithPhoto({ source: designedBuffer }, {
-        caption: `✨ העיצוב שלך מושקע ומוכן ל- ${formatType}!`
+        caption: `✨ **התוצאה מוכנה!**\n📐 פורמט: **${formatName}**\n\nניתן להמשיך לבחור פורמטים נוספים מהתפריט למעלה.`
       });
       
-      await ctx.deleteMessage(loadingMsg.message_id);
+      await ctx.deleteMessage(loadingMsgContext.message_id);
 
     } catch (err) {
       console.error('FORMAT ERROR:', err);
