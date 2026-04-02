@@ -46,21 +46,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         theme: 'WATERMARK'
       });
 
-      // 2. AI Analysis
+      // 2. AI Analysis & Multi-Modal Prompt Generation (v52.7)
       console.log('[Render-Worker] Running Gemini 3.1 Pro Analysis...');
-      const aiResult = await analyzeAndGenerate(designedOriginal, 'Professional Luxury Beauty');
+      const uiPromptAddon = (session.session_data.lastOverlay || []).length > 0
+        ? ` IMPORTANT: This image has embedded graphic design elements (Price/Title). 
+           Integrate them into the Luxury Beauty Studio aesthetic. Sharpen the text and treat it as a professional overlay.`
+        : '';
+      
+      const aiResult = await analyzeAndGenerate(designedOriginal, `Professional Luxury Beauty. ${uiPromptAddon}`);
       imagenPrompt = aiResult.imagenPrompt;
 
       // 3. High-Fidelity Retouch (NANO BANANA PRO)
       console.log('[Render-Worker] Running NANO BANANA PRO on Designed Original...');
-      try {
-        enhancedMaster = await enhanceImage(designedOriginal, imagenPrompt);
-      } catch (err: any) {
-        console.warn('[Render-Worker] Retouch failed, using current draft:', err.message);
-        enhancedMaster = designedOriginal;
-      }
+      enhancedMaster = await enhanceImage(designedOriginal, imagenPrompt);
 
-      // 4. Persistence (Save Master-File for consistency in next clicks)
+      // 4. Persistence
       await supabase.from('bot_sessions').update({
         session_data: {
           ...session.session_data,
@@ -69,6 +69,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           lastPost: aiResult.post
         }
       }).eq('user_id', chatId);
+      
+      // Update local variable for the first render
+      session.session_data.lastPost = aiResult.post;
     }
 
     // 🎨 FINAL SOCIAL RENDER (Formatting Only)
@@ -89,14 +92,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const captionText = session.session_data.lastPost || 'התוצאה מוכנה!';
+    const shareUrl = `https://wa.me/?text=${encodeURIComponent(captionText)}`;
 
-    // 🚀 5. FINAL SEND
+    // 🚀 SHARE BUTTONS (v52.7)
+    const shareButtons = [
+      [
+        { text: '📲 פרסם בסטטוס ווטסאפ', url: shareUrl },
+        { text: '📸 פתח אינסטגרם', url: `https://www.instagram.com/` }
+      ]
+    ];
+
+    // 🚀 5. FINAL SEND (Professional Caption & Share UI)
     await bot.telegram.sendPhoto(chatId, { source: finalResult }, {
-      caption: `🚀 **התוצאה מוכנה!**\n📐 פורמט: **${formatName}**\n\n📝 **פוסט:** ${captionText}\n\n✨ רטוש AI ועיצוב משולב (3.1 Pro + Nano Banana).`,
-      parse_mode: 'Markdown'
+      caption: `🚀 **התוצאה מוכנה! ✨**\n\n📐 פורמט: **${formatName}**\n\n📝 **פוסט שיווקי:**\n${captionText}\n\n✨ רטוש AI ועיצוב משולב (Nano Banana Pro).`,
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: shareButtons }
     });
 
-    console.log('[Render-Worker v52.2] Success Complete');
+    console.log('[Render-Worker v52.7] Success Complete with Deep-Link Buttons');
     return res.status(200).send('Render Complete');
 
   } catch (err: any) {

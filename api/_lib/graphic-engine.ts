@@ -59,24 +59,36 @@ export async function generateSocialPost(
     return Buffer.from(originalCanvas.toBuffer('image/jpeg'));
   }
 
-  // Для соцсетей: ВСЕГДА используем Smart Crop (Full Frame)
+  // 🎯 UNIVERSAL SMART-FIT (v52.7 Professional Polish)
+  // Step 1: Background Layer (Blurred & Darkened Original)
+  ctx.filter = 'blur(50px) brightness(0.6) saturate(1.2)';
+  ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+  ctx.filter = 'none';
+
+  // Step 2: Foreground Layer (Contain Mode - No Cropping Ever)
   const imgAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
 
-  let sx = 0, sy = 0, sw = image.width, sh = image.height;
-  
+  let dw, dh, dx, dy;
   if (imgAspect > canvasAspect) {
-    // Фото шире холста -> обрезаем бока
-    sw = image.height * canvasAspect;
-    sx = (image.width - sw) / 2;
+    // Original is wider than target -> Fit by width
+    dw = targetWidth;
+    dh = targetWidth / imgAspect;
+    dx = 0;
+    dy = (targetHeight - dh) / 2;
   } else {
-    // Фото выше холста -> обрезаем верх/низ
-    sh = image.width / canvasAspect;
-    sy = (image.height - sh) / 2;
+    // Original is narrower than target -> Fit by height
+    dh = targetHeight;
+    dw = targetHeight * imgAspect;
+    dx = (targetWidth - dw) / 2;
+    dy = 0;
   }
 
-  // Рисуем с заполнением всего пространства
-  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
+  // Shadow for the main image for depth
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+  ctx.shadowBlur = 40;
+  ctx.drawImage(image, dx, dy, dw, dh);
+  ctx.shadowBlur = 0;
 
   // 2. Наложение дизайна (Текст, градиент, брендинг)
   renderOverlay(ctx, targetWidth, targetHeight, options);
