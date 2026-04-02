@@ -57,6 +57,9 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
 
   const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/ai-worker`;
   
+  // LOG THE URL FOR TRUTH
+  await telegraf.telegram.editMessageText(chatId, messageId, undefined, `⏳ המערכת מכינה את הערוץ לכתובת: ${appUrl.slice(0, 20)}...`);
+
   try {
     await telegraf.telegram.editMessageText(chatId, messageId, undefined, `📡 שולח לעיבוד ענן...`);
     

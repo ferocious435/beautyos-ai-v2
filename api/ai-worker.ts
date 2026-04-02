@@ -73,6 +73,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).send('Missing required fields');
   }
 
+  // 📢 IMMEDIATE FEEDBACK: Check if we are even reached by QStash
+  await bot.telegram.sendMessage(chatId, `📡 **מערכת הענן קיבלה את הבקשה!** (התחלת עיבוד...)`).catch(() => {});
+
   // Используем асинхронную обработку, чтобы Vercel не убил функцию после res.send
   const { waitUntil } = await import('@vercel/functions');
   
@@ -147,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err: any) {
       console.error('AI-Worker Background Error:', err);
       try {
-        await bot.telegram.editMessageText(chatId, messageId, undefined, `❌ חלה שגיאה בעיבוד התמונה (Gemini/Imagen): ${err.message}`);
+        await bot.telegram.sendMessage(chatId, `❌ **שגיאת עיבוד:** המערכת נתקלה בבעיה טכנית: ${err.message}`).catch(() => {});
       } catch (e) {
         console.error('Failed to notify error to Telegram:', e);
       }
