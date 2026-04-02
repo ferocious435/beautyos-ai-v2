@@ -4,7 +4,7 @@ const bidiFactory = bidi.default || bidi;
 
 /**
  * Превращает строку на иврите (RTL) в визуально упорядоченную строку 
- * для корректного отображения в библиотеках, которые не поддерживают BiDi (например, Jimp).
+ * для корректного отображения в библиотеках рендеринга.
  */
 export function getVisualBidiText(text: string): string {
   if (!text) return '';

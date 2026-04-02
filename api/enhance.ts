@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import dotenv from 'dotenv';
-import { analyzeAndGenerate, enhanceImage } from './_lib/content-engine.js';
+import { analyzeAndGenerate, enhanceImage, DesignData } from './_lib/content-engine.js';
 import { generateSocialPost, SocialFormat } from './_lib/graphic-engine.js';
 import { CONFIG } from './_lib/config.js';
 
@@ -23,40 +23,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 1. ИИ Анализ + Контент (Universal Beauty DNA)
     const aiResult = await analyzeAndGenerate(imageBuffer as any);
 
-    // 2. Интеллектуальное решение по фону
+    // 2. Интеллектуальное улучшение (Nano Banana)
+    // Мы всегда пытаемся улучшить фото для максимального качества (по запросу пользователя)
     let finalBaseBuffer: Buffer = imageBuffer;
-    if (aiResult.backgroundAction === 'replace') {
-      try {
-        console.log(`ATTEMPTING BACKGROUND REPLACEMENT with ${CONFIG.MODELS.ENHANCEMENT}...`);
-        finalBaseBuffer = await enhanceImage(imageBuffer, aiResult.imagenPrompt);
-      } catch (err) {
-        console.error('BACKGROUND ENHANCEMENT FAILED (Quota or Timeout):', err);
-        // Fallback: keep original if AI generation fails
-      }
+    try {
+      console.log(`ATTEMPTING IMAGE ENHANCEMENT with ${CONFIG.MODELS.ENHANCEMENT}...`);
+      finalBaseBuffer = await enhanceImage(imageBuffer, aiResult.imagenPrompt);
+    } catch (err) {
+      console.error('IMAGE ENHANCEMENT FAILED (Quota or Timeout):', err);
+      // Fallback: keep original if AI fails
     }
 
     // 3. Маппинг формата
-    let jimpFormat: SocialFormat = 'INSTAGRAM_POST';
-    if (format === 'WhatsApp') jimpFormat = 'STORY_9_16';
-    if (format === 'Facebook') jimpFormat = 'SQUARE_1_1';
-    if (format === 'Telegram') jimpFormat = 'ORIGINAL';
+    let socialFormat: SocialFormat = 'INSTAGRAM_POST';
+    if (format === 'WhatsApp') socialFormat = 'STORY_9_16';
+    if (format === 'Facebook') socialFormat = 'SQUARE_1_1';
+    if (format === 'Telegram') socialFormat = 'ORIGINAL';
 
-    // 4. Графический дизайн (Jimp Engine)
+    // 4. Графический дизайн (Napi-Canvas Engine)
     const designedBuffer = await generateSocialPost(finalBaseBuffer, {
-      format: jimpFormat,
+      format: socialFormat,
       businessName: businessName || 'Beauty Expert',
-      title: aiResult.overlayTitle,
-      subtitle: aiResult.overlaySubtitle,
-      theme: 'LUXURY_BLACK' 
+      overlay: aiResult.overlay,
+      theme: 'ORIGINAL_CLEAN' 
     });
 
-    // 5. Результат
+    // 5. Результат (v34 Stability Fix)
     return res.status(200).json({
       enhancedImage: `data:image/jpeg;base64,${designedBuffer.toString('base64')}`,
       post: aiResult.post,
       cta: aiResult.cta,
       service: aiResult.detectedService,
-      ai_report: `Дизайн готов для ${format}. Использован Lux-шаблон.`
+      ai_report: `דיזיין מוכן עבור ${format}. מערכת יציבה v34.`
     });
 
   } catch (error: any) {

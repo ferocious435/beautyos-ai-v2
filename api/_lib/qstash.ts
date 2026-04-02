@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Telegraf } from 'telegraf';
 
 const QSTASH_URL = process.env.QSTASH_URL || '';
 const QSTASH_TOKEN = process.env.QSTASH_TOKEN || '';
@@ -10,18 +11,27 @@ const APP_URL = process.env.WEBAPP_URL || '';
  * @param bookingData Данные о записи для сообщения
  */
 export async function scheduleNotification(delaySeconds: number, type: '24h' | '3h', bookingId: string) {
-  if (!QSTASH_TOKEN || !APP_URL) {
+  const token = (process.env.QSTASH_TOKEN || '').trim();
+  const appUrl = (process.env.WEBAPP_URL || '').trim();
+  const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
+
+  if (!token || !appUrl) {
     console.warn('QSTASH_TOKEN or WEBAPP_URL not set. Skipping notification scheduling.');
     return;
   }
 
   try {
-    const destinationUrl = `${APP_URL}/api/webhooks/reminders`;
-    const baseUrl = QSTASH_URL || 'https://qstash.upstash.io';
+    const destinationUrl = `${appUrl}/api/webhooks/reminders`;
     
     await axios.post(
-      `${baseUrl}/v1/publish/${destinationUrl}`,
+      `${qUrl}/v2/publish/${destinationUrl}`,
       { bookingId, type },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
     );
     console.log(`Scheduled ${type} notification for booking ${bookingId} with delay ${delaySeconds}s`);
   } catch (error) {
@@ -33,28 +43,38 @@ export async function scheduleNotification(delaySeconds: number, type: '24h' | '
  * Ставит AI задачу на асинхронную генерацию
  */
 export async function enqueueAiProcessing(chatId: number, messageId: number, fileUrl: string, fileId: string, caption?: string) {
-  if (!QSTASH_TOKEN || !APP_URL) {
-    console.warn('QSTASH_TOKEN or WEBAPP_URL not set. Running synchronously is risky but falling back.');
-    throw new Error('QStash not configured. Please set QSTASH_TOKEN.');
+  const telegraf = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
+  
+  const token = (process.env.QSTASH_TOKEN || '').trim();
+  const appUrl = (process.env.WEBAPP_URL || '').trim();
+  const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
+  
+  await telegraf.telegram.editMessageText(chatId, messageId, undefined, `🛠 DEBUG: Подготовка... (URL: ${qUrl.slice(0, 15)}...)`);
+
+  if (!token || !appUrl) {
+    throw new Error(`Missing env: TOKEN=${!!token}, APPURL=${!!appUrl}`);
   }
 
+  const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/ai-worker`;
+  
   try {
-    const destinationUrl = `${APP_URL}/api/ai-worker`;
-    const baseUrl = QSTASH_URL || 'https://qstash.upstash.io';
+    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `📡 DEBUG: Пытаюсь вызвать QStash...`);
     
     await axios.post(
-      `${baseUrl}/v1/publish/${destinationUrl}`,
+      `${qUrl}/v2/publish/${destinationUrl}`,
       { chatId, messageId, fileUrl, fileId, caption },
       {
+        timeout: 10000,
         headers: {
-          'Authorization': `Bearer ${QSTASH_TOKEN}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       }
     );
-    console.log(`Enqueued AI job for chat ${chatId}`);
-  } catch (error) {
-    console.error('Error enqueuing AI job:', error);
-    throw error;
+    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `✅ DEBUG: Успешно в очереди! Ожидайте результат...`);
+  } catch (error: any) {
+    const errorMsg = error.response ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}` : error.message;
+    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `❌ DEBUG ERROR: ${errorMsg}`);
+    throw new Error(`QStash Error: ${errorMsg}`);
   }
 }

