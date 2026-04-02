@@ -20,7 +20,7 @@ async function verifyQStashSignature(req: any, chatId: string, messageId: number
 
   if (!currentKey || !nextKey) {
     console.error('[QStash Verify] MISSING SIGNING KEYS!');
-    await bot.telegram.sendMessage(chatId, `❌ DEBUG: Signing keys не заданы! current=${currentKey.length}, next=${nextKey.length}`);
+    await bot.telegram.sendMessage(chatId, `⚠️ שגיאת תצורה: מפתחות חתימה חסרים במערכת.`);
     return false;
   }
 
@@ -47,13 +47,12 @@ async function verifyQStashSignature(req: any, chatId: string, messageId: number
 
     if (!isValid) {
       console.error('QStash signature mismatch. URL used:', currentUrl);
-      // Пытаемся уведомить пользователя о техническом сбое авторизации
-      await bot.telegram.sendMessage(chatId, `❌ DEBUG ERROR: Ошибка авторизации воркера (401).\nURL: ${currentUrl}\nHost: ${host}`);
+      await bot.telegram.sendMessage(chatId, `⚠️ שגיאת אימות: לא ניתן לאשר את מקור הבקשה (401).`);
     }
     return isValid;
   } catch (err: any) {
     console.error('Receiver verify crashed:', err);
-    await bot.telegram.sendMessage(chatId, `❌ DEBUG CRASH: Сбой проверки подписи: ${err.message}`);
+    await bot.telegram.sendMessage(chatId, `⚠️ שגיאה בבדיקת אבטחה: ${err.message}`);
     return false;
   }
 }
@@ -147,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err: any) {
       console.error('AI-Worker Background Error:', err);
       try {
-        await bot.telegram.editMessageText(chatId, messageId, undefined, `❌ Ошибка исполнения воркера: ${err.message}`);
+        await bot.telegram.editMessageText(chatId, messageId, undefined, `❌ חלה שגיאה בעיבוד התמונה: ${err.message}`);
       } catch (e) {
         console.error('Failed to notify error to Telegram:', e);
       }

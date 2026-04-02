@@ -162,16 +162,15 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
     const supabase = getSupabase();
 
-    // 👑 MAGIC ADMIN BYPASS (Zero-Click Registration for Owner)
+    // MAGIC ADMIN BYPASS (Zero-Click Registration for Owner)
     if (payload === 'root' || payload === 'admin') {
       if (supabase && ctx.from) {
-        // Молчаливая регистрация суперадмина
+        // Silent admin registration
         await supabase.from('users').upsert({
           telegram_id: ctx.from.id,
           full_name: name,
           role: 'admin',
           business_name: 'BeautyOS Core Admin',
-          // Автозаполняем поля, чтобы пропустить Wizard
           phone: '+00000000',
           address: 'System'
         }, { onConflict: 'telegram_id' });
@@ -344,6 +343,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     await ctx.answerCbQuery('💎 מוסיף לוגו/שם...');
     
     const supabase = getSupabase();
+    if (!supabase || !ctx.from) return;
     const { data: user } = await supabase.from('users').select('business_name, full_name').eq('telegram_id', ctx.from.id).single();
     const logoText = user?.business_name || user?.full_name || 'BeautyOS Expert';
 
@@ -405,11 +405,10 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     try {
       const fileLink = await ctx.telegram.getFileLink(photo.file_id);
       
-      // Ставим задачу в очередь
       await enqueueAiProcessing(ctx.chat.id, msg.message_id, fileLink.href, photo.file_id, caption);
     } catch (error: any) {
       console.error('PHOTO HANDLER ERROR:', error);
-      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, undefined, `⚠️ Ошибка QStash: ${error.message} (Check QSTASH_TOKEN presence)`);
+      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, undefined, `❌ תקלה בתור לעיבוד (QStash): ${error.message}`);
     }
   });
 

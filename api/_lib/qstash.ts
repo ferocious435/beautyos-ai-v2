@@ -49,7 +49,7 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
   const appUrl = (process.env.WEBAPP_URL || '').trim();
   const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
   
-  await telegraf.telegram.editMessageText(chatId, messageId, undefined, `🛠 DEBUG: Подготовка... (URL: ${qUrl.slice(0, 15)}...)`);
+  await telegraf.telegram.editMessageText(chatId, messageId, undefined, `⏳ מכין את המערכת... ✨`);
 
   if (!token || !appUrl) {
     throw new Error(`Missing env: TOKEN=${!!token}, APPURL=${!!appUrl}`);
@@ -58,7 +58,7 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
   const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/ai-worker`;
   
   try {
-    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `📡 DEBUG: Пытаюсь вызвать QStash...`);
+    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `📡 שולח לעיבוד ענן...`);
     
     await axios.post(
       `${qUrl}/v2/publish/${destinationUrl}`,
@@ -71,10 +71,10 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
         }
       }
     );
-    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `✅ DEBUG: Успешно в очереди! Ожидайте результат...`);
+    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `✅ התמונה בתור לעיבוד! אנא המתן... 🎨`);
   } catch (error: any) {
     const errorMsg = error.response ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}` : error.message;
-    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `❌ DEBUG ERROR: ${errorMsg}`);
+    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `❌ תקלה בתקשורת: ${errorMsg}`);
     throw new Error(`QStash Error: ${errorMsg}`);
   }
 }

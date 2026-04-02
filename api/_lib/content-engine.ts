@@ -75,7 +75,7 @@ export async function analyzeAndGenerate(
 
 export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise<Buffer> {
   try {
-    // Используем Imagen 4 (Premium Mode)
+    // Using high-fidelity content generation model
     const model = genAI.getGenerativeModel({ 
       model: CONFIG.MODELS.ENHANCEMENT,
       safetySettings: [
@@ -88,7 +88,7 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
     // @ts-ignore
     (model as any).generationConfig = { responseModalities: ['TEXT', 'IMAGE'] };
     
-      // ПРЕМИУМ-ИНСТРУКЦИЯ (v34 Ultra-Enhance)
+      // SYSTEM_MASTER_INSTRUCTION (v40 Stabilization)
       const enhancePrompt = `
         ${CONFIG.PROMPTS.BEAUTY_SYSTEM_MASTER_PROMPT}
         Specific Goal: ${prompt}.
