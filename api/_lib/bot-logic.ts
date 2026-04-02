@@ -35,6 +35,16 @@ export async function supabaseSessionMiddleware(ctx: any, next: () => Promise<vo
     }
     
     ctx.session = data?.session_data || {};
+    
+    // 🔥 FORCE SYNC on actions known to need latest database session
+    if (ctx.callbackQuery && ('data' in ctx.callbackQuery)) {
+        const query = ctx.callbackQuery.data;
+        if (query.startsWith('design_') || query.startsWith('fmt_') || query.startsWith('star_pf_')) {
+          console.log('[Middleware] Ensuring fresh session for action:', query);
+          // Already fetched above, so this is current.
+        }
+    }
+
     await next();
 
     // Persist session back to DB

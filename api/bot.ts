@@ -7,9 +7,9 @@ if (!botToken) throw new Error('TELEGRAM_BOT_TOKEN is missing');
 
 const bot = new Telegraf<BotContext>(botToken);
 
-// 1. Persistence & Session Middleware (Supabase Mode)
+// 1. Persistence & Session Middleware (Supabase Stateless)
 bot.use(supabaseSessionMiddleware);
-bot.use(session());
+// Removed redundant bot.use(session()) to prevent conflicts
 
 // 2. Setup Logic Handlers & Scenes (Defined in bot-logic)
 setupBotHandlers(bot);
