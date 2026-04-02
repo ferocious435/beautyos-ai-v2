@@ -288,42 +288,40 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   // --- INTERACTIVE DESIGN HANDLERS (v34) ---
 
-  const designMenu = (fileId: string) => Markup.inlineKeyboard([
-    [Markup.button.callback('💰 הוסף מחיר', `design_PRICE_#_${fileId.slice(-6)}`), Markup.button.callback('🖌 הוסף כותרת', `design_TITLE_#_${fileId.slice(-6)}`)],
-    [Markup.button.callback('💎 הוסף לוגו/שם', `design_LOGO_#_${fileId.slice(-6)}`), Markup.button.callback('🎁 מבצע מיוחד', `design_PROMO_#_${fileId.slice(-6)}`)],
-    [Markup.button.callback('✨ סיימתי / ללא טקסט', `design_DONE_#_${fileId.slice(-6)}`)]
-  ]);
+  const designMenu = (ctx: any, fileId: string) => {
+    const overlay = ctx.session?.lastOverlay || [];
+    const findItem = (type: string) => overlay.find((o: any) => o.type === type);
+    const hasLogo = overlay.some((o: any) => o.type === 'LOGO');
+    const hasPromo = overlay.some((o: any) => o.type === 'PROMO');
+
+    const priceText = findItem('PRICE') ? `✅ מחיר: ${findItem('PRICE').text}` : '💰 הוסף מחיר';
+    const titleText = findItem('TITLE') ? `✅ כותרת: ${findItem('TITLE').text.slice(0,10)}...` : '🖌 הוסף כותרת';
+    const logoText = hasLogo ? '💎 לוגו: ✅' : '💎 לוגו: ❌';
+    const promoText = hasPromo ? '✅ מבצע פעיל' : '🎁 מבצע';
+
+    return Markup.inlineKeyboard([
+      [Markup.button.callback(priceText, `design_PRICE_#_${fileId.slice(-6)}`), Markup.button.callback(titleText, `design_TITLE_#_${fileId.slice(-6)}`)],
+      [Markup.button.callback(logoText, `design_LOGO_#_${fileId.slice(-6)}`), Markup.button.callback(promoText, `design_PROMO_#_${fileId.slice(-6)}`)],
+      [Markup.button.callback('🚀 אישור והמשך לעיבוד', `design_DONE_#_${fileId.slice(-6)}`), Markup.button.callback('🧹 נקה הכל', `design_RESET_#_${fileId.slice(-6)}`)]
+    ]);
+  };
 
   async function triggerDesignRender(ctx: BotContext, fileId: string) {
-    const loadingMsg = await ctx.reply('🪄 מעדכן את העיצוב (תצוגה מקדימה)...');
     try {
-      const { generateSocialPost } = await import('./graphic-engine.js');
-      
-      let imgBuffer: Buffer;
-      if (ctx.session?.originalBuffer) {
-        console.log('[BotLogic v52.2] Using original buffer from session');
-        imgBuffer = Buffer.from(ctx.session.originalBuffer, 'base64');
-      } else {
-        const fileLink = await ctx.telegram.getFileLink(fileId);
-        const response = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
-        imgBuffer = Buffer.from(response.data);
-      }
+      const statusText = (ctx.session?.lastOverlay || []).length > 0 
+        ? `✨ **סטטוס עיצוב נוכחי:**\n${ctx.session.lastOverlay.map((o: any) => `- ${o.type}: ${o.text}`).join('\n')}`
+        : 'לחץ על הכפתורים למטה כדי להוסיף תוכן.';
 
-      const designed = await generateSocialPost(imgBuffer, {
-        format: 'ORIGINAL', // Keep original size for editing
-        overlay: ctx.session.lastOverlay || [],
-        theme: 'WATERMARK'
-      });
+      const caption = `🎨 **לוח בקרה - סטודיו BeautyOS**\n\n${statusText}\n\nבסיום, לחץ על **אישור והמשך** כדי לעבור לשלב הבא.`;
 
-      await ctx.replyWithPhoto({ source: designed }, {
-        caption: '✅ העיצוב עודכן! ניתן להוסיף שכבות נוספות או לסיים ולהפיק את הפוסט:',
-        ...designMenu(fileId)
-      });
+      // 🔄 Anti-Spam (v52.4): Edit the existing message markup and caption
+      await ctx.editMessageCaption(caption, {
+        parse_mode: 'Markdown',
+        ...designMenu(ctx, fileId)
+      }).catch(e => console.log('[PanelUpdate] No changes or error:', e.message));
+
     } catch (e) {
-      console.error('DESIGN_RENDER_ERR:', e);
-      ctx.reply('❌ שגיאה בעדכון העיצוב.');
-    } finally {
-      await ctx.deleteMessage(loadingMsg.message_id).catch(() => {});
+      console.error('PANEL_UPDATE_ERR:', e);
     }
   }
 
@@ -346,41 +344,56 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     });
   });
 
-  // 2. Instant Logo Handler
+  // 2. Instant Logo Toggle Holder (v52.4)
   bot.action(/design_LOGO_#_(.+)/, async (ctx) => {
     const fileId = ctx.match[1];
-    await ctx.answerCbQuery('💎 מוסיף לוגו/שם...');
-    
-    const supabase = getSupabase();
-    if (!supabase || !ctx.from) return;
-    const { data: user } = await supabase.from('users').select('business_name, full_name').eq('telegram_id', ctx.from.id).single();
-    const logoText = user?.business_name || user?.full_name || 'BeautyOS Expert';
-
     ctx.session.lastOverlay = ctx.session.lastOverlay || [];
-    ctx.session.lastOverlay.push({
-      text: logoText,
-      fontSize: 40,
-      yPosition: 0.92,
-      color: 'rgba(255,255,255,0.7)'
-    });
+    
+    const logoIdx = ctx.session.lastOverlay.findIndex((o: any) => o.type === 'LOGO');
+    if (logoIdx > -1) {
+      ctx.session.lastOverlay.splice(logoIdx, 1);
+      await ctx.answerCbQuery('💎 לוגו הוסר.');
+    } else {
+      const supabase = getSupabase();
+      const { data: user } = await supabase.from('users').select('business_name').eq('telegram_id', ctx.from.id).single();
+      const logoText = user?.business_name || 'Beauty Expert';
+      
+      ctx.session.lastOverlay.push({
+        type: 'LOGO',
+        text: logoText,
+        fontSize: 40,
+        yPosition: 0.92,
+        color: 'rgba(255,255,255,0.7)'
+      });
+      await ctx.answerCbQuery('💎 לוגו נוסף בהצלחה.');
+    }
 
     return triggerDesignRender(ctx, fileId);
   });
 
-  // 3. Finalize & Show Social Selection
+  // 🧹 Reset Handler
+  bot.action(/design_RESET_#_(.+)/, async (ctx) => {
+    const fileId = ctx.match[1];
+    ctx.session.lastOverlay = [];
+    await ctx.answerCbQuery('🧹 הכל נוקה.');
+    return triggerDesignRender(ctx, fileId);
+  });
+
+  // 3. Finalize & Show Social Selection (Next Stage Gate v52.4)
   bot.action(/design_DONE_#_(.+)/, async (ctx) => {
     const fileId = ctx.match[1];
-    await ctx.answerCbQuery();
+    await ctx.answerCbQuery('🚀 עובר לבחירת פורמט...');
     ctx.session.designWaitingFor = null;
 
-    return ctx.reply('✨ העיצוב הושלם! בחר רשת חברתית לביצוע **רטוש AI משולב** (Nano Banana):', Markup.inlineKeyboard([
+    // Moving from Design Panel to Next Stage: Format Picking
+    return ctx.reply('✨ **שלב העיצוב הושלם!**\nבחר כעת רשת חברתית לביצוע הרטוש והפקת הפוסט:', Markup.inlineKeyboard([
       [Markup.button.callback('📸 Instagram (4:5)', `format_INST_#_${fileId}`)],
       [Markup.button.callback('🟢 WhatsApp Story (9:16)', `format_WATS_#_${fileId}`)],
       [Markup.button.callback('📘 Facebook (1:1)', `format_FACE_#_${fileId}`)]
     ]));
   });
 
-  // 4. Message Interceptor (Must be added BEFORE general message handlers)
+  // 4. Message Interceptor (Input Capture)
   bot.on('text', async (ctx, next) => {
     if (ctx.session?.designWaitingFor) {
       const text = ctx.message.text;
@@ -389,13 +402,20 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
       ctx.session.lastOverlay = ctx.session.lastOverlay || [];
       
-      let line: any = { text };
-      if (type === 'PRICE') line = { text: `${text} ₪`, fontSize: 72, yPosition: 0.75, color: '#FFFFFF', highlightColor: 'rgba(0,0,0,0.5)' };
-      else if (type === 'TITLE') line = { text: text.toUpperCase(), fontSize: 64, yPosition: 0.15, color: '#FFFFFF', highlightColor: 'rgba(0,0,0,0.5)' };
-      else if (type === 'PROMO') line = { text: `✨ ${text} ✨`, fontSize: 80, yPosition: 0.5, color: '#FFD700', highlightColor: 'rgba(0,0,0,0.7)' };
+      // Remove old of same type
+      const oldIdx = ctx.session.lastOverlay.findIndex((o: any) => o.type === type);
+      if (oldIdx > -1) ctx.session.lastOverlay.splice(oldIdx, 1);
+
+      let line: any = { type, text };
+      if (type === 'PRICE') line = { ...line, text: `${text} ₪`, fontSize: 72, yPosition: 0.75, color: '#FFFFFF', highlightColor: 'rgba(0,0,0,0.5)' };
+      else if (type === 'TITLE') line = { ...line, text: text.toUpperCase(), fontSize: 64, yPosition: 0.15, color: '#FFFFFF', highlightColor: 'rgba(0,0,0,0.5)' };
+      else if (type === 'PROMO') line = { ...line, text: `✨ ${text} ✨`, fontSize: 80, yPosition: 0.5, color: '#FFD700', highlightColor: 'rgba(0,0,0,0.7)' };
 
       ctx.session.lastOverlay.push(line);
       ctx.session.designWaitingFor = null;
+
+      // Delete the input message to keep chat clean
+      try { await ctx.deleteMessage(); } catch (e) {}
 
       return triggerDesignRender(ctx, fileId);
     }

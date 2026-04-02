@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // 🚀 STEP 3: SHOW DESIGN MENU (Premium Design Studio Flow)
+    // 🚀 STEP 3: SHOW MASTER-PANEL (Premium Unified Design Hub v52.4)
     const fId = fileId || 'image';
     const menu = {
       inline_keyboard: [
@@ -46,21 +46,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           { text: '🖌 הוסף כותרת', callback_data: `design_TITLE_#_${fId.slice(-6)}` }
         ],
         [
-          { text: '💎 הוסף לוגו/שם', callback_data: `design_LOGO_#_${fId.slice(-6)}` },
-          { text: '🎁 מבצע מיוחד', callback_data: `design_PROMO_#_${fId.slice(-6)}` }
+          { text: '💎 לוגו: ❌', callback_data: `design_LOGO_#_${fId.slice(-6)}` },
+          { text: '🎁 מבצע', callback_data: `design_PROMO_#_${fId.slice(-6)}` }
         ],
         [
-          { text: '✨ סיימתי! בחר רשת חברתית', callback_data: `design_DONE_#_${fId.slice(-6)}` }
+          { text: '🚀 אישור והמשך לעיבוד', callback_data: `design_DONE_#_${fId.slice(-6)}` }
         ]
       ]
     };
 
-    await bot.telegram.sendMessage(chatId, `🎨 **סטודיו BeautyOS פתוח!**\n\nהתמונה התקבלה. השתמש בכפתורים כדי להוסיף טקסט, מחיר או לוגו.\nבסיום, נבצע **רטוש AI משולב** (Nano Banana) ליצירת הפוסט המושלם. ✨`, {
+    await bot.telegram.sendPhoto(chatId, { source: imageData }, {
+      caption: `🎨 **סטודיו BeautyOS פתוח!**\n\nהתמונה התקבלה. לחץ על הכפתורים למטה כדי להזין טקסט, מחיר או להוסיף לוגו.\nבסיום, לחץ על **אישור והמשך** כדי לבחור רשת חברתית ולהתחיל את המהפך! ✨`,
       parse_mode: 'Markdown',
       reply_markup: menu
     });
 
-    console.log('[AI-Worker v52.2] Success: Design Menu Sent');
+    console.log('[AI-Worker v52.4] Success: Master-Panel Sent');
     return res.status(200).send('Completed');
 
   } catch (err: any) {
