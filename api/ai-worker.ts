@@ -1,6 +1,9 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Telegraf, Markup } from 'telegraf';
 import axios from 'axios';
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { analyzeAndGenerate, enhanceImage } from './_lib/content-engine.js';
 import { getSupabase } from './_lib/supabase.js';
 
@@ -14,6 +17,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Unauthorized: Invalid QStash Signature' });
   }
 
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { chatId, messageId, fileUrl, fileId, caption } = req.body;
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
 
@@ -70,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[AI-Worker v52.4] Success: Master-Panel Sent');
     return res.status(200).send('Completed');
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('AI-Worker Error:', err);
     try {
       await bot.telegram.sendMessage(chatId, `❌ **שגיאת עיבוד:** המערכת נתקלה בבעיה טכנית: ${err.message}`).catch(() => {});

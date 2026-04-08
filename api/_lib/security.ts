@@ -1,3 +1,5 @@
+ 
+ 
 import { Receiver } from "@upstash/qstash";
 import { VercelRequest } from "@vercel/node";
 
@@ -46,7 +48,7 @@ export async function verifyQStashSignature(req: VercelRequest): Promise<boolean
 
     console.log('[Security] Authorized: QStash Signature Verified.');
     return true;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Security] Error during verification:', err.message);
     return false;
   }

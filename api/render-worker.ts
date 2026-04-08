@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let imagenPrompt = 'Luxury Beauty Design';
 
     // 🚀 TARGET FORMAT DETERMINATION (v53.0)
-    let socialFormat: any = 'SQUARE_1_1';
+    let socialFormat: unknown = 'SQUARE_1_1';
     let formatName = 'Facebook (1:1)';
     
     if (formatType === 'INST') { socialFormat = 'INSTAGRAM_POST'; formatName = 'Instagram (4:5)'; }
@@ -119,9 +119,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rawOverlays = session.session_data.lastOverlay || [];
     
     // Grouping strategy: Combine lines of the same type into one multiline box
-    const groupedMap = new Map<string, any>();
-    rawOverlays.forEach((line: any) => {
-      const cleanText = (line.text || '').replace(/[✨\*]/g, '').trim();
+    const groupedMap = new Map<string, unknown>();
+    rawOverlays.forEach((line: unknown) => {
+      const cleanText = (line.text || '').replace(/[✨*]/g, '').trim();
       if (!cleanText) return;
       
       if (groupedMap.has(line.type)) {
@@ -133,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 🚀 PERFECT STACKING v61 (Collision-Weighted Composition)
     const usedPositions: { x: number, y: number, h: number }[] = [];
-    const overlays = Array.from(groupedMap.values()).map((line: any) => {
+    const overlays = Array.from(groupedMap.values()).map((line: unknown) => {
       const design = activeDesign[line.type];
       
       // 📐 ADAPTIVE SAFE ZONES (v61/v65.1)
@@ -211,7 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[Render-Worker v52.7] Success Complete with Deep-Link Buttons');
     return res.status(200).send('Render Complete');
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Render-Worker Error]:', err);
     await bot.telegram.sendMessage(chatId, `❌ **שגיאת מערכת:** ${err.message}`).catch(() => {});
     return res.status(500).send(err.message);

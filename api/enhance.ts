@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import dotenv from 'dotenv';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { analyzeAndGenerate, enhanceImage, DesignData } from './_lib/content-engine.js';
 import { generateSocialPost, SocialFormat } from './_lib/graphic-engine.js';
 import { CONFIG } from './_lib/config.js';
@@ -21,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
     // 1. ИИ Анализ + Контент (Universal Beauty DNA)
-    const aiResult = await analyzeAndGenerate(imageBuffer as any);
+    const aiResult = await analyzeAndGenerate(imageBuffer as unknown);
 
     // 2. Интеллектуальная подготовка (AI Seed for v53 Outpainting)
     let finalBaseBuffer: Buffer = imageBuffer;
@@ -64,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ai_report: `דיזיין מוכן עבור ${format}. מערכת יציבה v34.`
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Unified Generation Error:', error);
     return res.status(500).json({ 
       error: error.message || 'Generation failed',

@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Определяем, какие action требуют валидации TG Hash.
   const secureActions = ['create-booking', 'update-booking', 'approve-booking', 'reject-booking', 'cancel-booking'];
   
-  let authUser: any = null;
+  let authUser: unknown = null;
 
   if (secureActions.includes(action)) {
     const initData = req.headers['x-telegram-init-data'] as string;
@@ -77,6 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const updateField = type === '24h' ? { notified_24h: true } : { notified_3h: true };
         await supabase.from('bookings').update(updateField).eq('id', bookingId);
         return res.status(200).json({ success: true });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         return res.status(500).send('Error sending messages');
       }
@@ -84,13 +85,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // --- [DIAGNOSTIC MODE v37] ---
     case 'diagnostic': {
-      const results: any = { timestamp: new Date().toISOString(), tests: {} };
+      const results: unknown = { timestamp: new Date().toISOString(), tests: {} };
       try {
         const { analyzeAndGenerate } = await import('./_lib/content-engine.js');
         const testBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', 'base64');
         await analyzeAndGenerate(testBuffer, 'diagnostic-test');
         results.tests.gemini_api = { status: 'PASSED' };
-      } catch (e: any) {
+      } catch (e: unknown) {
         results.tests.gemini_api = { status: 'FAILED', error: e.message };
       }
       return res.status(200).json(results);
@@ -155,7 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]);
 
         return res.status(200).json({ success: true, bookingId: booking.id });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('BOOKING ERROR:', err);
         return res.status(500).json({ error: err.message });
       }
@@ -194,7 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (delay3h > 0) await scheduleNotification(Math.floor(delay3h), '3h', booking.id);
 
         return res.status(200).json({ success: true });
-      } catch (err: any) {
+      } catch (err: unknown) {
         return res.status(500).json({ error: err.message });
       }
     }
@@ -222,7 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' });
 
         return res.status(200).json({ success: true });
-      } catch (err: any) {
+      } catch (err: unknown) {
         return res.status(500).json({ error: err.message });
       }
     }
@@ -261,7 +262,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         return res.status(200).json({ success: true });
-      } catch (err: any) {
+      } catch (err: unknown) {
         return res.status(500).json({ error: err.message });
       }
     }
@@ -300,7 +301,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]);
 
         return res.status(200).json({ success: true });
-      } catch (err: any) {
+      } catch (err: unknown) {
         return res.status(500).json({ error: err.message });
       }
     }

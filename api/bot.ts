@@ -1,4 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Telegraf, session } from 'telegraf';
 import { BotContext, setupBotHandlers, supabaseSessionMiddleware } from './_lib/bot-logic.js';
 

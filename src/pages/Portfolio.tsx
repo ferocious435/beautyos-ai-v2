@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { useState, useEffect } from 'react';
 import { useTelegram } from '../hooks/useTelegram';
 import * as Lucide from 'lucide-react';

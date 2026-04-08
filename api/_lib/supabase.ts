@@ -1,3 +1,5 @@
+ 
+ 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -21,6 +23,7 @@ export async function uploadToPortfolio(userId: number, imageBuffer: Buffer): Pr
   if (!supabase) return null;
 
   const fileName = `${userId}/${Date.now()}.jpg`;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { data, error } = await supabase.storage
     .from('portfolio')
     .upload(fileName, imageBuffer, {

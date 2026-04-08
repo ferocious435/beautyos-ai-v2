@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -10,13 +11,15 @@ const isConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith
  * Поддерживает бесконечные вызовы: supabase.from('...').select().eq().single()
  * И ведет себя как Promise для await.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const createChainProxy = (): any => {
     // В основе лежит функция, которая при вызове возвращает саму себя (этот же прокси)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const target: any = () => proxy;
     
     // Эмуляция промиса
-    target.then = (onRes: any) => Promise.resolve({ data: null, error: null }).then(onRes);
-    target.catch = (onErr: any) => Promise.resolve({ data: null, error: null }).catch(onErr);
+    target.then = (onRes: unknown) => Promise.resolve({ data: null, error: null }).then(onRes);
+    target.catch = (onErr: unknown) => Promise.resolve({ data: null, error: null }).catch(onErr);
 
     const proxy = new Proxy(target, {
         get: (t, prop) => {

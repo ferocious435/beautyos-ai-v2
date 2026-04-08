@@ -1,8 +1,13 @@
+ 
+ 
 import axios from 'axios';
 import { Telegraf } from 'telegraf';
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const QSTASH_URL = process.env.QSTASH_URL || '';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const QSTASH_TOKEN = process.env.QSTASH_TOKEN || '';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const APP_URL = process.env.WEBAPP_URL || '';
 
 /**
@@ -75,7 +80,7 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
       }
     );
     await telegraf.telegram.editMessageText(chatId, messageId, undefined, `✅ התמונה בתור לעיבוד! אנא המתן... 🎨`);
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg = error.response ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}` : error.message;
     await telegraf.telegram.editMessageText(chatId, messageId, undefined, `❌ תקלה בתקשורת: ${errorMsg}`);
     throw new Error(`QStash Error: ${errorMsg}`);

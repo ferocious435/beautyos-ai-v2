@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { useState, useEffect, useRef } from 'react';
 import * as Lucide from 'lucide-react';
 

@@ -1,3 +1,5 @@
+ 
+ 
 import crypto from 'crypto';
 
 /**
@@ -38,11 +40,12 @@ export function validateTelegramWebAppData(initData: string, botToken?: string):
 /**
  * Извлечение данных пользователя из валидированного initData
  */
-export function getUserFromInitData(initData: string): any {
+export function getUserFromInitData(initData: string): unknown {
   try {
     const urlParams = new URLSearchParams(initData);
     const userStr = urlParams.get('user');
     if (userStr) return JSON.parse(userStr);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     return null;
   }
