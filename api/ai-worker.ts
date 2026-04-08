@@ -8,6 +8,12 @@ import { getSupabase } from './_lib/supabase.js';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
+  const { verifyQStashSignature } = await import('./_lib/security.js');
+  const isAuthorized = await verifyQStashSignature(req);
+  if (!isAuthorized) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid QStash Signature' });
+  }
+
   const { chatId, messageId, fileUrl, fileId, caption } = req.body;
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
 

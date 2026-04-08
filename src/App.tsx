@@ -35,8 +35,22 @@ function App() {
         }
 
         const tgUser = tg?.initDataUnsafe?.user;
-        const tgId = tgUser?.id || 12345678; // Fallback для разработки
         
+        // If no Telegram user is found, this means we are in local browser env.
+        if (!tgUser) {
+          console.warn('APP: Local development environment detected. Mocking user session.');
+          useAppStore.setState({ 
+            user: {
+              id: 'local-dev-id-1234',
+              name: 'Local Admin',
+              role: 'owner', // Defaulting to owner to show UI elements during dev
+              subscriptionTier: 'pro',
+            }
+          });
+          return;
+        }
+
+        const tgId = tgUser.id;
         console.log(`APP: Fetching profile for TG ID: ${tgId}`);
 
         const { data, error } = await supabase
@@ -112,7 +126,7 @@ function App() {
               {/* Explicit Admin/Unified Routes */}
               <Route path="/dashboard/master" element={<Dashboard />} />
               <Route path="/dashboard/client" element={<ClientDashboard />} />
-              <Route path="/calendar" element={<MasterCalendar />} />
+              <Route path="/calendar" element={userRole === 'client' ? <ClientDashboard /> : <MasterCalendar />} />
               <Route path="/order" element={<Booking />} />
 
               {/* Shared Routes */}

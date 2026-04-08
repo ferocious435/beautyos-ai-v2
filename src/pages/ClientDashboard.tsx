@@ -122,19 +122,25 @@ const ClientDashboard = () => {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-2 mt-6">
               <button 
                 onClick={() => upcoming.status === 'confirmed' && getDirections(upcoming.master.latitude, upcoming.master.longitude)}
                 style={{ opacity: upcoming.status === 'confirmed' ? 1 : 0.5 }}
-                className="flex-1 bg-white text-black py-4 rounded-2xl font-black flex items-center justify-center gap-2 active:scale-95 transition-all text-sm disabled:opacity-50"
+                className="flex-[2] bg-white text-black py-4 rounded-2xl font-black flex items-center justify-center gap-2 active:scale-95 transition-all text-sm disabled:opacity-50"
               >
-                <Navigation size={18} /> {upcoming.status === 'confirmed' ? 'ניווט (Waze)' : 'ממתין לאישור'}
+                <Navigation size={18} /> {upcoming.status === 'confirmed' ? 'ניווט' : 'ממתין'}
+              </button>
+              <button 
+                onClick={() => navigate(`/order?masterId=${upcoming.master.telegram_id}&rescheduleId=${upcoming.id}`)}
+                className="flex-1 bg-zinc-800 text-white py-4 rounded-2xl font-black active:scale-95 transition-all text-sm border border-white/5"
+              >
+                הזזה
               </button>
               <button 
                 onClick={() => handleCancel(upcoming.id)}
-                className="px-6 bg-red-500/10 text-red-500 py-4 rounded-2xl font-black active:scale-95 transition-all text-sm border border-red-500/20"
+                className="px-4 bg-red-500/10 text-red-500 py-4 rounded-2xl font-black active:scale-95 transition-all text-sm border border-red-500/20"
               >
-                ביטול תור
+                ביטול
               </button>
             </div>
           </motion.div>

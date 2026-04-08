@@ -1,6 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from './_lib/supabase.js';
-import { createStripeSession } from './_lib/stripe.js';
 import { scheduleNotification } from './_lib/qstash.js';
 import { Telegraf } from 'telegraf';
 import { validateTelegramWebAppData, getUserFromInitData } from './_lib/telegram-auth.js';
@@ -18,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // --- Security Middleware (Telegram Auth) ---
   // Определяем, какие action требуют валидации TG Hash.
-  const secureActions = ['create-booking', 'approve-booking', 'reject-booking', 'cancel-booking'];
+  const secureActions = ['create-booking', 'update-booking', 'approve-booking', 'reject-booking', 'cancel-booking'];
   
   let authUser: any = null;
 
@@ -46,6 +45,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --- Reminder Webhook ---
     case 'reminder': {
       if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+      
+      const { verifyQStashSignature } = await import('./_lib/security.js');
+      const isQAuthorized = await verifyQStashSignature(req);
+      if (!isQAuthorized) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid QStash Signature (Security Block)' });
+      }
+
       const { bookingId, type } = req.body;
       if (!bookingId) return res.status(400).send('Missing bookingId');
 
@@ -253,6 +259,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const msg = `📢 **עדכון: ביטול תור**\n\nהלקוח/ה ${booking.client.full_name} ביטל/ה את התור שנקבע ל-**${timeStr}**.\n\nהמועד הזה התפנה כעת ביומן שלך. 💇‍♀️`;
           await bot.telegram.sendMessage(booking.master.telegram_id, msg, { parse_mode: 'Markdown' });
         }
+
+        return res.status(200).json({ success: true });
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+    }
+
+    // --- Update/Move Booking ---
+    case 'update-booking': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+      const { bookingId, startTime } = req.body;
+      if (!bookingId || !startTime) return res.status(400).send('Missing bookingId or startTime');
+
+      try {
+        const { data: oldBooking } = await supabase.from('bookings').select('*, service:service_id(duration_mins)').eq('id', bookingId).single();
+        if (!oldBooking) return res.status(404).send('Booking not found');
+
+        const duration = oldBooking.service?.duration_mins || 60;
+        const endTime = new Date(new Date(startTime).getTime() + duration * 60 * 1000).toISOString();
+
+        const { data: booking, error: bErr } = await supabase
+          .from('bookings')
+          .update({ start_time: startTime, end_time: endTime, status: 'pending' })
+          .eq('id', bookingId)
+          .select('*, master:master_id (telegram_id, business_name, full_name), client:client_id (telegram_id, full_name)')
+          .single();
+
+        if (bErr) throw bErr;
+
+        const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
+        const timeStr = new Date(startTime).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+        
+        const masterMsg = `🔄 **התור הוזז!**\n👤 לקוח: ${booking.client.full_name}\n🕓 שעה חדשה: ${timeStr}\n\nהשינוי עודכן ביומן. ✨`;
+        const clientMsg = `🔄 **עדכון: התור שלך הוזז**\n📍 עסק: ${booking.master.business_name || booking.master.full_name}\n🕓 שעה חדשה: ${timeStr}\n\nהשינוי מחכה לאישור סופי או מעודכן במערכת. 🙏`;
+
+        await Promise.all([
+          bot.telegram.sendMessage(booking.master.telegram_id, masterMsg, { parse_mode: 'Markdown' }),
+          bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' })
+        ]);
 
         return res.status(200).json({ success: true });
       } catch (err: any) {

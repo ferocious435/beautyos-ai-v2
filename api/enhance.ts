@@ -23,12 +23,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 1. ИИ Анализ + Контент (Universal Beauty DNA)
     const aiResult = await analyzeAndGenerate(imageBuffer as any);
 
-    // 2. Интеллектуальное улучшение (Nano Banana)
-    // Мы всегда пытаемся улучшить фото для максимального качества (по запросу пользователя)
+    // 2. Интеллектуальная подготовка (AI Seed for v53 Outpainting)
     let finalBaseBuffer: Buffer = imageBuffer;
     try {
-      console.log(`ATTEMPTING IMAGE ENHANCEMENT with ${CONFIG.MODELS.ENHANCEMENT}...`);
-      finalBaseBuffer = await enhanceImage(imageBuffer, aiResult.imagenPrompt);
+      console.log(`[Dashboard] Creating AI_SEED for professional outpainting...`);
+      const aiSeed = await generateSocialPost(imageBuffer, {
+        format: 'AI_SEED',
+        skipOverlay: true, // ✅ Don't put overlays on the seed!
+        businessName: businessName || 'Beauty Expert',
+        theme: 'ORIGINAL_CLEAN'
+      });
+
+      console.log(`[Dashboard] ATTEMPTING IMAGE ENHANCEMENT with ${CONFIG.MODELS.ENHANCEMENT}...`);
+      finalBaseBuffer = await enhanceImage(aiSeed, aiResult.imagenPrompt);
     } catch (err) {
       console.error('IMAGE ENHANCEMENT FAILED (Quota or Timeout):', err);
       // Fallback: keep original if AI fails

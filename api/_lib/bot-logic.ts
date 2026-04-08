@@ -202,32 +202,29 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       );
     }
 
-    // 📱 Persistent Reply Menu
+    // 📱 Persistent Role-Aware Reply Menu (v2.3)
     const webAppUrl = process.env.WEBAPP_URL || '';
-    const nameStr = ctx.from?.first_name || '';
     
-    // Magic Admin Fast-Track
-    if (payload === 'root' || payload === 'admin') {
-      const supabase = getSupabase();
-      if (supabase && ctx.from) {
-        await supabase.from('users').upsert({
-          telegram_id: ctx.from.id,
-          full_name: nameStr,
-          role: 'admin',
-          business_name: 'Super Admin',
-          phone: '+0000',
-          address: 'System'
-        }, { onConflict: 'telegram_id' });
-      }
-      ctx.reply('👑 Admin access granted.');
-    }
+    // Fetch latest role for keyboard selection
+    let userRole = 'client';
+    const { data: dbUser } = await supabase.from('users').select('role').eq('telegram_id', ctx.from?.id).single();
+    if (dbUser) userRole = dbUser.role;
 
-    const kb: any[] = [
-      [{ text: '🚀 פתח הכל ב-Studio', web_app: { url: `${webAppUrl}/?start=root` } }],
-      [{ text: '🗓️ יומן תורים', web_app: { url: `${webAppUrl}/calendar` } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }]
-    ];
+    let kb: any[] = [];
     
-    await ctx.reply('תפריט הניווט הראשי עודכן 👇\n(לחץ על הכפתור "פתח הכל ב-Studio" כדי להתחיל)', Markup.keyboard(kb).resize());
+    if (userRole === 'admin' || userRole === 'master') {
+      kb = [
+        [{ text: '🚀 פתח הכל ב-Studio', web_app: { url: `${webAppUrl}/?start=root` } }],
+        [{ text: '🗓️ ניהול יומן', web_app: { url: `${webAppUrl}/calendar` } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }]
+      ];
+    } else {
+      kb = [
+        [{ text: '🔍 חיפוש מומחה וקביעת תור', web_app: { url: `${webAppUrl}/discovery` } }],
+        [{ text: '🗓️ התורים שלי', web_app: { url: `${webAppUrl}/calendar` } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }]
+      ];
+    }
+    
+    await ctx.reply('תפריט הניווט הראשי עודכן 👇', Markup.keyboard(kb).resize());
   });
 
   bot.action('register_request', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
@@ -294,9 +291,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     const hasLogo = overlay.some((o: any) => o.type === 'LOGO');
     const hasPromo = overlay.some((o: any) => o.type === 'PROMO');
 
-    const priceText = findItem('PRICE') ? `✅ מחיר: ${findItem('PRICE').text}` : '💰 הוסף מחיר';
+    const priceText = findItem('PRICE') ? `✅ מחיר: ${findItem('PRICE').text.slice(0,15)}` : '💰 הוסף מחיר';
     const titleText = findItem('TITLE') ? `✅ כותרת: ${findItem('TITLE').text.slice(0,10)}...` : '🖌 הוסף כותרת';
-    const logoText = hasLogo ? '💎 לוגו: ✅' : '💎 לוגו: ❌';
+    const logoText = hasLogo ? '✅ לוגו: פעיל' : '💎 לוגו: ❌';
     const promoText = hasPromo ? '✅ מבצע פעיל' : '🎁 מבצע';
 
     return Markup.inlineKeyboard([
@@ -308,17 +305,28 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   async function triggerDesignRender(ctx: BotContext, fileId: string) {
     try {
-      const statusText = (ctx.session?.lastOverlay || []).length > 0 
-        ? `✨ **סטטוס עיצוב נוכחי:**\n${ctx.session.lastOverlay.map((o: any) => `- ${o.type}: ${o.text}`).join('\n')}`
+      // 🚀 IMMEDIATE UI FEEDBACK (v53.0)
+      const overlay = ctx.session?.lastOverlay || [];
+      const statusText = overlay.length > 0 
+        ? `✨ **סטטוס עיצוב נוכחי:**\n${overlay.map((o: any) => `- ${o.type}: ${o.text}`).join('\n')}`
         : 'לחץ על הכפתורים למטה כדי להוסיף תוכן.';
 
-      const caption = `🎨 **לוח בקרה - סטודיו BeautyOS**\n\n${statusText}\n\nבסיום, לחץ על **אישור והמשך** כדי לעבור לשלב הבא.`;
+      const caption = `🎨 **לוח בקרה (מעדכן...) - סטודיו BeautyOS**\n\n${statusText}\n\nבסיום, לחץ על **אישור והמשך** כדי לעבור לשלב הבא.`;
 
       // 🔄 Anti-Spam (v52.4): Edit the existing message markup and caption
       await ctx.editMessageCaption(caption, {
         parse_mode: 'Markdown',
         ...designMenu(ctx, fileId)
       }).catch(e => console.log('[PanelUpdate] No changes or error:', e.message));
+
+      // After a short delay, remove the "updating" text if no other update arrived
+      setTimeout(async () => {
+        const finalCaption = `🎨 **לוח בקרה - סטודיו BeautyOS**\n\n${statusText}\n\nבסיום, לחץ על **אישור והמשך** כדי לעבור לשלב הבא.`;
+        await ctx.editMessageCaption(finalCaption, {
+          parse_mode: 'Markdown',
+          ...designMenu(ctx, fileId)
+        }).catch(() => {});
+      }, 1000);
 
     } catch (e) {
       console.error('PANEL_UPDATE_ERR:', e);
@@ -334,9 +342,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       ctx.session.lastDesignFileId = fileId;
       
       const prompts: any = {
-        PRICE: '💰 מה המחיר שתרצה להוסיף? (למשל: 150)',
-        TITLE: '🖌 מה הכותרת שתרצה להוסיף? (למשל: מניקור קלאסי)',
-        PROMO: '🎁 מה המבצע המיוחד? (למשל: 20% הנחה)'
+        PRICE: 'כיתבו מה שתרצו שיופיע על ה-Label (למשל: "מחיר השקה! 150" או "עכשיו רק 120₪")',
+        TITLE: '🖌 מה הכותרת השיווקית שתרצה להוסיף? (למשל: מניקור ג׳ל מפנק)',
+        PROMO: '🎁 מה תוכן המבצע המיוחד? (למשל: 30% הנחה לחברות חדשות)'
       };
 
       await ctx.answerCbQuery();
@@ -355,8 +363,11 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       await ctx.answerCbQuery('💎 לוגו הוסר.');
     } else {
       const supabase = getSupabase();
-      const { data: user } = await supabase.from('users').select('business_name').eq('telegram_id', ctx.from.id).single();
-      const logoText = user?.business_name || 'Beauty Expert';
+      let logoText = 'Beauty Expert';
+      if (supabase) {
+        const { data: user } = await supabase.from('users').select('business_name').eq('telegram_id', ctx.from.id).single();
+        if (user?.business_name) logoText = user.business_name;
+      }
       
       ctx.session.lastOverlay.push({
         type: 'LOGO',
@@ -407,9 +418,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       if (oldIdx > -1) ctx.session.lastOverlay.splice(oldIdx, 1);
 
       let line: any = { type, text };
-      if (type === 'PRICE') line = { ...line, text: `${text} ₪`, fontSize: 72, yPosition: 0.75, color: '#FFFFFF', highlightColor: 'rgba(0,0,0,0.5)' };
-      else if (type === 'TITLE') line = { ...line, text: text.toUpperCase(), fontSize: 64, yPosition: 0.15, color: '#FFFFFF', highlightColor: 'rgba(0,0,0,0.5)' };
-      else if (type === 'PROMO') line = { ...line, text: `✨ ${text} ✨`, fontSize: 80, yPosition: 0.5, color: '#FFD700', highlightColor: 'rgba(0,0,0,0.7)' };
+      if (type === 'PRICE') line = { ...line, text: text, fontSize: 62, yPosition: 0.8, color: '#FFFFFF' };
+      else if (type === 'TITLE') line = { ...line, text: text, fontSize: 64, yPosition: 0.15, color: '#FFFFFF' };
+      else if (type === 'PROMO') line = { ...line, text: text, fontSize: 80, yPosition: 0.5, color: '#FFD700' };
 
       ctx.session.lastOverlay.push(line);
       ctx.session.designWaitingFor = null;
@@ -443,6 +454,24 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     const msg = await ctx.reply('⏳ **מנתח את התמונה ויוצר קסם... (תהליך זה מתבצע ברקע ויושלם בקרוב)** ✨');
 
     try {
+      // 🕵️ ZERO STALE STATE FIX (v64.2)
+      // Immediately clear the master-cache and old overlays for the new photo
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('bot_sessions').update({
+          session_data: {
+            ...ctx.session,
+            enhancedMaster: null,
+            lastOverlay: [],
+            status: 'processing_new_photo'
+          }
+        }).eq('user_id', ctx.chat.id);
+      }
+      if (ctx.session) {
+        ctx.session.enhancedMaster = null;
+        ctx.session.lastOverlay = [];
+      }
+
       const fileLink = await ctx.telegram.getFileLink(photo.file_id);
       
       const { enqueueAiProcessing } = await import('./qstash.js');
@@ -467,7 +496,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       // Reset Master Cache for the new request (Safe-sync v52.2)
       if (ctx.session) ctx.session.enhancedMasterId = null;
 
-      await ctx.reply(`🚀 **מבצע רטוש AI ועיצוב סופי...**\nזה ייקח כ-30 שניות. אנחנו נשלח לך את התוצאה לכאן! ✨`);
+      await ctx.reply(`🚀 מבצע רטוש AI ועיצוב סופי...\nזה ייקח כ-30 שניות. אנחנו נשלח לך את התוצאה לכאן! ✨`);
 
       const { enqueueRenderProcessing } = await import('./qstash.js');
       await enqueueRenderProcessing(userId, formatType);

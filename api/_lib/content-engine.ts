@@ -4,11 +4,15 @@ import { CONFIG } from './config.js';
 const genAI = new GoogleGenerativeAI(CONFIG.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '');
 
 export interface OverlayLine {
+  type?: 'PRICE' | 'TITLE' | 'LOGO' | 'PROMO' | string;
   text: string;
-  yPosition: number;
-  fontSize: number;
-  color: string;
+  fontSize?: number;
+  yPosition?: number;
+  xPosition?: number; // 0.0 to 1.0
+  textAlign?: 'left' | 'center' | 'right';
+  color?: string;
   highlightColor?: string;
+  rotation?: number; // In degrees
 }
 
 export interface DesignData {
@@ -17,6 +21,18 @@ export interface DesignData {
   overlay: OverlayLine[];
   detectedService: string;
   imagenPrompt: string;
+  design?: {
+    [key: string]: { x: number; y: number; align: 'left' | 'center' | 'right' }
+  };
+  style?: {
+    preset: 'LUXURY_GOLD' | 'MINIMAL_WHITE' | 'GLASSMorphism' | 'MODERN_SHADOW' | 'LUXURY_ROSE' | 'LUXURY_SILVER';
+    primaryColor: string;
+    secondaryColor: string;
+    shadowOpacity: number;
+    boxOpacity: number;
+    isMultiLine?: boolean;
+    borderColor?: string;
+  };
 }
 
 /**
@@ -37,11 +53,35 @@ export async function analyzeAndGenerate(
   `;
 
   const userPrompt = `
-    Analyze the uploaded image and create:
-    1. A short, high-conversion Hebrew caption.
-    2. 5 viral hashtags.
-    3. Design 1-2 overlay lines (text, yPosition 0.1-0.9, fontSize 40-80, color, highlightColor).
-    Return JSON only: { "caption": "...", "hashtags": [...], "overlay": [...], "detectedService": "..." }
+    Analyze the uploaded beauty photo as a Senior Marketing Art-Director.
+    1. Identify Focal Point: (hands, nails, face).
+    2. Composition Strategy:
+       - Subject Protection: No text on the focal point.
+       - Asymmetry: Prefer top-corners, side-backgrounds, or balanced bottom.
+       - Multi-line: suggest 2 lines if the text is dramatic (e.g. "Special Promo \n Book Now").
+    3. Aesthetic Diversity (LUXURY DNA):
+       - Don't just pick Gold! Choose Pearl White, Platinum Silver, Rose Gold, or Sleek Black based on photo colors.
+    
+    Return JSON only:
+    {
+      "caption": "Selling Hebrew text here...",
+      "hashtags": ["#luxury", "..."],
+      "detectedService": "Manicue/Botox/etc",
+      "design": {
+        "PRICE": { "x": 0.85, "y": 0.15, "align": "right" },
+        "TITLE": { "x": 0.5, "y": 0.05, "align": "center" }
+      },
+      "style": {
+        "preset": "LUXURY_GOLD/SILVER/ROSE/MINIMAL/CLASSIC",
+        "primaryColor": "#FFFFFF",
+        "secondaryColor": "#000000",
+        "borderColor": "#C0C0C0",
+        "shadowOpacity": 0.7,
+        "boxOpacity": 0.3,
+        "isMultiLine": true
+      },
+      "imagenPrompt": "Ultra-vibrant high-end beauty studio expansion."
+    }
   `;
 
   const result = await model.generateContent([
@@ -57,9 +97,11 @@ export async function analyzeAndGenerate(
     return {
       post: data.post || data.caption || "",
       cta: data.cta || "Book now!",
-      overlay: data.overlay || [],
+      overlay: data.overlay || [], // Legacy support
       detectedService: data.detectedService || "Beauty Professional",
-      imagenPrompt: data.imagenPrompt || "Professional beauty retouch"
+      imagenPrompt: data.imagenPrompt || "Professional beauty retouch",
+      design: data.design, // Pass design metadata
+      style: data.style // Pass style metadata
     };
   } catch (err) {
     console.error("Failed to parse AI response:", text);
@@ -88,12 +130,15 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
     // @ts-ignore
     (model as any).generationConfig = { responseModalities: ['TEXT', 'IMAGE'] };
     
-      // SYSTEM_MASTER_INSTRUCTION (v40 Stabilization)
+      // SYSTEM_MASTER_INSTRUCTION (v55.2 NAIL & SKIN POLISH DNA)
       const enhancePrompt = `
-        ${CONFIG.PROMPTS.BEAUTY_SYSTEM_MASTER_PROMPT}
-        Specific Goal: ${prompt}.
-        Style: Commercial Luxury Photography, High Dynamic Range (HDR), vibrant colors, sharp textures.
-        Action: Transform into a magazine-cover quality masterpiece.
+        PRO-LEVEL BEAUTY RETOUCH & STUDIO EXPANSION (v65.0 Art-Director Edition).
+        1. MASTER POLISH: Identify the focal point (nails, skin, face). Perform high-end retouching, remove imperfections, even out tones, and add professional highlights.
+        2. SEAMLESS EXPANSION: The input image contains a sharp subject inside a "Blurred Frame" context. Use this context (colors and textures) as a guide to EXPAND the scene into a full, seamless luxury beauty studio. 
+        3. ZERO ARTIFACTS: Focus on the transition zones. There must be NO visible seams, mismatched lighting, or unnatural borders between the original subject and the expanded background.
+        4. LUXURY AESTHETIC: Finish the background with professional studio elements (marble surfaces, elegant bokeh, soft diffusion lighting).
+        Style: High-end Commercial Photography, Cinematic Studio Lighting.
+        Context: ${prompt}.
       `;
 
     console.log(`[BeautyOS Master] 🚀 Starting Retouch (${CONFIG.MODELS.ENHANCEMENT})...`);
