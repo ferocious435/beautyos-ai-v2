@@ -4,7 +4,17 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import type { OverlayLine } from './content-engine.js';
 
-export type SocialFormat = 'INSTAGRAM_POST' | 'STORY_9_16' | 'SQUARE_1_1' | 'ORIGINAL';
+export type SocialFormat = 'INSTAGRAM_POST' | 'STORY_9_16' | 'SQUARE_1_1' | 'ORIGINAL' | 'AI_SEED';
+
+export interface StyleOptions {
+  preset: string;
+  primaryColor: string;
+  secondaryColor: string;
+  shadowOpacity: number;
+  boxOpacity: number;
+  isMultiLine?: boolean;
+  borderColor?: string;
+}
 
 export interface RenderOptions {
   format: SocialFormat;
@@ -12,22 +22,47 @@ export interface RenderOptions {
   overlay?: OverlayLine[];
   theme?: 'LUXURY_BLACK' | 'ORIGINAL_CLEAN' | 'WATERMARK';
   isEnhanced?: boolean;
+  skipOverlay?: boolean;
+  style?: StyleOptions; 
 }
 
-// --- FONT SYSTEM v34 (Reliability Mode) ---
+// --- FONT SYSTEM v60 (Luxury Art-Director Edition) ---
+const SANS_STACK = 'Assistant, sans-serif';
+const SERIF_STACK = '"Playfair Display", serif';
+const EMOJI_STACK = '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+
 let fontsRegistered = false;
 
 function ensureFonts() {
-  // 🧹 Cleaned up: Corrupted font files removed. 
-  // Using native system font stack for maximum reliability in Vercel.
   if (fontsRegistered) return;
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const fontsDir = path.join(__dirname, '..', '_assets', 'fonts');
+    
+    const fontsToRegister = [
+      { name: 'Assistant', file: 'Assistant-Bold.ttf' },
+      { name: 'Playfair Display', file: 'PlayfairDisplay-Bold.ttf' },
+      { name: 'Noto Color Emoji', file: 'NotoColorEmoji.ttf' }
+    ];
+
+    for (const font of fontsToRegister) {
+      const fullPath = path.join(fontsDir, font.file);
+      if (fs.existsSync(fullPath)) {
+        GlobalFonts.registerFromPath(fullPath, font.name);
+        console.log(`[GraphicEngine] Registered: ${font.name}`);
+      } else {
+        console.warn(`[GraphicEngine] Font missing: ${font.file}`);
+      }
+    }
+  } catch (err) {
+    console.error('[GraphicEngine] Font registration failed:', err);
+  }
   fontsRegistered = true;
-  console.log('[GraphicEngine] Using System Font Stack (Reliability Mode)');
 }
 
 /**
- * Premium Beauty Graphic Engine
- * Optimization: Heebo rendering, smart shadows, high contrast
+ * Marketing Art-Director Graphic Engine v2.6.2
  */
 export async function generateSocialPost(
   imageBuffer: Buffer,
@@ -35,162 +70,197 @@ export async function generateSocialPost(
 ): Promise<Buffer> {
   ensureFonts();
   
-  const { format, businessName = 'BeautyOS', overlay = [], theme = 'ORIGINAL_CLEAN' } = options;
+  const { format, businessName = 'Beauty Expert' } = options;
 
   const targetWidth = 1080;
   let targetHeight = 1080;
   if (format === 'STORY_9_16') targetHeight = 1920;
   else if (format === 'INSTAGRAM_POST') targetHeight = 1350;
+  else if (format === 'AI_SEED') targetHeight = 1350;
 
   const canvas = createCanvas(targetWidth, targetHeight);
   const ctx = canvas.getContext('2d');
 
-  // 1. Фото (Salamat v46 - Smart Full Frame)
   const image = await loadImage(imageBuffer);
   
-  // Если выбран формат ORIGINAL, мы просто возвращаем буфер без изменений (или с наложением текста на оригинал)
   if (format === 'ORIGINAL') {
-    // Для оригинала мы создаем холст точно под размер фото
     const originalCanvas = createCanvas(image.width, image.height);
     const octx = originalCanvas.getContext('2d');
     octx.drawImage(image, 0, 0);
-    // Продолжаем работу с octx вместо ctx
     renderOverlay(octx, image.width, image.height, options);
     return Buffer.from(originalCanvas.toBuffer('image/jpeg'));
   }
 
-  // 🚀 AI RECONSTRUCTION SEED (v52.9 Improvement)
-  // Step 1: Context Layer (Blurred Backdrop - Giving AI clues to build reality)
-  ctx.filter = 'blur(40px) brightness(0.6) saturate(1.2)';
-  ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
-  ctx.filter = 'none';
+  // --- BACKGROUND ENGINE (v65.0 - Blurred Seed) ---
+  if (format === 'AI_SEED') {
+    // Draw blurred cover background to provide context for AI outpainting
+    const bAspect = image.width / image.height;
+    const cAspect = targetWidth / targetHeight;
+    let bw, bh, bx, by;
+    if (bAspect > cAspect) {
+      bh = targetHeight; bw = targetHeight * bAspect; bx = (targetWidth - bw) / 2; by = 0;
+    } else {
+      bw = targetWidth; bh = targetWidth / bAspect; bx = (targetWidth - bw) / 2; by = 0;
+    }
+    
+    ctx.save();
+    ctx.drawImage(image, bx, by, bw, bh);
+    // Darken and blur (simulated via multiple draws or filter if supported)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+    try {
+      // @ts-ignore
+      ctx.filter = 'blur(60px)';
+      ctx.drawImage(canvas, 0, 0);
+    } catch (e) {
+      // Fallback for environments without filter support
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0,0, targetWidth, targetHeight);
+    }
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#0a0a0a'; // Premium Deep Black
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+  }
 
-  // Step 2: Main Image (Original Focus)
   const imgAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
 
   let dw, dh, dx, dy;
   if (imgAspect > canvasAspect) {
-    // Original is wider than target -> Fit by width
-    dw = targetWidth;
-    dh = targetWidth / imgAspect;
-    dx = 0;
+    dw = targetWidth * 0.9; // Add slight safe padding for "Framed" look in AI_SEED
+    dh = dw / imgAspect; 
+    dx = (targetWidth - dw) / 2; 
     dy = (targetHeight - dh) / 2;
   } else {
-    // Original is narrower than target -> Fit by height
-    dh = targetHeight;
-    dw = targetHeight * imgAspect;
-    dx = (targetWidth - dw) / 2;
-    dy = 0;
+    dh = targetHeight * 0.85; 
+    dw = dh * imgAspect; 
+    dx = (targetWidth - dw) / 2; 
+    dy = (targetHeight - dh) / 2;
   }
 
-  // Shadow for the main image for depth
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-  ctx.shadowBlur = 40;
+  // Draw Main Image
+  ctx.save();
+  if (format !== 'AI_SEED') {
+    // Normal centered fit
+    if (imgAspect > canvasAspect) {
+      dw = targetWidth; dh = targetWidth / imgAspect; dx = 0; dy = (targetHeight - dh) / 2;
+    } else {
+      dh = targetHeight; dw = targetHeight * imgAspect; dx = (targetWidth - dw) / 2; dy = 0;
+    }
+  }
+  
+  // Add subtle shadow for the "Framed" effect in AI_SEED
+  if (format === 'AI_SEED') {
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 30;
+  }
+  
   ctx.drawImage(image, dx, dy, dw, dh);
-  ctx.shadowBlur = 0;
+  ctx.restore();
 
-  // 2. Наложение дизайна (Текст, градиент, брендинг)
-  renderOverlay(ctx, targetWidth, targetHeight, options);
+  // Overlay
+  if (format !== 'AI_SEED' && !options.skipOverlay) {
+    renderOverlay(ctx, targetWidth, targetHeight, options);
+  }
 
-  const buffer = canvas.toBuffer('image/jpeg');
-  return Buffer.from(buffer);
+  // Branding
+  if (businessName && format !== 'AI_SEED') {
+    ctx.font = `24px Assistant`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.textAlign = 'center';
+    ctx.fillText(businessName, targetWidth / 2, targetHeight - 40);
+  }
+
+  return Buffer.from(canvas.toBuffer('image/jpeg'));
 }
 
-/**
- * Вспомогательная функция для наложения дизайна (DNA BeautyOS)
- */
 function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, options: RenderOptions) {
-  const { businessName = 'BeautyOS', overlay = [], theme = 'ORIGINAL_CLEAN' } = options;
-  const gradH = targetHeight * 0.5;
+  const { overlay = [], style, businessName } = options;
+  
+  const isLuxury = style?.preset?.includes('LUXURY') ?? false;
+  const primaryColor = style?.primaryColor || '#FFFFFF';
+  const borderColor = style?.borderColor || '#D4AF37'; 
+  const boxOpacity = style?.boxOpacity ?? 0.3;
+
+  // Cinematic Darkener (Bottom only)
+  const gradH = targetHeight * 0.45;
   const grad = ctx.createLinearGradient(0, targetHeight - gradH, 0, targetHeight);
   grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.7)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.6)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, targetHeight - gradH, targetWidth, gradH);
 
-  // 3. Текст
   if (overlay && overlay.length > 0) {
-    ctx.textAlign = 'center';
-    ctx.direction = 'rtl'; // Hebrew support
+    ctx.direction = 'rtl';
 
     for (const line of overlay) {
-      const cleanText = (line.text || '').trim();
+      let cleanText = (line.text || '').trim();
       if (!cleanText) continue;
 
-      const y = (line.yPosition || 0.8) * targetHeight;
-      const fontSize = Math.round((line.fontSize || 56) * (targetWidth / 1080));
-      
-      // Global Font Stack (Multi-language support)
-      const fontName = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Hebrew", sans-serif';
-      ctx.font = `bold ${fontSize}px ${fontName}`;
-      
-      const metrics = ctx.measureText(cleanText);
-      console.log(`[GraphicEngine] Line: "${cleanText}", Width: ${metrics.width}, Font: ${ctx.font}`);
+      // --- CINEMATIC VIGNETTE (v65.1 READABILITY) ---
+      // Top Darkener for TITLE (Conditional)
+      const topGradH = targetHeight * 0.25;
+      const topGrad = ctx.createLinearGradient(0, 0, 0, topGradH);
+      topGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
+      topGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(0, 0, targetWidth, topGradH);
 
-      // Highlight Box
-      if (line.highlightColor && line.highlightColor !== 'null' && metrics.width > 5) {
-        const padX = 30;
-        const padY = 15;
-        const boxW = metrics.width + padX * 2;
-        const boxH = fontSize + padY * 2;
-        const boxX = (targetWidth / 2) - (boxW / 2);
-        const boxY = y - fontSize - padY + (fontSize * 0.15); // Adjust for Heebo baseline
-        const radius = 15;
+      // 🕵️ VERSION MARKER (v65.1 PRO)
+      ctx.save();
+      ctx.font = '12px Sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.textAlign = 'right';
+      ctx.fillText('v65.1 PRO LIVE', targetWidth - 20, 25);
+      ctx.restore();
 
-        ctx.fillStyle = line.highlightColor;
-        ctx.beginPath();
-        ctx.moveTo(boxX + radius, boxY);
-        ctx.lineTo(boxX + boxW - radius, boxY);
-        ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + radius);
-        ctx.lineTo(boxX + boxW, boxY + boxH - radius);
-        ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - radius, boxY + boxH);
-        ctx.lineTo(boxX + radius, boxY + boxH);
-        ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - radius);
-        ctx.lineTo(boxX, boxY + radius);
-        ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY);
-        ctx.closePath();
-        
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-        ctx.shadowBlur = 10;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+      // 💎 LUXURY LOGO (Fixed Visibility v64.3)
+      if (line.type === 'LOGO') {
+        ctx.save();
+        const logoSize = Math.round(42 * (targetWidth / 1080));
+        ctx.font = `italic ${logoSize}px ${SERIF_STACK}, ${EMOJI_STACK}`;
+        ctx.fillStyle = '#FFFFFF'; // Pure White for maximum visibility
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'; ctx.shadowBlur = 15;
+        ctx.textAlign = line.textAlign || 'left';
+        const lx = line.xPosition !== undefined ? line.xPosition * targetWidth : 60;
+        const ly = line.yPosition !== undefined ? line.yPosition * targetHeight : targetHeight - 180; // Raised significantly
+        ctx.fillText(cleanText, lx, ly);
+        ctx.restore();
+        continue;
       }
 
-      // Тень текста для глубины
-      if (theme === 'WATERMARK') {
-        ctx.globalAlpha = 0.6; // Opacity for watermark
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-        ctx.shadowBlur = 8;
-      } else {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = 15;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 3;
-      }
+      // 📦 LUXURY MINIMAL (v64.3 Clean Mode)
+      const lines = cleanText.split('\n');
+      const fontSizeBase = Math.round((line.fontSize || 60) * (targetWidth / 1080));
+      const activeFont = isLuxury && line.type === 'TITLE' ? SERIF_STACK : SANS_STACK;
+      const xPos = line.xPosition !== undefined ? line.xPosition * targetWidth : targetWidth / 2;
+      const yPos = (line.yPosition || 0.8) * targetHeight;
+
+      ctx.font = `bold ${fontSizeBase}px ${activeFont}, ${EMOJI_STACK}`;
+      let maxW = 0; lines.forEach(txt => { let w = ctx.measureText(txt).width; if (w > maxW) maxW = w; });
+      const maxWidth = targetWidth * 0.88;
+      let effSize = fontSizeBase;
+      if (maxW > maxWidth) { effSize = Math.floor(fontSizeBase * (maxWidth / maxW)); ctx.font = `bold ${effSize}px ${activeFont}, ${EMOJI_STACK}`; }
+
+      const lineHeight = effSize * 1.25;
+
+      ctx.save();
+      ctx.translate(xPos, yPos);
+      if (line.rotation) ctx.rotate((line.rotation * Math.PI) / 180);
+
+      // 🕵️ ULTIMATE READABILITY (v64.3 Contrast)
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)'; 
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = '#FFFFFF'; // Ensure all text is bright white with shadow
+      ctx.textAlign = line.textAlign || 'center';
       
-      ctx.fillStyle = line.color || '#FFFFFF';
-      ctx.fillText(cleanText, targetWidth / 2, y);
-      
-      // Reset
-      ctx.globalAlpha = 1.0;
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
+      lines.forEach((txt, idx) => {
+        ctx.fillText(txt, 0, idx * lineHeight);
+      });
+      ctx.restore();
     }
-  }
-
-  // 4. Branding
-  if (businessName) {
-    const fontStack = 'system-ui, sans-serif';
-    ctx.font = `24px ${fontStack}`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.textAlign = 'center';
-    
-    // Subtle shadow for branding
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 4;
-    ctx.fillText(businessName, targetWidth / 2, targetHeight - 40);
-    ctx.shadowBlur = 0;
   }
 }

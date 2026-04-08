@@ -7,6 +7,7 @@ const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const masterId = searchParams.get('masterId');
+  const rescheduleId = searchParams.get('rescheduleId');
   
   const [master, setMaster] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
@@ -39,11 +40,21 @@ const Booking = () => {
           .eq('is_active', true);
         
         setServices(servicesData || []);
+        
+        // If rescheduling, try to pre-select service if possible (or wait for user)
+        if (rescheduleId) {
+            const { data: b } = await supabase.from('bookings').select('service_id').eq('id', rescheduleId).single();
+            if (b && servicesData) {
+                const found = servicesData.find((s: any) => s.id === b.service_id);
+                if (found) setSelectedService(found);
+            }
+        }
+        
         setLoadingServices(false);
       }
     };
     loadMasterAndServices();
-  }, [masterId]);
+  }, [masterId, rescheduleId]);
 
   // Load Slots via RPC
   useEffect(() => {
@@ -74,14 +85,16 @@ const Booking = () => {
     
     try {
       const initData = tg?.initData || '';
+      const action = rescheduleId ? 'update-booking' : 'create-booking';
       
-      const response = await fetch(`/api/services?action=create-booking`, {
+      const response = await fetch(`/api/services?action=${action}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'x-telegram-init-data': initData 
         },
         body: JSON.stringify({
+          bookingId: rescheduleId, // Only used in update
           masterTelegramId: parseInt(masterId),
           clientTelegramId: tgId,
           serviceId: selectedService.id,
@@ -91,7 +104,7 @@ const Booking = () => {
 
       if (response.ok) {
         setBookingStatus('success');
-        setTimeout(() => navigate('/'), 2500);
+        setTimeout(() => navigate('/calendar'), 2500);
       } else {
         const errorData = await response.json();
         console.error('BOOKING: API Error:', errorData);
@@ -123,9 +136,16 @@ const Booking = () => {
   return (
     <div className="p-4 space-y-8 pb-20 RTL" style={{ direction: 'rtl' }}>
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-white">הזמנת תור 🗓️</h1>
+        <h1 className="text-2xl font-black text-white">{rescheduleId ? 'שינוי מועד תור 🔄' : 'הזמנת תור 🗓️'}</h1>
         <p className="text-zinc-400">מומחה: <span className="text-white font-medium">{master.business_name || master.full_name}</span></p>
       </div>
+
+      {rescheduleId && (
+        <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-2xl text-blue-200 text-sm flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">🔄</div>
+          <span>נא לבחור מועד חדש לתור הקיים שלך.</span>
+        </div>
+      )}
 
       {!selectedService ? (
         <AnimatePresence>
@@ -162,7 +182,7 @@ const Booking = () => {
                 <div className="text-sm text-yellow-500 font-bold mb-1">טיפול שנבחר</div>
                 <div className="font-bold">{selectedService.name} (₪{selectedService.price})</div>
               </div>
-              <button onClick={() => setSelectedService(null)} className="text-xs bg-zinc-800 px-3 py-1.5 rounded-lg text-white">שנה</button>
+              {!rescheduleId && <button onClick={() => setSelectedService(null)} className="text-xs bg-zinc-800 px-3 py-1.5 rounded-lg text-white">שנה</button>}
             </div>
 
             <div className="space-y-3">
@@ -214,7 +234,7 @@ const Booking = () => {
               <div className="w-20 h-20 bg-green-500/20 rounded-full mx-auto flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <h2 className="text-2xl font-bold text-white">התור אושר בהצלחה!</h2>
+              <h2 className="text-2xl font-bold text-white">{rescheduleId ? 'התור הוזז בהצלחה!' : 'התור אושר בהצלחה!'}</h2>
               <p className="text-zinc-400">שלחנו לו הודעה. נתראה!</p>
             </motion.div>
           </motion.div>

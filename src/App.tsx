@@ -112,7 +112,7 @@ function App() {
               {/* Explicit Admin/Unified Routes */}
               <Route path="/dashboard/master" element={<Dashboard />} />
               <Route path="/dashboard/client" element={<ClientDashboard />} />
-              <Route path="/calendar" element={<MasterCalendar />} />
+              <Route path="/calendar" element={userRole === 'client' ? <ClientDashboard /> : <MasterCalendar />} />
               <Route path="/order" element={<Booking />} />
 
               {/* Shared Routes */}
