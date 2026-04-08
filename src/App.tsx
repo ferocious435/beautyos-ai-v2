@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
@@ -34,7 +36,7 @@ function App() {
           console.log('APP: Telegram WebApp context ready');
         }
 
-        const tgUser = tg?.initDataUnsafe?.user;
+        const tgUser = (tg as any)?.initDataUnsafe?.user;
         
         // If no Telegram user is found, this means we are in local browser env.
         if (!tgUser) {

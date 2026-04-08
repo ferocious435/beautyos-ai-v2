@@ -18,8 +18,8 @@ const createChainProxy = (): any => {
     const target: any = () => proxy;
     
     // Эмуляция промиса
-    target.then = (onRes: unknown) => Promise.resolve({ data: null, error: null }).then(onRes);
-    target.catch = (onErr: unknown) => Promise.resolve({ data: null, error: null }).catch(onErr);
+    target.then = (onRes: any) => Promise.resolve({ data: null, error: null }).then(onRes);
+    target.catch = (onErr: any) => Promise.resolve({ data: null, error: null }).catch(onErr);
 
     const proxy = new Proxy(target, {
         get: (t, prop) => {

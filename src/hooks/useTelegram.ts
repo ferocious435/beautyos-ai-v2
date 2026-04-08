@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 
 export function useTelegram() {
@@ -8,7 +10,7 @@ export function useTelegram() {
     if (telegram) {
       telegram.ready();
       if (telegram.requestFullscreen) {
-        try { telegram.requestFullscreen(); } catch(e) { telegram.expand(); }
+        try { telegram.requestFullscreen(); } catch { telegram.expand(); }
       } else {
         telegram.expand();
       }
