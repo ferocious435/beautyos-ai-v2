@@ -131,47 +131,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
 
-    // 🚀 PERFECT STACKING v61 (Collision-Weighted Composition)
-    const usedPositions: { x: number, y: number, h: number }[] = [];
-    const overlays = Array.from(groupedMap.values()).map((line: unknown) => {
+    // 🚀 PERFECT STACKING v66.1 (Bounding-Box Aware Composition)
+    const usedPositions: { x: number, y: number, h: number, w: number }[] = [];
+    const overlays = Array.from(groupedMap.values()).map((line: any) => {
       const design = activeDesign[line.type];
       
-      // 📐 ADAPTIVE SAFE ZONES (v61/v65.1)
-      let x = design?.x ?? (line.type === 'PRICE' ? 0.9 : (line.type === 'LOGO' ? 0.05 : 0.5));
+      // 📐 ADAPTIVE BASE POSITIONS
+      let x = design?.x ?? (line.type === 'PRICE' ? 0.88 : (line.type === 'LOGO' ? 0.08 : 0.5));
       let y = design?.y;
       let align: 'left' | 'center' | 'right' = design?.align ?? (line.type === 'PRICE' ? 'right' : (line.type === 'LOGO' ? 'left' : 'center'));
 
-      // Default Y-Slots for v66.0 (Wider Staggering)
+      // Default Y-Slots (v66.1 Optimized)
       if (y === undefined) {
-        if (line.type === 'TITLE') y = 0.14;
-        else if (line.type === 'PRICE') y = 0.26; // Much further down if title exists
-        else if (line.type === 'PROMO') y = 0.78;
-        else if (line.type === 'LOGO') { y = 0.94; x = 0.05; align = 'left'; }
-        else y = 0.85;
+        if (line.type === 'TITLE') y = 0.12;
+        else if (line.type === 'PRICE') y = 0.22;
+        else if (line.type === 'PROMO') y = 0.82;
+        else if (line.type === 'LOGO') { y = 0.94; x = 0.08; align = 'left'; }
+        else y = 0.5;
       }
 
-      // 🛑 PRECISION COLLISION AVOIDANCE v66.0 (Height-Aware)
+      // 🛑 PRECISION COLLISION AVOIDANCE v66.1
       const lineCount = (line.text || '').split('\n').length;
-      const blockHeight = 0.08 + (lineCount * 0.04); // Estimated height in normalized coordinates
-      const thresholdY = blockHeight + 0.02; // Padding
+      // Adjusted height/width estimates for normalized coordinates
+      const blockHeight = 0.06 + (lineCount * 0.045); 
+      const thresholdY = blockHeight + 0.03; 
       
       let attempts = 0;
-      while (usedPositions.some(p => Math.abs(p.y - y!) < thresholdY && Math.abs(p.x - x) < 0.5) && attempts < 8) {
-        // Push Title/Price UP, Push Promo/Logo DOWN
-        const pushDir = y! < 0.4 ? -1 : 1;
-        y! += pushDir * 0.08;
+      // Stagger strategy: if collision, move vertically based on zone
+      while (usedPositions.some(p => Math.abs(p.y - y!) < thresholdY) && attempts < 10) {
+        const pushDir = y! < 0.5 ? 1 : -1; // Push towards center if at edges, or vice-versa
+        y! += pushDir * 0.07;
         attempts++;
       }
       
-      // Safe bounds (v66 Hard-Limit)
-      y = Math.max(0.08, Math.min(0.92, y!));
+      // Hard bounds: never let text center go beyond 8% - 92%
+      y = Math.max(0.1, Math.min(0.9, y!));
       
-      usedPositions.push({ x, y, h: blockHeight });
+      usedPositions.push({ x, y, h: blockHeight, w: 0.8 }); // w is safe width
 
-      // 🎨 LUXURY STYLE
-      let fontSize = line.fontSize || 60;
-      if (line.type === 'PROMO') fontSize = 72;
-      if (line.type === 'LOGO') fontSize = 36;
+      // 🎨 LUXURY STYLE (v66.1 Base Sizes)
+      let fontSize = line.fontSize || 58;
+      if (line.type === 'PROMO') fontSize = 70;
+      if (line.type === 'LOGO') fontSize = 34;
 
       return { 
         ...line, 
@@ -179,7 +180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         xPosition: x, 
         yPosition: y, 
         textAlign: align,
-        rotation: (line.type === 'PRICE' ? -3 : (line.type === 'PROMO' ? 2 : (Math.random() * 2 - 1)))
+        rotation: (line.type === 'PRICE' ? -2 : (line.type === 'PROMO' ? 1.5 : (Math.random() * 1.6 - 0.8)))
       };
     });
 

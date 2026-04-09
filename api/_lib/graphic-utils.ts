@@ -30,7 +30,7 @@ export function getVisualBidiText(text: string): string {
 }
 /**
  * Разбивает текст на строки так, чтобы каждая строка не превышала maxWidth.
- * Учитывает текущие настройки шрифта в ctx.
+ * Учитывает текущие настройки шрифта в ctx и корректно обрабатывает RTL (иврит).
  */
 export function wrapText(ctx: any, text: string, maxWidth: number): string[] {
   if (!text) return [];
@@ -45,18 +45,20 @@ export function wrapText(ctx: any, text: string, maxWidth: number): string[] {
 
     for (let n = 0; n < words.length; n++) {
       const testLine = currentLine ? currentLine + ' ' + words[n] : words[n];
-      const metrics = ctx.measureText(testLine);
+      // Важно: для измерения ширины иврита нужно использовать визуальный текст
+      const visualTestLine = getVisualBidiText(testLine);
+      const metrics = ctx.measureText(visualTestLine);
       const testWidth = metrics.width;
 
       if (testWidth > maxWidth && n > 0) {
-        finalLines.push(currentLine);
+        finalLines.push(getVisualBidiText(currentLine));
         currentLine = words[n];
       } else {
         currentLine = testLine;
       }
     }
     if (currentLine) {
-      finalLines.push(currentLine);
+      finalLines.push(getVisualBidiText(currentLine));
     }
   }
 

@@ -131,18 +131,17 @@ export async function generateSocialPost(
   const imgAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
 
-  let dw, dh, dx, dy;
-  if (imgAspect > canvasAspect) {
-    dw = targetWidth * 0.9; // Add slight safe padding for "Framed" look in AI_SEED
-    dh = dw / imgAspect; 
-    dx = (targetWidth - dw) / 2; 
-    dy = (targetHeight - dh) / 2;
-  } else {
-    dh = targetHeight * 0.85; 
-    dw = dh * imgAspect; 
-    dx = (targetWidth - dw) / 2; 
-    dy = (targetHeight - dh) / 2;
-  }
+  // --- DYNAMIC COMPOSITION ENGINE v66.1 (Safe Zones & Auto-Scaling) ---
+  const paddingX = targetWidth * 0.05; // 5% horizontal padding
+  const paddingY = targetHeight * 0.06; // 6% vertical padding
+  const safeZone = {
+    left: paddingX,
+    right: targetWidth - paddingX,
+    top: paddingY,
+    bottom: targetHeight - paddingY,
+    width: targetWidth - (paddingX * 2),
+    height: targetHeight - (paddingY * 2)
+  };
 
   // Draw Main Image
   ctx.save();
@@ -166,7 +165,7 @@ export async function generateSocialPost(
 
   // Overlay
   if (format !== 'AI_SEED' && !options.skipOverlay) {
-    renderOverlay(ctx, targetWidth, targetHeight, options);
+    renderOverlay(ctx, targetWidth, targetHeight, { ...options, safeZone });
   }
 
   // Branding
@@ -180,18 +179,11 @@ export async function generateSocialPost(
   return Buffer.from(canvas.toBuffer('image/jpeg'));
 }
 
-function renderOverlay(ctx: unknown, targetWidth: number, targetHeight: number, options: RenderOptions) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { overlay = [], style, businessName } = options;
+function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, options: RenderOptions & { safeZone?: any }) {
+  const { overlay = [], style, safeZone } = options;
   
   const isLuxury = style?.preset?.includes('LUXURY') ?? false;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const primaryColor = style?.primaryColor || '#FFFFFF';
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const borderColor = style?.borderColor || '#D4AF37'; 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const boxOpacity = style?.boxOpacity ?? 0.3;
-
+  
   // Cinematic Darkener (Bottom only)
   const gradH = targetHeight * 0.45;
   const grad = ctx.createLinearGradient(0, targetHeight - gradH, 0, targetHeight);
@@ -201,7 +193,7 @@ function renderOverlay(ctx: unknown, targetWidth: number, targetHeight: number, 
   ctx.fillRect(0, targetHeight - gradH, targetWidth, gradH);
 
   if (overlay && overlay.length > 0) {
-    ctx.direction = 'rtl';
+    ctx.direction = 'ltr';
 
     for (const line of overlay) {
       const cleanText = (line.text || '').trim();
@@ -209,82 +201,77 @@ function renderOverlay(ctx: unknown, targetWidth: number, targetHeight: number, 
 
       // --- CINEMATIC VIGNETTE (v65.1 READABILITY) ---
       // Top Darkener for TITLE (Conditional)
-      const topGradH = targetHeight * 0.25;
-      const topGrad = ctx.createLinearGradient(0, 0, 0, topGradH);
-      topGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
-      topGrad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = topGrad;
-      ctx.fillRect(0, 0, targetWidth, topGradH);
-
-      // 🕵️ VERSION MARKER (v65.1 PRO)
-      ctx.save();
-      ctx.font = '12px Sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.textAlign = 'right';
-      ctx.fillText('v65.1 PRO LIVE', targetWidth - 20, 25);
-      ctx.restore();
+      if (line.type === 'TITLE' || (line.yPosition && line.yPosition < 0.3)) {
+        const topGradH = targetHeight * 0.25;
+        const topGrad = ctx.createLinearGradient(0, 0, 0, topGradH);
+        topGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
+        topGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = topGrad;
+        ctx.fillRect(0, 0, targetWidth, topGradH);
+      }
 
       // 💎 LUXURY LOGO (Fixed Visibility v64.3)
       if (line.type === 'LOGO') {
         ctx.save();
         const logoSize = Math.round(42 * (targetWidth / 1080));
         ctx.font = `italic ${logoSize}px ${SERIF_STACK}, ${EMOJI_STACK}`;
-        ctx.fillStyle = '#FFFFFF'; // Pure White for maximum visibility
+        ctx.fillStyle = '#FFFFFF'; 
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'; ctx.shadowBlur = 15;
         ctx.textAlign = line.textAlign || 'left';
-        const lx = line.xPosition !== undefined ? line.xPosition * targetWidth : 60;
-        const ly = line.yPosition !== undefined ? line.yPosition * targetHeight : targetHeight - 180; // Raised significantly
+        
+        let lx = line.xPosition !== undefined ? line.xPosition * targetWidth : 60;
+        let ly = line.yPosition !== undefined ? line.yPosition * targetHeight : targetHeight - 180;
+
+        // Apply Safe Zone constraints
+        if (safeZone) {
+          lx = Math.max(safeZone.left, Math.min(safeZone.right - 100, lx));
+          ly = Math.max(safeZone.top + 40, Math.min(safeZone.bottom, ly));
+        }
+
         ctx.fillText(cleanText, lx, ly);
         ctx.restore();
         continue;
       }
 
-      // 📦 LUXURY MINIMAL (v64.3 Clean Mode)
-      // --- INTELLIGENT WRAPPING v66.0 ---
+      // --- INTELLIGENT WRAPPING & SCALING v66.1 ---
       const activeFont = isLuxury && line.type === 'TITLE' ? SERIF_STACK : SANS_STACK;
       const fontSizeBase = Math.round((line.fontSize || 60) * (targetWidth / 1080));
-      const maxWidth = targetWidth * 0.92; // Slightly wider safe zone
+      const maxWidth = safeZone ? safeZone.width : targetWidth * 0.9;
       
-      // Preliminary font setup for measurement
       ctx.font = `bold ${fontSizeBase}px ${activeFont}, ${EMOJI_STACK}`;
       
-      // 1. Wrap
       let lines = wrapText(ctx, cleanText, maxWidth);
-      
-      // 2. Adaptive Scaling (if too many lines or still too wide)
       let effSize = fontSizeBase;
-      const maxTotalHeight = targetHeight * 0.3; // Don't let a single block take >30% height
+      const maxBlockH = targetHeight * 0.25;
       
-      const checkScaling = () => {
-        const totalH = lines.length * (effSize * 1.3);
-        if (totalH > maxTotalHeight && effSize > 30) {
-          effSize -= 4;
-          ctx.font = `bold ${effSize}px ${activeFont}, ${EMOJI_STACK}`;
-          lines = wrapText(ctx, cleanText, maxWidth);
-          return true;
-        }
-        return false;
-      };
-      
-      while (checkScaling());
+      // Recursive shrink to fit height/width limits
+      while (lines.length * (effSize * 1.3) > maxBlockH && effSize > 24) {
+        effSize -= 4;
+        ctx.font = `bold ${effSize}px ${activeFont}, ${EMOJI_STACK}`;
+        lines = wrapText(ctx, cleanText, maxWidth);
+      }
 
       const lineHeight = effSize * 1.3;
-      const xPos = line.xPosition !== undefined ? line.xPosition * targetWidth : targetWidth / 2;
-      const yPos = (line.yPosition || 0.8) * targetHeight;
+      let xPos = line.xPosition !== undefined ? line.xPosition * targetWidth : targetWidth / 2;
+      let yPos = (line.yPosition || 0.8) * targetHeight;
+
+      // Safe Zone clipping for positions
+      if (safeZone) {
+        xPos = Math.max(safeZone.left + (effSize), Math.min(safeZone.right - (effSize), xPos));
+        yPos = Math.max(safeZone.top + (lines.length * lineHeight / 2), Math.min(safeZone.bottom - (lines.length * lineHeight / 2), yPos));
+      }
 
       ctx.save();
       ctx.translate(xPos, yPos);
       if (line.rotation) ctx.rotate((line.rotation * Math.PI) / 180);
 
-      // 🕵️ ULTIMATE READABILITY (v64.3 Contrast)
       ctx.shadowColor = 'rgba(0, 0, 0, 0.9)'; 
       ctx.shadowBlur = 20;
       ctx.shadowOffsetY = 4;
-      ctx.fillStyle = '#FFFFFF'; // Ensure all text is bright white with shadow
+      ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = line.textAlign || 'center';
       
       lines.forEach((txt, idx) => {
-        // Center text block vertically around yPos
         const vertOffset = (idx - (lines.length - 1) / 2) * lineHeight;
         ctx.fillText(txt, 0, vertOffset);
       });
