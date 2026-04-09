@@ -1,5 +1,5 @@
- 
- 
+
+
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -29,7 +29,7 @@ export interface RenderOptions {
   style?: StyleOptions; 
 }
 
-// --- FONT SYSTEM v60 (Luxury Art-Director Edition) ---
+// --- FONT SYSTEM v67.0 (Luxury Art-Director Edition) ---
 const SANS_STACK = 'Assistant, sans-serif';
 const SERIF_STACK = '"Playfair Display", serif';
 const EMOJI_STACK = '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
@@ -65,7 +65,11 @@ function ensureFonts() {
 }
 
 /**
- * Marketing Art-Director Graphic Engine v2.6.2
+ * Marketing Art-Director Graphic Engine v67.0
+ * - Blurred backdrop (no more black squares)
+ * - Luxury typography (Playfair Display serif for titles)
+ * - Semi-transparent logo watermark
+ * - BiDi-safe Hebrew rendering
  */
 export async function generateSocialPost(
   imageBuffer: Buffer,
@@ -94,46 +98,44 @@ export async function generateSocialPost(
     return Buffer.from(originalCanvas.toBuffer('image/jpeg'));
   }
 
-  // --- BACKGROUND ENGINE (v65.0 - Blurred Seed) ---
-  if (format === 'AI_SEED') {
-    // Draw blurred cover background to provide context for AI outpainting
-    const bAspect = image.width / image.height;
-    const cAspect = targetWidth / targetHeight;
-    let bw, bh, bx, by;
-    if (bAspect > cAspect) {
-      bh = targetHeight; bw = targetHeight * bAspect; bx = (targetWidth - bw) / 2; by = 0;
-    } else {
-      bw = targetWidth; bh = targetWidth / bAspect; bx = (targetWidth - bw) / 2; by = 0;
-    }
-    
-    ctx.save();
-    ctx.drawImage(image, bx, by, bw, bh);
-    // Darken and blur (simulated via multiple draws or filter if supported)
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.fillRect(0, 0, targetWidth, targetHeight);
-    try {
-      // @ts-expect-error - setting custom filter
-      ctx.filter = 'blur(60px)';
-      ctx.drawImage(canvas, 0, 0);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e) {
-      // Fallback for environments without filter support
-      ctx.globalAlpha = 0.3;
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0,0, targetWidth, targetHeight);
-    }
-    ctx.restore();
+  // --- BACKGROUND ENGINE v67.0 ---
+  // Always use blurred image backdrop to eliminate black squares at edges
+  const bgAspect = image.width / image.height;
+  const bgCaspect = targetWidth / targetHeight;
+  let bgW: number, bgH: number, bgX: number, bgY: number;
+
+  // Cover-fill: image always covers entire canvas
+  if (bgAspect > bgCaspect) {
+    bgH = targetHeight; bgW = targetHeight * bgAspect; bgX = (targetWidth - bgW) / 2; bgY = 0;
   } else {
-    ctx.fillStyle = '#0a0a0a'; // Premium Deep Black
-    ctx.fillRect(0, 0, targetWidth, targetHeight);
+    bgW = targetWidth; bgH = targetWidth / bgAspect; bgX = 0; bgY = (targetHeight - bgH) / 2;
   }
 
-  const imgAspect = image.width / image.height;
+  ctx.save();
+  ctx.drawImage(image, bgX, bgY, bgW, bgH);
+  // Darken
+  const darkenAlpha = format === 'AI_SEED' ? 0.4 : 0.55;
+  ctx.fillStyle = `rgba(0, 0, 0, ${darkenAlpha})`;
+  ctx.fillRect(0, 0, targetWidth, targetHeight);
+  // Blur
+  try {
+    // @ts-expect-error - setting custom filter
+    ctx.filter = format === 'AI_SEED' ? 'blur(60px)' : 'blur(50px)';
+    ctx.drawImage(canvas, 0, 0);
+  } catch {
+    // Fallback: additional darkening if filter not supported
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+  }
+  ctx.restore();
+
+  // --- DRAW MAIN IMAGE ---
+  const imgAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
 
-  // --- DYNAMIC COMPOSITION ENGINE v66.1 (Safe Zones & Auto-Scaling) ---
-  const paddingX = targetWidth * 0.05; // 5% horizontal padding
-  const paddingY = targetHeight * 0.06; // 6% vertical padding
+  // Dynamic Composition Engine v67.0 (Safe Zones & Auto-Scaling)
+  const paddingX = targetWidth * 0.05;
+  const paddingY = targetHeight * 0.06;
   const safeZone = {
     left: paddingX,
     right: targetWidth - paddingX,
@@ -143,12 +145,11 @@ export async function generateSocialPost(
     height: targetHeight - (paddingY * 2)
   };
 
-  // Draw Main Image
   ctx.save();
   
-  let dx, dy, dw, dh;
+  let dx: number, dy: number, dw: number, dh: number;
   if (format === 'AI_SEED') {
-    // --- FRAMED SEED LOGIC (v66.2) ---
+    // Framed Seed Logic (v66.2) — subject centered with frame
     const scale = 0.9;
     const innerW = targetWidth * scale;
     const innerH = targetHeight * scale;
@@ -182,12 +183,16 @@ export async function generateSocialPost(
     renderOverlay(ctx, targetWidth, targetHeight, { ...options, safeZone });
   }
 
-  // Branding
+  // Branding (v67.0 Luxury Serif Watermark)
   if (businessName && format !== 'AI_SEED') {
-    ctx.font = `24px Assistant`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.save();
+    ctx.font = `italic 26px ${SERIF_STACK}`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
     ctx.textAlign = 'center';
-    ctx.fillText(getVisualBidiText(businessName), targetWidth / 2, targetHeight - 40);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 8;
+    ctx.fillText(getVisualBidiText(businessName), targetWidth / 2, targetHeight - 38);
+    ctx.restore();
   }
 
   return Buffer.from(canvas.toBuffer('image/jpeg'));
@@ -196,9 +201,10 @@ export async function generateSocialPost(
 function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, options: RenderOptions & { safeZone?: any }) {
   const { overlay = [], style, safeZone } = options;
   
-  const isLuxury = style?.preset?.includes('LUXURY') ?? false;
+  // v67.0: ALWAYS luxury — this is a premium beauty platform
+  const isLuxury = true;
   
-  // Cinematic Darkener (Bottom only)
+  // Cinematic Darkener (Bottom gradient for text readability)
   const gradH = targetHeight * 0.45;
   const grad = ctx.createLinearGradient(0, targetHeight - gradH, 0, targetHeight);
   grad.addColorStop(0, 'rgba(0,0,0,0)');
@@ -225,13 +231,14 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
         ctx.fillRect(0, 0, targetWidth, topGradH);
       }
 
-      // 💎 LUXURY LOGO (Fixed Visibility v64.3)
+      // 💎 LUXURY LOGO v67.0 (Transparent Elegant Watermark)
       if (line.type === 'LOGO') {
         ctx.save();
         const logoSize = Math.round(42 * (targetWidth / 1080));
         ctx.font = `italic ${logoSize}px ${SERIF_STACK}, ${EMOJI_STACK}`;
+        ctx.globalAlpha = 0.55; // Semi-transparent luxury watermark
         ctx.fillStyle = '#FFFFFF'; 
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'; ctx.shadowBlur = 15;
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.15)'; ctx.shadowBlur = 12; // Soft warm glow
         ctx.textAlign = line.textAlign || 'left';
         
         let lx = line.xPosition !== undefined ? line.xPosition * targetWidth : 60;
@@ -244,16 +251,18 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
         }
 
         ctx.fillText(getVisualBidiText(cleanText), lx, ly);
+        ctx.globalAlpha = 1.0;
         ctx.restore();
         continue;
       }
 
-      // --- INTELLIGENT WRAPPING & SCALING v66.1 ---
-      const activeFont = isLuxury && line.type === 'TITLE' ? SERIF_STACK : SANS_STACK;
+      // --- INTELLIGENT WRAPPING & SCALING v67.0 (Luxury Typography) ---
+      const activeFont = line.type === 'TITLE' ? SERIF_STACK : SANS_STACK;
       const fontSizeBase = Math.round((line.fontSize || 60) * (targetWidth / 1080));
       const maxWidth = safeZone ? safeZone.width : targetWidth * 0.9;
+      const fontWeight = line.type === 'TITLE' ? '700' : 'bold';
       
-      ctx.font = `bold ${fontSizeBase}px ${activeFont}, ${EMOJI_STACK}`;
+      ctx.font = `${fontWeight} ${fontSizeBase}px ${activeFont}, ${EMOJI_STACK}`;
       
       let lines = wrapText(ctx, cleanText, maxWidth);
       let effSize = fontSizeBase;
@@ -262,7 +271,7 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
       // Recursive shrink to fit height/width limits
       while (lines.length * (effSize * 1.3) > maxBlockH && effSize > 24) {
         effSize -= 4;
-        ctx.font = `bold ${effSize}px ${activeFont}, ${EMOJI_STACK}`;
+        ctx.font = `${fontWeight} ${effSize}px ${activeFont}, ${EMOJI_STACK}`;
         lines = wrapText(ctx, cleanText, maxWidth);
       }
 
@@ -280,13 +289,14 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
       ctx.translate(xPos, yPos);
       if (line.rotation) ctx.rotate((line.rotation * Math.PI) / 180);
 
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)'; 
-      ctx.shadowBlur = 20;
-      ctx.shadowOffsetY = 4;
-      ctx.fillStyle = '#FFFFFF';
+      // Luxury warm shadow system v67.0
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.75)'; 
+      ctx.shadowBlur = 25;
+      ctx.shadowOffsetY = 3;
+      ctx.fillStyle = line.type === 'PRICE' ? '#FFF8E7' : '#FFFFFF'; // Warm gold tint for prices
       ctx.textAlign = line.textAlign || 'center';
       
-      lines.forEach((txt, idx) => {
+      lines.forEach((txt: string, idx: number) => {
         const vertOffset = (idx - (lines.length - 1) / 2) * lineHeight;
         ctx.fillText(getVisualBidiText(txt), 0, vertOffset);
       });
