@@ -42,13 +42,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
          session_data: {
            originalBuffer: imageData.toString('base64'),
            lastImageId: fileId,
-           status: 'pending_selection'
+           status: 'preparing_ai'
          },
          updated_at: new Date().toISOString()
       });
     }
 
-    // 🚀 STEP 3: SHOW MASTER-PANEL (Premium Unified Design Hub v52.4)
+    // 🚀 STEP 3: TRIGGER BACKGROUND RETOUCH (v66.3)
+    console.log('[AI-Worker] Triggering background retouch-worker...');
+    const { enqueueRetouchProcessing } = await import('./_lib/qstash.js');
+    await enqueueRetouchProcessing(chatId, fileUrl, fileId);
+
+    // 🚀 STEP 4: SHOW MASTER-PANEL (Premium Unified Design Hub v52.4)
     const fId = fileId || 'image';
     const menu = {
       inline_keyboard: [

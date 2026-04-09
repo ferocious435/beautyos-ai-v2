@@ -115,3 +115,32 @@ export async function enqueueRenderProcessing(chatId: number, formatType: string
     console.error('Error enqueuing render task:', error);
   }
 }
+
+/**
+ * Ставит задачу на фоновую ретушь и анализ (AI RETOUCH) сразу после получения фото
+ */
+export async function enqueueRetouchProcessing(chatId: number, fileUrl: string, fileId: string) {
+  const token = (process.env.QSTASH_TOKEN || '').trim();
+  const appUrl = (process.env.WEBAPP_URL || '').trim();
+  const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
+
+  if (!token || !appUrl) return;
+
+  const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/retouch-worker`;
+  
+  try {
+    await axios.post(
+      `${qUrl}/v2/publish/${destinationUrl}`,
+      { chatId, fileUrl, fileId },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log(`[QStash] Enqueued retouch task for chat ${chatId}`);
+  } catch (error) {
+    console.error('Error enqueuing retouch task:', error);
+  }
+}
