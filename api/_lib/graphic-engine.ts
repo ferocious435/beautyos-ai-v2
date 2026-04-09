@@ -4,7 +4,7 @@ import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { wrapText } from './graphic-utils.js';
+import { wrapText, getVisualBidiText } from './graphic-utils.js';
 import type { OverlayLine } from './content-engine.js';
 
 export type SocialFormat = 'INSTAGRAM_POST' | 'STORY_9_16' | 'SQUARE_1_1' | 'ORIGINAL' | 'AI_SEED';
@@ -187,7 +187,7 @@ export async function generateSocialPost(
     ctx.font = `24px Assistant`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.textAlign = 'center';
-    ctx.fillText(businessName, targetWidth / 2, targetHeight - 40);
+    ctx.fillText(getVisualBidiText(businessName), targetWidth / 2, targetHeight - 40);
   }
 
   return Buffer.from(canvas.toBuffer('image/jpeg'));
@@ -207,7 +207,8 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
   ctx.fillRect(0, targetHeight - gradH, targetWidth, gradH);
 
   if (overlay && overlay.length > 0) {
-    ctx.direction = 'rtl';
+    // BiDi: text is pre-reordered to visual order in getVisualBidiText()
+    // Do NOT set ctx.direction = 'rtl' — it would cause double-reversal
 
     for (const line of overlay) {
       const cleanText = (line.text || '').trim();
@@ -242,7 +243,7 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
           ly = Math.max(safeZone.top + 40, Math.min(safeZone.bottom, ly));
         }
 
-        ctx.fillText(cleanText, lx, ly);
+        ctx.fillText(getVisualBidiText(cleanText), lx, ly);
         ctx.restore();
         continue;
       }
@@ -287,7 +288,7 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
       
       lines.forEach((txt, idx) => {
         const vertOffset = (idx - (lines.length - 1) / 2) * lineHeight;
-        ctx.fillText(txt, 0, vertOffset);
+        ctx.fillText(getVisualBidiText(txt), 0, vertOffset);
       });
       ctx.restore();
     }
