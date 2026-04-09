@@ -1,15 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
- 
 import { useState, useEffect } from 'react';
 import { useTelegram } from '../hooks/useTelegram';
 import * as Lucide from 'lucide-react';
-
-const { Camera, Sparkles, LoaderCircle } = Lucide as any;
 import { supabase } from '../lib/supabaseClient';
+import { PortfolioImage } from '../types/database';
+
+const { Camera, Sparkles, LoaderCircle } = Lucide;
 
 const Portfolio = () => {
   const { user } = useTelegram();
-  const [images, setImages] = useState<any[]>([]);
+  const [images, setImages] = useState<PortfolioImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

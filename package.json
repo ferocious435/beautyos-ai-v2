@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "mkdir -p api/_assets/fonts && curl -L -o api/_assets/fonts/NotoColorEmoji.ttf https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf && curl -L -o api/_assets/fonts/PlayfairDisplay-Bold.ttf https://github.com/google/fonts/raw/main/ofl/playfairdisplay/static/PlayfairDisplay-Bold.ttf && npx rimraf dist && tsc -b && vite build",
+    "build": "node scripts/setup-assets.js && npx rimraf dist && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

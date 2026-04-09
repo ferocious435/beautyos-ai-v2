@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
- 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import * as Lucide from 'lucide-react';
+import { Booking } from '../types/database';
 
 const { 
   Clock,
@@ -13,14 +12,14 @@ const {
   ChevronLeft,
   Move,
   Trash2
-} = Lucide as any;
+} = Lucide;
 
 const MasterCalendar = () => {
   const navigate = useNavigate();
   const appUser = useAppStore(state => state.user);
   const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Hours to display (08:00 to 22:00)
@@ -75,7 +74,7 @@ const MasterCalendar = () => {
     if (!error) setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled_by_master' } : b));
   };
 
-  const handleReschedule = (booking: any) => {
+  const handleReschedule = (booking: Booking) => {
     navigate(`/order?masterId=${booking.master?.telegram_id}&rescheduleId=${booking.id}`);
   };
 

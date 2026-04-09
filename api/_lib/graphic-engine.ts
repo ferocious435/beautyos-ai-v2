@@ -4,6 +4,7 @@ import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { wrapText } from './graphic-utils.js';
 import type { OverlayLine } from './content-engine.js';
 
 export type SocialFormat = 'INSTAGRAM_POST' | 'STORY_9_16' | 'SQUARE_1_1' | 'ORIGINAL' | 'AI_SEED';
@@ -239,19 +240,37 @@ function renderOverlay(ctx: unknown, targetWidth: number, targetHeight: number, 
       }
 
       // 📦 LUXURY MINIMAL (v64.3 Clean Mode)
-      const lines = cleanText.split('\n');
-      const fontSizeBase = Math.round((line.fontSize || 60) * (targetWidth / 1080));
+      // --- INTELLIGENT WRAPPING v66.0 ---
       const activeFont = isLuxury && line.type === 'TITLE' ? SERIF_STACK : SANS_STACK;
+      const fontSizeBase = Math.round((line.fontSize || 60) * (targetWidth / 1080));
+      const maxWidth = targetWidth * 0.92; // Slightly wider safe zone
+      
+      // Preliminary font setup for measurement
+      ctx.font = `bold ${fontSizeBase}px ${activeFont}, ${EMOJI_STACK}`;
+      
+      // 1. Wrap
+      let lines = wrapText(ctx, cleanText, maxWidth);
+      
+      // 2. Adaptive Scaling (if too many lines or still too wide)
+      let effSize = fontSizeBase;
+      const maxTotalHeight = targetHeight * 0.3; // Don't let a single block take >30% height
+      
+      const checkScaling = () => {
+        const totalH = lines.length * (effSize * 1.3);
+        if (totalH > maxTotalHeight && effSize > 30) {
+          effSize -= 4;
+          ctx.font = `bold ${effSize}px ${activeFont}, ${EMOJI_STACK}`;
+          lines = wrapText(ctx, cleanText, maxWidth);
+          return true;
+        }
+        return false;
+      };
+      
+      while (checkScaling());
+
+      const lineHeight = effSize * 1.3;
       const xPos = line.xPosition !== undefined ? line.xPosition * targetWidth : targetWidth / 2;
       const yPos = (line.yPosition || 0.8) * targetHeight;
-
-      ctx.font = `bold ${fontSizeBase}px ${activeFont}, ${EMOJI_STACK}`;
-      let maxW = 0; lines.forEach(txt => { const w = ctx.measureText(txt).width; if (w > maxW) maxW = w; });
-      const maxWidth = targetWidth * 0.88;
-      let effSize = fontSizeBase;
-      if (maxW > maxWidth) { effSize = Math.floor(fontSizeBase * (maxWidth / maxW)); ctx.font = `bold ${effSize}px ${activeFont}, ${EMOJI_STACK}`; }
-
-      const lineHeight = effSize * 1.25;
 
       ctx.save();
       ctx.translate(xPos, yPos);
@@ -265,7 +284,9 @@ function renderOverlay(ctx: unknown, targetWidth: number, targetHeight: number, 
       ctx.textAlign = line.textAlign || 'center';
       
       lines.forEach((txt, idx) => {
-        ctx.fillText(txt, 0, idx * lineHeight);
+        // Center text block vertically around yPos
+        const vertOffset = (idx - (lines.length - 1) / 2) * lineHeight;
+        ctx.fillText(txt, 0, vertOffset);
       });
       ctx.restore();
     }

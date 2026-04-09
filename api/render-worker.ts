@@ -141,31 +141,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let y = design?.y;
       let align: 'left' | 'center' | 'right' = design?.align ?? (line.type === 'PRICE' ? 'right' : (line.type === 'LOGO' ? 'left' : 'center'));
 
-      // Default Y-Slots for v61
+      // Default Y-Slots for v66.0 (Wider Staggering)
       if (y === undefined) {
-        if (line.type === 'TITLE') y = 0.12;
-        else if (line.type === 'PRICE') y = 0.18; // Stagger price below title by default
-        else if (line.type === 'PROMO') y = 0.82;
+        if (line.type === 'TITLE') y = 0.14;
+        else if (line.type === 'PRICE') y = 0.26; // Much further down if title exists
+        else if (line.type === 'PROMO') y = 0.78;
         else if (line.type === 'LOGO') { y = 0.94; x = 0.05; align = 'left'; }
-        else y = 0.88;
+        else y = 0.85;
       }
 
-      // 🛑 PRECISION COLLISION AVOIDANCE (v61)
-      const step = 0.12; 
-      const thresholdY = 0.10; // Tighter vertical packing
-      let attempts = 0;
+      // 🛑 PRECISION COLLISION AVOIDANCE v66.0 (Height-Aware)
+      const lineCount = (line.text || '').split('\n').length;
+      const blockHeight = 0.08 + (lineCount * 0.04); // Estimated height in normalized coordinates
+      const thresholdY = blockHeight + 0.02; // Padding
       
-      while (usedPositions.some(p => Math.abs(p.y - y!) < thresholdY && Math.abs(p.x - x) < 0.4) && attempts < 5) {
-        // Intelligent Push: Push Title/Price UP, Push Promo/Logo DOWN
-        if (y! < 0.4) y! -= step; 
-        else y! += step;
+      let attempts = 0;
+      while (usedPositions.some(p => Math.abs(p.y - y!) < thresholdY && Math.abs(p.x - x) < 0.5) && attempts < 8) {
+        // Push Title/Price UP, Push Promo/Logo DOWN
+        const pushDir = y! < 0.4 ? -1 : 1;
+        y! += pushDir * 0.08;
         attempts++;
       }
       
-      // Safe bounds (v61 Hard-Limit)
-      y = Math.max(0.06, Math.min(0.94, y!));
+      // Safe bounds (v66 Hard-Limit)
+      y = Math.max(0.08, Math.min(0.92, y!));
       
-      usedPositions.push({ x, y, h: step });
+      usedPositions.push({ x, y, h: blockHeight });
 
       // 🎨 LUXURY STYLE
       let fontSize = line.fontSize || 60;
@@ -178,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         xPosition: x, 
         yPosition: y, 
         textAlign: align,
-        rotation: (line.type === 'PRICE' ? -3 : (line.type === 'PROMO' ? 2 : 0))
+        rotation: (line.type === 'PRICE' ? -3 : (line.type === 'PROMO' ? 2 : (Math.random() * 2 - 1)))
       };
     });
 

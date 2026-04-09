@@ -37,3 +37,7 @@ brain/
 
 .vercel
 .env*.local
+
+# Assets
+api/_assets/fonts/*.ttf
+api/_assets/fonts/*.otf

@@ -426,9 +426,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       if (oldIdx > -1) ctx.session.lastOverlay.splice(oldIdx, 1);
 
       let line: unknown = { type, text };
-      if (type === 'PRICE') line = { ...line, text: text, fontSize: 62, yPosition: 0.8, color: '#FFFFFF' };
-      else if (type === 'TITLE') line = { ...line, text: text, fontSize: 64, yPosition: 0.15, color: '#FFFFFF' };
-      else if (type === 'PROMO') line = { ...line, text: text, fontSize: 80, yPosition: 0.5, color: '#FFD700' };
+      if (type === 'PRICE') line = { ...line, text: text, fontSize: 62, color: '#FFFFFF' };
+      else if (type === 'TITLE') line = { ...line, text: text, fontSize: 64, color: '#FFFFFF' };
+      else if (type === 'PROMO') line = { ...line, text: text, fontSize: 80, color: '#FFD700' };
 
       ctx.session.lastOverlay.push(line);
       ctx.session.designWaitingFor = null;
