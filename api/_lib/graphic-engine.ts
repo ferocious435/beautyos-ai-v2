@@ -128,7 +128,7 @@ export async function generateSocialPost(
     ctx.fillRect(0, 0, targetWidth, targetHeight);
   }
 
-  const imgAspect = image.width / image.height;
+  const imgAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
 
   // --- DYNAMIC COMPOSITION ENGINE v66.1 (Safe Zones & Auto-Scaling) ---
@@ -145,7 +145,27 @@ export async function generateSocialPost(
 
   // Draw Main Image
   ctx.save();
-  if (format !== 'AI_SEED') {
+  
+  let dx, dy, dw, dh;
+  if (format === 'AI_SEED') {
+    // --- FRAMED SEED LOGIC (v66.2) ---
+    const scale = 0.9;
+    const innerW = targetWidth * scale;
+    const innerH = targetHeight * scale;
+    
+    if (imgAspect > (innerW / innerH)) {
+      dw = innerW;
+      dh = innerW / imgAspect;
+    } else {
+      dh = innerH;
+      dw = innerH * imgAspect;
+    }
+    dx = (targetWidth - dw) / 2;
+    dy = (targetHeight - dh) / 2;
+
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 30;
+  } else {
     // Normal centered fit
     if (imgAspect > canvasAspect) {
       dw = targetWidth; dh = targetWidth / imgAspect; dx = 0; dy = (targetHeight - dh) / 2;
@@ -153,13 +173,7 @@ export async function generateSocialPost(
       dh = targetHeight; dw = targetHeight * imgAspect; dx = (targetWidth - dw) / 2; dy = 0;
     }
   }
-  
-  // Add subtle shadow for the "Framed" effect in AI_SEED
-  if (format === 'AI_SEED') {
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 30;
-  }
-  
+
   ctx.drawImage(image, dx, dy, dw, dh);
   ctx.restore();
 
