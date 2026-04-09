@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
-import Clock from 'lucide-react/dist/esm/icons/clock';
-import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
-import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
-import Move from 'lucide-react/dist/esm/icons/move';
-import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
-import Calendar from 'lucide-react/dist/esm/icons/calendar';
+import * as Lucide from 'lucide-react';
+const { 
+  Clock, 
+  ChevronRight, 
+  ChevronLeft, 
+  Move, 
+  Trash2 
+} = Lucide as any;
 import type { Booking } from '../types/database';
 
 const MasterCalendar = () => {

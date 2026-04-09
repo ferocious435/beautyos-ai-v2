@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTelegram } from '../hooks/useTelegram';
-import Camera from 'lucide-react/dist/esm/icons/camera';
-import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
-import LoaderCircle from 'lucide-react/dist/esm/icons/loader-circle';
+import * as Lucide from 'lucide-react';
+const { Camera, Sparkles, LoaderCircle } = Lucide as any;
 import { supabase } from '../lib/supabaseClient';
 import type { PortfolioImage } from '../types/database';
 
