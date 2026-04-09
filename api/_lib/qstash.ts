@@ -135,7 +135,8 @@ export async function enqueueRetouchProcessing(chatId: number, fileUrl: string, 
       {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Upstash-Forward-x-internal-secret': process.env.TELEGRAM_BOT_TOKEN
         }
       }
     );
@@ -144,3 +145,4 @@ export async function enqueueRetouchProcessing(chatId: number, fileUrl: string, 
     console.error('Error enqueuing retouch task:', error);
   }
 }
+

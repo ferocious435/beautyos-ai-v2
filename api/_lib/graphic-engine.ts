@@ -207,7 +207,7 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
   ctx.fillRect(0, targetHeight - gradH, targetWidth, gradH);
 
   if (overlay && overlay.length > 0) {
-    ctx.direction = 'ltr';
+    ctx.direction = 'rtl';
 
     for (const line of overlay) {
       const cleanText = (line.text || '').trim();
