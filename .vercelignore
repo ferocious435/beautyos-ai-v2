@@ -1,5 +1,5 @@
 server/
-scripts/
+# scripts/ removed to allow Vercel build access
 skills/
 tmp/
 _archive/

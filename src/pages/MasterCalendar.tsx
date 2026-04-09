@@ -3,16 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
-import * as Lucide from 'lucide-react';
-import { Booking } from '../types/database';
-
-const { 
+import { 
   Clock,
   ChevronRight,
   ChevronLeft,
   Move,
-  Trash2
-} = Lucide;
+  Trash2,
+  Calendar
+} from 'lucide-react';
+import type { Booking } from '../types/database';
 
 const MasterCalendar = () => {
   const navigate = useNavigate();

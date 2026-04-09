@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTelegram } from '../hooks/useTelegram';
-import * as Lucide from 'lucide-react';
+import { Camera, Sparkles, LoaderCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { PortfolioImage } from '../types/database';
-
-const { Camera, Sparkles, LoaderCircle } = Lucide;
+import type { PortfolioImage } from '../types/database';
 
 const Portfolio = () => {
   const { user } = useTelegram();
