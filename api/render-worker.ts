@@ -3,6 +3,13 @@ import { Telegraf } from 'telegraf';
 import { getSupabase } from './_lib/supabase.js';
 import { generateSocialPost } from './_lib/graphic-engine.js';
 
+// Vercel Config: Disable Body Parser for Raw Body Security Verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
@@ -15,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { chatId, formatType } = req.body;
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
 
-  console.log(`[Render-Worker v66.3] Fast Render Request: ${formatType} for chat: ${chatId}`);
+  console.log(`[Render-Worker v67.2] Fast Render Request: ${formatType} for chat: ${chatId}`);
 
   try {
     const supabase = getSupabase();
@@ -80,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
     const realBusinessName = userData?.business_name || 'Beauty Expert';
 
-    // 🚀 PRO COMPOSITION ENGINE v66.1 (Simplified for Worker)
+    // 🚀 STACKING v61: PRO COMPOSITION ENGINE (Dynamic & Collision-Free)
     const rawOverlays = session_data.lastOverlay || [];
     const groupedMap = new Map<string, any>();
     rawOverlays.forEach((line: any) => {
@@ -90,20 +97,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       else groupedMap.set(line.type, { ...line, text: cleanText });
     });
 
-    // Stacking logic (re-used from previous version)
     const usedPositions: any[] = [];
     const overlays = Array.from(groupedMap.values()).map((line: any) => {
-      let x = line.xPosition || 0.5;
+      let x = line.xPosition || (line.type === 'PRICE' ? 0.9 : (line.type === 'LOGO' ? 0.05 : 0.5));
       let y = line.yPosition;
-      let align: any = line.textAlign || 'center';
+      let align: any = line.textAlign || (line.type === 'PRICE' ? 'right' : (line.type === 'LOGO' ? 'left' : 'center'));
 
       if (y === undefined) {
         if (line.type === 'TITLE') y = 0.12;
-        else if (line.type === 'PRICE') { y = 0.22; x = 0.88; align = 'right'; }
+        else if (line.type === 'PRICE') y = 0.22;
         else if (line.type === 'PROMO') y = 0.82;
-        else if (line.type === 'LOGO') { y = 0.94; x = 0.08; align = 'left'; }
+        else if (line.type === 'LOGO') y = 0.94;
         else y = 0.5;
       }
+
+      // --- STACKING v61: COLLISION RESOLUTION ---
+      const step = 0.12; 
+      const thresholdY = 0.10;
+      let attempts = 0;
+      while (usedPositions.some(p => Math.abs(p.y - y) < thresholdY && Math.abs(p.x - x) < 0.35) && attempts < 5) {
+        if (y < 0.4) y += step; // Сдвигаем вниз, если в верхней части
+        else y -= step;         // Сдвигаем вверх, если в нижней части
+        attempts++;
+      }
+      y = Math.max(0.06, Math.min(0.94, y));
+      usedPositions.push({ x, y });
 
       return { 
         ...line, 

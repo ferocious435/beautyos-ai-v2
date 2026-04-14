@@ -3,12 +3,24 @@ import { getSupabase } from './_lib/supabase.js';
 import { analyzeAndGenerate, enhanceImage } from './_lib/content-engine.js';
 import { generateSocialPost } from './_lib/graphic-engine.js';
 
+// Vercel Config: Disable Body Parser for Raw Body Security Verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-  // Use a simple shared secret instead of QStash signature which fails on parsed bodies natively
+  const { verifyQStashSignature } = await import('./_lib/security.js');
+  const isAuthorized = await verifyQStashSignature(req);
+  
+  // Also allow via internal secret for manual testing
   const internalSecret = req.headers['x-internal-secret'];
-  if (internalSecret !== process.env.TELEGRAM_BOT_TOKEN) {
+  const isSecretValid = internalSecret === process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!isAuthorized && !isSecretValid) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

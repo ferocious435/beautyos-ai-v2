@@ -7,6 +7,13 @@ import axios from 'axios';
 import { analyzeAndGenerate, enhanceImage } from './_lib/content-engine.js';
 import { getSupabase } from './_lib/supabase.js';
 
+// Vercel Config: Disable Body Parser for Raw Body Security Verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 // Linear Worker for Stability (v44)
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
@@ -83,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err: unknown) {
     console.error('AI-Worker Error:', err);
     try {
-      await bot.telegram.sendMessage(chatId, `❌ **שגיאת עיבוד:** המערכת נתקלה בבעיה טכנית: ${err.message}`).catch(() => {});
+      await bot.telegram.sendMessage(chatId, `❌ **שגיאת עיבוד:** המערכת נתקלה вבעיה טכנית: ${err.message}`).catch(() => {});
     } catch (e) {
       console.error('Failed to notify error to Telegram:', e);
     }
