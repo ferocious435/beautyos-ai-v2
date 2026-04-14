@@ -124,14 +124,14 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
     const model = genAI.getGenerativeModel({ 
       model: CONFIG.MODELS.ENHANCEMENT,
       safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-      ] as unknown,
+        { category: 'HARM_CATEGORY_HARASSMENT' as any, threshold: 'BLOCK_NONE' as any },
+        { category: 'HARM_CATEGORY_HATE_SPEECH' as any, threshold: 'BLOCK_NONE' as any },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT' as any, threshold: 'BLOCK_NONE' as any },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT' as any, threshold: 'BLOCK_NONE' as any }
+      ],
     });
     // @ts-expect-error - no exact types available
-    (model as unknown).generationConfig = { responseModalities: ['TEXT', 'IMAGE'] };
+    (model as any).generationConfig = { responseModalities: ['TEXT', 'IMAGE'] };
     
       // SYSTEM_MASTER_INSTRUCTION (v55.2 NAIL & SKIN POLISH DNA)
       const enhancePrompt = `
@@ -163,31 +163,31 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
             { text: enhancePrompt },
             { inlineData: { data: imageBuffer.toString('base64'), mimeType: 'image/jpeg' } }
           ]
-        }] as unknown,
-        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } as unknown
+        }] as any,
+        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } as any
       }, { signal: controller.signal });
 
-      const result = await Promise.race([generationPromise, timeoutPromise]) as unknown;
+      const result: any = await Promise.race([generationPromise, timeoutPromise]);
 
       const response = result.response;
       const parts = response.candidates?.[0]?.content?.parts;
       if (parts) {
         for (const part of parts) {
-          if ((part as unknown).inlineData?.data) {
+          if ((part as any).inlineData?.data) {
             console.log('[BeautyOS Master] ✅ Professional retouch completed!');
-            return Buffer.from((part as unknown).inlineData.data, 'base64');
+            return Buffer.from((part as any).inlineData.data, 'base64');
           }
         }
       }
       throw new Error('AI_RETURNED_NO_IMAGE');
-    } catch (err: unknown) {
+    } catch (err: any) {
       if (err.name === 'AbortError') {
         throw new Error('AI_TIMEOUT');
       } else {
         throw err;
       }
     }
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error('[BeautyOS Master] 💥 Retouch failed:', err.message);
     throw err;
   }

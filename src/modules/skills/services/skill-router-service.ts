@@ -1,0 +1,29 @@
+import { TaskCategory } from './task-classifier';
+
+export interface RouteMetadata {
+  primary: string;
+  supporting: string[];
+  validation?: string;
+  fallback?: string;
+}
+
+export class SkillRouterService {
+  private routerConfig: Record<string, RouteMetadata> = {
+    'product-definition': { primary: 'product-manager', supporting: ['brainstorming'] },
+    'architecture': { primary: 'senior-architect', supporting: ['brainstorming', 'product-manager'] },
+    'implementation': { primary: 'nodejs-best-practices', supporting: ['gemini-api-integration', 'test-driven-development'], validation: 'test-driven-development' },
+    'frontend': { primary: 'frontend-dev-guidelines', supporting: ['frontend-ui-dark-ts', 'ai-studio-image'] },
+    'ai-media': { primary: 'stability-ai', supporting: ['ai-studio-image', 'gemini-api-integration'] },
+    'debugging': { primary: 'debugging-strategies', supporting: ['nodejs-best-practices'] },
+    'security': { primary: 'security-audit', supporting: ['nodejs-best-practices'] },
+    'infrastructure': { primary: 'vercel-deployment', supporting: ['upstash-qstash'] },
+    'bot-development': { primary: 'telegram-bot-builder', supporting: ['telegram-mini-app', 'nodejs-best-practices'] },
+    'knowledge': { primary: 'notebooklm-master', supporting: ['brainstorming'] },
+    'devops': { primary: 'github-mcp-server', supporting: ['vercel-deployment'] },
+    'qa': { primary: 'chrome-devtools-mcp', supporting: ['test-driven-development'] }
+  };
+
+  resolveRoute(category: TaskCategory): RouteMetadata {
+    return this.routerConfig[category] || { primary: 'brainstorming', supporting: ['loki-mode'] };
+  }
+}

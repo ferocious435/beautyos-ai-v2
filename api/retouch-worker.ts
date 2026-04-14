@@ -1,21 +1,32 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from './_lib/supabase.js';
-import { analyzeAndGenerate, enhanceImage } from './_lib/content-engine.js';
-import { generateSocialPost } from './_lib/graphic-engine.js';
+import { processor } from './_lib/processor.js';
+
+// Vercel Config: Disable Body Parser for Raw Body Security Verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-  // Use a simple shared secret instead of QStash signature which fails on parsed bodies natively
+  const { verifyQStashSignature } = await import('./_lib/security.js');
+  const isAuthorized = await verifyQStashSignature(req);
+  
+  // Also allow via internal secret for manual testing
   const internalSecret = req.headers['x-internal-secret'];
-  if (internalSecret !== process.env.TELEGRAM_BOT_TOKEN) {
+  const isSecretValid = internalSecret === process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!isAuthorized && !isSecretValid) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const { chatId, fileUrl, fileId } = req.body;
   if (!chatId || !fileUrl) return res.status(400).send('Missing chatId or fileUrl');
 
-  console.log(`[Retouch-Worker v67.1] Starting background AI process for chat: ${chatId}`);
+  console.log(`[Retouch-Worker v2.1] Starting AI process via UnifiedProcessor for chat: ${chatId}`);
 
   const supabase = getSupabase();
   if (!supabase) return res.status(500).send('Supabase missing');
@@ -25,46 +36,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const response = await axios.get(fileUrl, { responseType: 'arraybuffer', timeout: 15000 });
     const originalBuffer = Buffer.from(response.data);
 
-    // Step 1: Gemini Art-Director Analysis
-    console.log(`[Retouch-Worker] Step 1: Gemini Art-Director Analysis...`);
-    let aiResult;
-    try {
-      aiResult = await analyzeAndGenerate(originalBuffer);
-      console.log(`[Retouch-Worker] Step 1 ✅ Analysis complete. Service: ${aiResult.detectedService}`);
-    } catch (err: any) {
-      console.error(`[Retouch-Worker] Step 1 ❌ Analysis failed:`, err.message);
-      // Fallback: save original with default metadata so render-worker can still work
-      aiResult = {
-        post: 'Professional Beauty Service ✨',
-        imagenPrompt: 'Professional beauty retouch',
-        design: {},
-        style: { preset: 'LUXURY_GOLD', primaryColor: '#FFFFFF', secondaryColor: '#000000', shadowOpacity: 0.7, boxOpacity: 0.3 },
-        detectedService: 'Beauty Professional'
-      };
-    }
+    // 1. Анализ (Gemini 1.5 Pro)
+    const aiResult = await processor.analyze(originalBuffer);
 
-    // Step 2: AI Seed + Enhancement (with graceful fallback)
-    let finalMasterBuffer: Buffer = originalBuffer; // Default fallback = original
+    // 2. Создание сида (Canvas)
+    const seed = await processor.createSeed(originalBuffer);
+
+    // 3. Ретушь (Gemini 2.0 Flash)
+    let finalMasterBuffer = originalBuffer;
     let enhancementSucceeded = false;
-
     try {
-      console.log(`[Retouch-Worker] Step 2: Creating AI Seed (Framed)...`);
-      const aiSeed = await generateSocialPost(originalBuffer, {
-        format: 'AI_SEED',
-        skipOverlay: true,
-        theme: 'ORIGINAL_CLEAN'
-      });
-
-      console.log(`[Retouch-Worker] Step 3: Gemini Enhancement & Expansion...`);
-      finalMasterBuffer = await enhanceImage(aiSeed, aiResult.imagenPrompt);
+      finalMasterBuffer = await processor.enhance(seed, aiResult.imagenPrompt);
       enhancementSucceeded = true;
-      console.log(`[Retouch-Worker] Step 3 ✅ Enhancement complete!`);
     } catch (err: any) {
-      console.error(`[Retouch-Worker] Step 2-3 ❌ Enhancement failed: ${err.message}. Using original image.`);
-      // finalMasterBuffer stays as originalBuffer — user still gets a design, just without AI enhancement
+      console.error(`[Retouch-Worker] ❌ Enhancement failed: ${err.message}. Fallback to original.`);
     }
 
-    // Step 4: Save to Supabase (ALWAYS — even if enhancement failed)
+    // 4. Сохранение результатов в Supabase (Stateless Session)
     const { data: currentSession } = await supabase
       .from('bot_sessions')
       .select('session_data')

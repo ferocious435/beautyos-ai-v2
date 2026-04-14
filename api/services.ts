@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Определяем, какие action требуют валидации TG Hash.
   const secureActions = ['create-booking', 'update-booking', 'approve-booking', 'reject-booking', 'cancel-booking'];
   
-  let authUser: unknown = null;
+  let authUser: any = null;
 
   if (secureActions.includes(action)) {
     const initData = req.headers['x-telegram-init-data'] as string;
@@ -85,13 +85,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // --- [DIAGNOSTIC MODE v37] ---
     case 'diagnostic': {
-      const results: unknown = { timestamp: new Date().toISOString(), tests: {} };
+      const results: any = { timestamp: new Date().toISOString(), tests: {} };
       try {
         const { analyzeAndGenerate } = await import('./_lib/content-engine.js');
         const testBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', 'base64');
         await analyzeAndGenerate(testBuffer, 'diagnostic-test');
         results.tests.gemini_api = { status: 'PASSED' };
-      } catch (e: unknown) {
+      } catch (e: any) {
         results.tests.gemini_api = { status: 'FAILED', error: e.message };
       }
       return res.status(200).json(results);
@@ -147,16 +147,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
         const timeStr = new Date(startTime).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
         
-        const masterMsg = `🔔 **בקשת תור חדשה!**\n👤 לקוח: ${cUser.full_name}\n🕓 שעה: ${timeStr}\n\nהיכנסי ל-Studio כדי לאשר או לדחות את התור. ✨`;
+        const masterMsg = `🔔 **בקשת תור חדשה!**\n👤 לקוח: ${cUser.full_name}\n🕓 שעה: ${timeStr}\n\nהנה האפשרויות שלך:`;
         const clientMsg = `⏳ **בקשתך נשלחה!**\n📍 עסק: ${mUser.business_name || mUser.full_name}\n🕓 שעה: ${timeStr}\n\nאנחנו מחכים לאישור המאסטר. נעדכן אותך מיד כשיתקבל אישור! 🙏`;
 
         await Promise.all([
-          bot.telegram.sendMessage(masterTelegramId, masterMsg, { parse_mode: 'Markdown' }),
+          bot.telegram.sendMessage(masterTelegramId, masterMsg, { 
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ אישור תור', callback_data: `approve_${booking.id}` },
+                  { text: '❌ דחייה', callback_data: `reject_${booking.id}` }
+                ],
+                [
+                  { text: '📞 פנייה ללקוח', url: `tg://user?id=${clientTelegramId}` }
+                ]
+              ]
+            }
+          }),
           bot.telegram.sendMessage(clientTelegramId, clientMsg, { parse_mode: 'Markdown' })
         ]);
 
         return res.status(200).json({ success: true, bookingId: booking.id });
-      } catch (err: unknown) {
+      } catch (err: any) {
         console.error('BOOKING ERROR:', err);
         return res.status(500).json({ error: err.message });
       }
@@ -195,7 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (delay3h > 0) await scheduleNotification(Math.floor(delay3h), '3h', booking.id);
 
         return res.status(200).json({ success: true });
-      } catch (err: unknown) {
+      } catch (err: any) {
         return res.status(500).json({ error: err.message });
       }
     }
@@ -223,7 +236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' });
 
         return res.status(200).json({ success: true });
-      } catch (err: unknown) {
+      } catch (err: any) {
         return res.status(500).json({ error: err.message });
       }
     }
@@ -262,7 +275,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         return res.status(200).json({ success: true });
-      } catch (err: unknown) {
+      } catch (err: any) {
         return res.status(500).json({ error: err.message });
       }
     }
@@ -301,12 +314,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]);
 
         return res.status(200).json({ success: true });
-      } catch (err: unknown) {
+      } catch (err: any) {
         return res.status(500).json({ error: err.message });
       }
     }
 
     default:
-      return res.status(400).json({ error: `Unknown action: ${action}` });
+      return res.status(400).json({ error: `any action: ${action}` });
   }
 }

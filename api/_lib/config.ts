@@ -4,13 +4,14 @@ import 'dotenv/config';
 
 export const CONFIG = {
   GEMINI_API_KEY: process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
-  // --- AI Model Versions (Verified 2026-04-02) ---
+  // --- AI Model Versions (Verified via API 2026-04-14) ---
   MODELS: {
-    ANALYSIS: 'models/gemini-3.1-pro-preview',       // Standard Analysis (v51.1 Verified)
-    CONTENT: 'models/gemini-3-flash-preview',       // Fast Content Generation (v51.1 Verified)
-    ENHANCEMENT: 'models/gemini-3-pro-image-preview', // NANO BANANA PRO (v51.1 Verified)
-    EMBEDDING: 'models/gemini-embedding-1',
-    FALLBACK: 'models/gemini-1.5-flash',
+    ANALYSIS: process.env.MODEL_ANALYSIS || 'models/gemini-3.1-flash-live-preview',       
+    CONTENT: process.env.MODEL_CONTENT || 'models/gemini-3.1-flash-live-preview',       
+    ENHANCEMENT: process.env.MODEL_ENHANCEMENT || 'models/imagen-4.0-generate-001', // NANO BANANA POWER
+    VIDEO: 'models/veo-3.1-generate-preview',
+    EMBEDDING: 'models/text-embedding-004',
+    FALLBACK: 'models/gemini-2.5-flash-native-audio-latest',
   },
 
   // --- Style DNA & Master prompts ---

@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-04-14T06:41:00.000Z",
+  "status": "success",
+  "installedSkills": 24,
+  "missedSkills": 0,
+  "duplicatedSkills": 0,
+  "location": ".antigravity/skills/",
+  "report": "All 24 required skills were successfully migrated from global storage to the project-local directory. Directory structure validated. SKILL.md files present in each subdirectory."
+}

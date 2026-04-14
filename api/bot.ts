@@ -16,17 +16,24 @@ bot.use(supabaseSessionMiddleware);
 setupBotHandlers(bot);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log(`[Bot] Incoming Request: ${req.method}`);
+  
   try {
     if (req.method === 'POST') {
+      console.log(`[Bot] Update Body:`, JSON.stringify(req.body));
       // Telegram Webhook Handler
       await bot.handleUpdate(req.body);
+      console.log(`[Bot] HandleUpdate SUCCESS`);
       res.status(200).send('OK');
     } else {
       // Quick Status Check
-      res.status(200).send('BeautyOS AI Bot v39: Listening (Truth Layer Active)');
+      const status = `BeautyOS AI Bot v41: Listening\nToken: ${botToken ? 'OK' : 'MISSING'}\nURL: ${process.env.WEBAPP_URL}`;
+      console.log(`[Bot] Status Check (Force Refresh)`);
+      res.status(200).send(status);
     }
-  } catch (err) {
-    console.error('BOT_HANDLER_CRITICAL_ERR:', err);
-    res.status(500).send('Webhook Error');
+  } catch (err: any) {
+    console.error('!!! BOT_HANDLER_CRITICAL_ERR !!!:', err);
+    console.error('Error Stack:', err.stack);
+    res.status(500).json({ error: 'Webhook Error', message: err.message });
   }
 }

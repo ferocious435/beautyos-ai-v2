@@ -1,0 +1,29 @@
+{
+  "project": "BeautyOS AI v2",
+  "registry": [
+    { "name": "ai-analyzer", "path": ".antigravity/skills/ai-analyzer", "source": "project-local", "status": "installed" },
+    { "name": "ai-studio-image", "path": ".antigravity/skills/ai-studio-image", "source": "project-local", "status": "installed" },
+    { "name": "brainstorming", "path": ".antigravity/skills/brainstorming", "source": "project-local", "status": "installed" },
+    { "name": "content-creator", "path": ".antigravity/skills/content-creator", "source": "project-local", "status": "installed" },
+    { "name": "debugging-strategies", "path": ".antigravity/skills/debugging-strategies", "source": "project-local", "status": "installed" },
+    { "name": "frontend-dev-guidelines", "path": ".antigravity/skills/frontend-dev-guidelines", "source": "project-local", "status": "installed" },
+    { "name": "frontend-ui-dark-ts", "path": ".antigravity/skills/frontend-ui-dark-ts", "source": "project-local", "status": "installed" },
+    { "name": "gemini-api-integration", "path": ".antigravity/skills/gemini-api-integration", "source": "project-local", "status": "installed" },
+    { "name": "instagram", "path": ".antigravity/skills/instagram", "source": "project-local", "status": "installed" },
+    { "name": "instagram-automation", "path": ".antigravity/skills/instagram-automation", "source": "project-local", "status": "installed" },
+    { "name": "loki-mode", "path": ".antigravity/skills/loki-mode", "source": "project-local", "status": "installed" },
+    { "name": "nodejs-best-practices", "path": ".antigravity/skills/nodejs-best-practices", "source": "project-local", "status": "installed" },
+    { "name": "product-manager", "path": ".antigravity/skills/product-manager", "source": "project-local", "status": "installed" },
+    { "name": "security-audit", "path": ".antigravity/skills/security-audit", "source": "project-local", "status": "installed" },
+    { "name": "senior-architect", "path": ".antigravity/skills/senior-architect", "source": "project-local", "status": "installed" },
+    { "name": "stability-ai", "path": ".antigravity/skills/stability-ai", "source": "project-local", "status": "installed" },
+    { "name": "telegram-bot-builder", "path": ".antigravity/skills/telegram-bot-builder", "source": "project-local", "status": "installed" },
+    { "name": "telegram-mini-app", "path": ".antigravity/skills/telegram-mini-app", "source": "project-local", "status": "installed" },
+    { "name": "test-driven-development", "path": ".antigravity/skills/test-driven-development", "source": "project-local", "status": "installed" },
+    { "name": "upstash-qstash", "path": ".antigravity/skills/upstash-qstash", "source": "project-local", "status": "installed" },
+    { "name": "vercel-deployment", "path": ".antigravity/skills/vercel-deployment", "source": "project-local", "status": "installed" },
+    { "name": "github-mcp-server", "path": ".antigravity/skills/github-mcp-server", "source": "project-local", "status": "installed" },
+    { "name": "chrome-devtools-mcp", "path": ".antigravity/skills/chrome-devtools-mcp", "source": "project-local", "status": "installed" },
+    { "name": "notebooklm-master", "path": ".antigravity/skills/notebooklm-master", "source": "project-local", "status": "installed" }
+  ]
+}

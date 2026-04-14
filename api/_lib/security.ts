@@ -8,6 +8,26 @@ import { VercelRequest } from "@vercel/node";
  * Цель: Предотвращение несанкционированных вызовов API воркеров.
  * (Skills: @upstash-qstash, @security-audit, @nodejs-best-practices)
  */
+/**
+ * Служебная функция для чтения сырого тела запроса из потока (Stream).
+ * Необходима для корректной верификации подписи QStash.
+ */
+async function getRawBody(req: VercelRequest): Promise<string> {
+  if (req.body && typeof req.body === 'string') return req.body;
+  if (req.body && typeof req.body === 'object') return JSON.stringify(req.body);
+  
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+/**
+ * Модуль безопасности для верификации запросов от QStash (Signature Verification)
+ * Цель: Предотвращение несанкционированных вызовов API воркеров.
+ * (Skills: @upstash-qstash, @security-audit, @nodejs-best-practices)
+ */
 export async function verifyQStashSignature(req: VercelRequest): Promise<boolean> {
   // Разрешаем все запросы в режиме разработки (Localhost)
   if (process.env.NODE_ENV === 'development') {
@@ -30,15 +50,13 @@ export async function verifyQStashSignature(req: VercelRequest): Promise<boolean
   });
 
   try {
-    // ВАЖНО: Мы предполагаем, что Vercel уже распарсил тело запроса (Body Parser).
-    // Для корректной сверки подписи мы восстанавливаем строку тела.
-    // Если возникнут проблемы с порядком полей, потребуется отключение bodyParser в эндпоинте.
-    const body = JSON.stringify(req.body);
-
+    // ВАЖНО: Читаем Raw Body для обеспечения 100% точности подписи.
+    const body = await getRawBody(req);
+    
+    // Если тело пустое (хотя QStash всегда присылает JSON), используем пустую строку
     const isValid = await receiver.verify({
       signature,
       body,
-      // URL должен точно совпадать с тем, что был указан при публикации (Destination URL)
     });
 
     if (!isValid) {
@@ -46,9 +64,17 @@ export async function verifyQStashSignature(req: VercelRequest): Promise<boolean
       return false;
     }
 
+    // Сохраняем распаршенное тело обратно в req.body для последующего использования в воркерах,
+    // так как поток уже вычитан.
+    try {
+      req.body = JSON.parse(body);
+    } catch {
+      req.body = body;
+    }
+
     console.log('[Security] Authorized: QStash Signature Verified.');
     return true;
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error('[Security] Error during verification:', err.message);
     return false;
   }

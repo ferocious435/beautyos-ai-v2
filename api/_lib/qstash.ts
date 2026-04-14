@@ -80,7 +80,7 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
       }
     );
     await telegraf.telegram.editMessageText(chatId, messageId, undefined, `✅ התמונה בתור לעיבוד! אנא המתן... 🎨`);
-  } catch (error: unknown) {
+  } catch (error: any) {
     const errorMsg = error.response ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}` : error.message;
     await telegraf.telegram.editMessageText(chatId, messageId, undefined, `❌ תקלה בתקשורת: ${errorMsg}`);
     throw new Error(`QStash Error: ${errorMsg}`);

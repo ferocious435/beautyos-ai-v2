@@ -3,6 +3,13 @@ import { Telegraf } from 'telegraf';
 import { getSupabase } from './_lib/supabase.js';
 import { generateSocialPost } from './_lib/graphic-engine.js';
 
+// Vercel Config: Disable Body Parser for Raw Body Security Verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
@@ -15,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { chatId, formatType } = req.body;
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
 
-  console.log(`[Render-Worker v66.3] Fast Render Request: ${formatType} for chat: ${chatId}`);
+  console.log(`[Render-Worker v67.2] Fast Render Request: ${formatType} for chat: ${chatId}`);
 
   try {
     const supabase = getSupabase();
@@ -80,47 +87,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
     const realBusinessName = userData?.business_name || 'Beauty Expert';
 
-    // 🚀 PRO COMPOSITION ENGINE v66.1 (Simplified for Worker)
-    const rawOverlays = session_data.lastOverlay || [];
-    const groupedMap = new Map<string, any>();
-    rawOverlays.forEach((line: any) => {
-      const cleanText = (line.text || '').replace(/[✨*]/g, '').trim();
-      if (!cleanText) return;
-      if (groupedMap.has(line.type)) groupedMap.get(line.type).text += '\n' + cleanText;
-      else groupedMap.set(line.type, { ...line, text: cleanText });
-    });
-
-    // Stacking logic (re-used from previous version)
-    const usedPositions: any[] = [];
-    const overlays = Array.from(groupedMap.values()).map((line: any) => {
-      let x = line.xPosition || 0.5;
-      let y = line.yPosition;
-      let align: any = line.textAlign || 'center';
-
-      if (y === undefined) {
-        if (line.type === 'TITLE') y = 0.12;
-        else if (line.type === 'PRICE') { y = 0.22; x = 0.88; align = 'right'; }
-        else if (line.type === 'PROMO') y = 0.82;
-        else if (line.type === 'LOGO') { y = 0.94; x = 0.08; align = 'left'; }
-        else y = 0.5;
-      }
-
-      return { 
-        ...line, 
-        xPosition: x, 
-        yPosition: y, 
-        textAlign: align,
-        rotation: (line.type === 'PRICE' ? -2 : (line.type === 'PROMO' ? 1.5 : (Math.random() * 1.6 - 0.8)))
-      };
-    });
-
-    const finalResult = await generateSocialPost(workingBuffer, {
-      format: socialFormat,
-      businessName: realBusinessName,
-      overlay: overlays, 
+    // 🚀 UNIFIED RENDERING via Processor (v1.1)
+    const design = {
+      overlay: session_data.lastOverlay || [],
       style: session_data.lastStyle || { preset: 'GLASSMorphism', primaryColor: '#FFFFFF' },
-      theme: 'ORIGINAL_CLEAN'
-    });
+      post: session_data.lastPost || '',
+      imagenPrompt: session_data.lastImagenPrompt || '',
+      detectedService: 'Beauty Specialist'
+    };
+
+    const finalResult = await processor.render(
+      workingBuffer, 
+      socialFormat, 
+      design as any, 
+      realBusinessName
+    );
 
     const captionText = session_data.lastPost || 'התוצאה מוכנה! ✨';
     const shareUrl = `https://wa.me/?text=${encodeURIComponent(captionText)}`;

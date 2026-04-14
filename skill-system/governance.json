@@ -1,0 +1,11 @@
+{
+  "governance": {
+    "priorityPolicy": "project-local-over-global",
+    "requiredTrace": true,
+    "requiredLogging": true,
+    "maxSupportingSkills": 2,
+    "allowSupplemental": true,
+    "conflictResolution": "manual-architect-review",
+    "mandatoryAttribution": true
+  }
+}

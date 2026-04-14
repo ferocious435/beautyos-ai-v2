@@ -11,7 +11,7 @@ import { CONFIG } from './config.js';
 import axios from 'axios';
 
 export interface BotContext extends Context {
-  session: unknown;
+  session: any;
   scene: Scenes.SceneContextScene<BotContext, Scenes.WizardSessionData>;
   wizard: Scenes.WizardContextWizard<BotContext>;
 }
@@ -19,7 +19,7 @@ export interface BotContext extends Context {
 export const REGISTRATION_SCENE_ID = 'REGISTRATION_SCENE';
 
 // --- Session Middleware (Supabase Stateless) ---
-export async function supabaseSessionMiddleware(ctx: unknown, next: () => Promise<void>) {
+export async function supabaseSessionMiddleware(ctx: any, next: () => Promise<void>) {
   const supabase = getSupabase();
   if (!supabase || !ctx.from?.id) {
     ctx.session = ctx.session || {};
@@ -84,7 +84,7 @@ export const registrationWizard = new Scenes.WizardScene<BotContext>(
     // Process Callback
     if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
       const role = ctx.callbackQuery.data === 'set_role_master' ? 'master' : 'client';
-      (ctx.wizard.state as unknown).role = role;
+      (ctx.wizard.state as any).role = role;
       await ctx.answerCbQuery();
       await ctx.reply(`מעולה! בחרתם ${role === 'master' ? 'מאסטר' : 'לקוח'}. איך קוראים לכם?`);
       return ctx.wizard.next();
@@ -93,19 +93,19 @@ export const registrationWizard = new Scenes.WizardScene<BotContext>(
   },
   async (ctx) => {
     if (!ctx.message || !('text' in ctx.message)) return ctx.reply('נא להזין שם.');
-    (ctx.wizard.state as unknown).name = ctx.message.text;
+    (ctx.wizard.state as any).name = ctx.message.text;
     await ctx.reply('מעולה! מה שם העסק שלכם? (למשל: "הסטודיו של שרה")');
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !('text' in ctx.message)) return ctx.reply('נא להזין שם עסק.');
-    (ctx.wizard.state as unknown).businessName = ctx.message.text;
+    (ctx.wizard.state as any).businessName = ctx.message.text;
     await ctx.reply('מה מספר הטלפון שלכם ליצירת קשר?');
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !('text' in ctx.message)) return ctx.reply('נא להזין מספר טלפון.');
-    (ctx.wizard.state as unknown).phone = ctx.message.text;
+    (ctx.wizard.state as any).phone = ctx.message.text;
     await ctx.reply('📍 **מיקום העסק:**\nלחצו על הכפתור למטה כדי לשלוח מיקום, או כתבו את הכתובת המדויקת שלכם בטקסט.', 
       Markup.keyboard([
         [Markup.button.locationRequest('📍 שלח מיקום'), Markup.button.text('דילוג')]
@@ -114,7 +114,7 @@ export const registrationWizard = new Scenes.WizardScene<BotContext>(
     return ctx.wizard.next();
   },
   async (ctx) => {
-    const { name, businessName, phone, role } = ctx.wizard.state as unknown;
+    const { name, businessName, phone, role } = ctx.wizard.state as any;
     const telegramId = ctx.from?.id;
     let lat: number | null = null;
     let lng: number | null = null;
@@ -159,7 +159,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   bot.use(stage.middleware());
 
   // Error Handling
-  bot.catch((err: unknown, ctx) => {
+  bot.catch((err: any, ctx) => {
     console.error(`Telegraf error for ${ctx.updateType}`, err);
     ctx.reply('⚠️ חלה שגיאה במערכת. אנחנו כבר מטפלים בזה!');
   });
@@ -175,7 +175,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     } catch (e) { /* ignore */ }
 
     const name = ctx.from?.first_name || 'Beauty Expert';
-    const payload = (ctx.message as unknown).text.split(' ')[1]; // Payload: /start <payload>
+    const payload = (ctx.message as any).text.split(' ')[1]; // Payload: /start <payload>
 
     const supabase = getSupabase();
 
@@ -217,7 +217,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     const { data: dbUser } = await supabase.from('users').select('role').eq('telegram_id', ctx.from?.id).single();
     if (dbUser) userRole = dbUser.role;
 
-    let kb: unknown[] = [];
+    let kb: any[] = [];
     
     if (userRole === 'admin' || userRole === 'master') {
       kb = [
@@ -241,7 +241,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   bot.hears('📝 הרשמה', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
 
   bot.command('role', async (ctx) => {
-    const role = (ctx.message as unknown).text.split(' ')[1];
+    const role = (ctx.message as any).text.split(' ')[1];
     if (!['master', 'client', 'admin'].includes(role)) {
       return ctx.reply('❌ Use: /role <master|client|admin>');
     }
@@ -284,6 +284,63 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       }
     });
   });
+  
+  // --- BOOKING ACTIONS (v34.1) ---
+  bot.action(/^approve_(.*)/, async (ctx) => {
+    const bookingId = ctx.match[1];
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    try {
+      const { data: booking, error: bErr } = await supabase
+        .from('bookings')
+        .update({ status: 'confirmed' })
+        .eq('id', bookingId)
+        .select('*, client:client_id(telegram_id, full_name), master:master_id(business_name, full_name)')
+        .single();
+
+      if (bErr) throw bErr;
+
+      await ctx.answerCbQuery('✅ התור אושר בהצלחה!');
+      await ctx.editMessageCaption(`${ctx.callbackQuery.message && 'caption' in ctx.callbackQuery.message ? ctx.callbackQuery.message.caption : ''}\n\n✅ **התור אושר! הודעה נשלחה ללקוח.**`);
+
+      // Notify Client
+      const clientMsg = `✨ **חדשות טובות!**\nהתור שלך ב-${booking.master.business_name || booking.master.full_name} אושר! 🎉\nמחכים לראות אותך!`;
+      await ctx.telegram.sendMessage(booking.client.telegram_id, clientMsg);
+
+    } catch (err: any) {
+      console.error('APPROVE_ERR:', err);
+      await ctx.answerCbQuery('❌ שגיאה באישור התור.');
+    }
+  });
+
+  bot.action(/^reject_(.*)/, async (ctx) => {
+    const bookingId = ctx.match[1];
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    try {
+      const { data: booking, error: bErr } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled_by_master' })
+        .eq('id', bookingId)
+        .select('*, client:client_id(telegram_id)')
+        .single();
+
+      if (bErr) throw bErr;
+
+      await ctx.answerCbQuery('❌ התור בוטל.');
+      await ctx.editMessageCaption(`${ctx.callbackQuery.message && 'caption' in ctx.callbackQuery.message ? ctx.callbackQuery.message.caption : ''}\n\n❌ **התור בוטל.**`);
+
+      // Notify Client
+      const clientMsg = `😔 **עדכון לגבי התור:**\nלצערנו המאסטר לא יוכל לקבל אותך בשעה המבוקשת. נסה/י לקבוע מועד אחר ב-Studio.`;
+      await ctx.telegram.sendMessage(booking.client.telegram_id, clientMsg);
+
+    } catch (err: any) {
+      console.error('REJECT_ERR:', err);
+      await ctx.answerCbQuery('❌ שגיאה בביטול התור.');
+    }
+  });
 
 
 
@@ -293,11 +350,11 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   // --- INTERACTIVE DESIGN HANDLERS (v34) ---
 
-  const designMenu = (ctx: unknown, fileId: string) => {
+  const designMenu = (ctx: any, fileId: string) => {
     const overlay = ctx.session?.lastOverlay || [];
-    const findItem = (type: string) => overlay.find((o: unknown) => o.type === type);
-    const hasLogo = overlay.some((o: unknown) => o.type === 'LOGO');
-    const hasPromo = overlay.some((o: unknown) => o.type === 'PROMO');
+    const findItem = (type: string) => overlay.find((o: any) => o.type === type);
+    const hasLogo = overlay.some((o: any) => o.type === 'LOGO');
+    const hasPromo = overlay.some((o: any) => o.type === 'PROMO');
 
     const priceText = findItem('PRICE') ? `✅ מחיר: ${findItem('PRICE').text.slice(0,15)}` : '💰 הוסף מחיר';
     const titleText = findItem('TITLE') ? `✅ כותרת: ${findItem('TITLE').text.slice(0,10)}...` : '🖌 הוסף כותרת';
@@ -316,7 +373,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       // 🚀 IMMEDIATE UI FEEDBACK (v53.0)
       const overlay = ctx.session?.lastOverlay || [];
       const statusText = overlay.length > 0 
-        ? `✨ **סטטוס עיצוב נוכחי:**\n${overlay.map((o: unknown) => `- ${o.type}: ${o.text}`).join('\n')}`
+        ? `✨ **סטטוס עיצוב נוכחי:**\n${overlay.map((o: any) => `- ${o.type}: ${o.text}`).join('\n')}`
         : 'לחץ על הכפתורים למטה כדי להוסיף תוכן.';
 
       const caption = `🎨 **לוח בקרה (מעדכן...) - סטודיו BeautyOS**\n\n${statusText}\n\nבסיום, לחץ על **אישור והמשך** כדי לעבור לשלב הבא.`;
@@ -349,7 +406,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       ctx.session.designWaitingFor = type;
       ctx.session.lastDesignFileId = fileId;
       
-      const prompts: unknown = {
+      const prompts: any = {
         PRICE: 'כיתבו מה שתרצו שיופיע על ה-Label (למשל: "מחיר השקה! 150" או "עכשיו רק 120₪")',
         TITLE: '🖌 מה הכותרת השיווקית שתרצה להוסיף? (למשל: מניקור ג׳ל מפנק)',
         PROMO: '🎁 מה תוכן המבצע המיוחד? (למשל: 30% הנחה לחברות חדשות)'
@@ -365,7 +422,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     const fileId = ctx.match[1];
     ctx.session.lastOverlay = ctx.session.lastOverlay || [];
     
-    const logoIdx = ctx.session.lastOverlay.findIndex((o: unknown) => o.type === 'LOGO');
+    const logoIdx = ctx.session.lastOverlay.findIndex((o: any) => o.type === 'LOGO');
     if (logoIdx > -1) {
       ctx.session.lastOverlay.splice(logoIdx, 1);
       await ctx.answerCbQuery('💎 לוגו הוסר.');
@@ -422,10 +479,10 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       ctx.session.lastOverlay = ctx.session.lastOverlay || [];
       
       // Remove old of same type
-      const oldIdx = ctx.session.lastOverlay.findIndex((o: unknown) => o.type === type);
+      const oldIdx = ctx.session.lastOverlay.findIndex((o: any) => o.type === type);
       if (oldIdx > -1) ctx.session.lastOverlay.splice(oldIdx, 1);
 
-      let line: unknown = { type, text };
+      let line: any = { type, text };
       if (type === 'PRICE') line = { ...line, text: text, fontSize: 62, color: '#FFFFFF' };
       else if (type === 'TITLE') line = { ...line, text: text, fontSize: 64, color: '#FFFFFF' };
       else if (type === 'PROMO') line = { ...line, text: text, fontSize: 80, color: '#FFD700' };
@@ -460,7 +517,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     const photo = ctx.message.photo.pop();
     if (!photo) return;
 
-    const caption = (ctx.message as unknown).caption; 
+    const caption = (ctx.message as any).caption; 
     const msg = await ctx.reply('⏳ **מנתח את התמונה ויוצר קסם... (תהליך זה מתבצע ברקע ויושלם בקרוב)** ✨');
 
     try {
@@ -486,7 +543,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       
       const { enqueueAiProcessing } = await import('./qstash.js');
       await enqueueAiProcessing(ctx.chat.id, msg.message_id, fileLink.href, photo.file_id, caption);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('PHOTO HANDLER ERROR:', error);
       await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, undefined, `❌ תקלה בתור לעיבוד (QStash): ${error.message}`);
     }
@@ -511,10 +568,10 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       const { enqueueRenderProcessing } = await import('./qstash.js');
       await enqueueRenderProcessing(userId, formatType);
 
-    } catch (err) {
-      console.error('FORMAT ERROR:', err);
-      ctx.reply('שגיאה בתקשורת עם השרת.');
-    }
+    } catch (err: any) {
+    console.error('BOT LOGIC ERROR:', err);
+    if (ctx) ctx.reply(`❌ שגיאה במערכת: ${err.message}`);
+  }
   });
 
   // Portfolio Callback

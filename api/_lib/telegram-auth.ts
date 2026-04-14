@@ -40,7 +40,7 @@ export function validateTelegramWebAppData(initData: string, botToken?: string):
 /**
  * Извлечение данных пользователя из валидированного initData
  */
-export function getUserFromInitData(initData: string): unknown {
+export function getUserFromInitData(initData: string): any {
   try {
     const urlParams = new URLSearchParams(initData);
     const userStr = urlParams.get('user');

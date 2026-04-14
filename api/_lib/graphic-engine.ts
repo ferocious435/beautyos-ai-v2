@@ -26,14 +26,16 @@ export interface RenderOptions {
   theme?: 'LUXURY_BLACK' | 'ORIGINAL_CLEAN' | 'WATERMARK';
   isEnhanced?: boolean;
   skipOverlay?: boolean;
+  skipWatermark?: boolean; // New in v2.3
   style?: StyleOptions; 
 }
 
-// --- FONT SYSTEM v67.0 (Luxury Art-Director Edition) ---
-const SANS_STACK = 'Assistant, sans-serif';
-const SERIF_STACK = '"Playfair Display", serif';
-const EMOJI_STACK = '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+// --- FONT SYSTEM v68.0 (Final Production Edition) ---
+const SANS_STACK = 'Assistant, "Noto Color Emoji", sans-serif';
+const SERIF_STACK = 'Assistant, "Playfair Display", "Noto Color Emoji", serif';
+const EMOJI_STACK = '"Noto Color Emoji", sans-serif';
 
+const RTL_CHAR = /[\u0590-\u05FF\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 let fontsRegistered = false;
 
 function ensureFonts() {
@@ -83,7 +85,13 @@ export async function generateSocialPost(
   let targetHeight = 1080;
   if (format === 'STORY_9_16') targetHeight = 1920;
   else if (format === 'INSTAGRAM_POST') targetHeight = 1350;
-  else if (format === 'AI_SEED') targetHeight = 1350;
+  else if (format === 'AI_SEED') {
+    // v62.3: AI_SEED must match the target social format to avoid black borders
+    if (options.theme === 'LUXURY_BLACK') targetHeight = 1920; // Fallback to Story
+    else if (options.theme === 'ORIGINAL_CLEAN') targetHeight = 1350; // Fallback to Post
+    // Default to the provided options if possible or standard Post
+    targetHeight = targetHeight || 1350;
+  }
 
   const canvas = createCanvas(targetWidth, targetHeight);
   const ctx = canvas.getContext('2d');
@@ -114,18 +122,21 @@ export async function generateSocialPost(
   ctx.save();
   ctx.drawImage(image, bgX, bgY, bgW, bgH);
   // Darken
-  const darkenAlpha = format === 'AI_SEED' ? 0.4 : 0.55;
-  ctx.fillStyle = `rgba(0, 0, 0, ${darkenAlpha})`;
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
-  // Blur
-  try {
-    // @ts-expect-error - setting custom filter
-    ctx.filter = format === 'AI_SEED' ? 'blur(60px)' : 'blur(50px)';
-    ctx.drawImage(canvas, 0, 0);
-  } catch {
-    // Fallback: additional darkening if filter not supported
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  if (format === 'AI_SEED') {
+    // 🔥 FIX: NO DARK BLUR for AI_SEED. It creates black artifacts in Imagen.
+    // Use a neutral luxury solid color that AI can easily replace.
+    ctx.fillStyle = '#1A1A1A'; // Sleek Studio Black
     ctx.fillRect(0, 0, targetWidth, targetHeight);
+  } else {
+    try {
+      // @ts-expect-error - setting custom filter
+      ctx.filter = 'blur(50px)';
+      ctx.drawImage(canvas, 0, 0);
+    } catch {
+      // Fallback: additional darkening if filter not supported
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(0, 0, targetWidth, targetHeight);
+    }
   }
   ctx.restore();
 
@@ -183,15 +194,16 @@ export async function generateSocialPost(
     renderOverlay(ctx, targetWidth, targetHeight, { ...options, safeZone });
   }
 
-  // Branding (v67.0 Luxury Serif Watermark)
-  if (businessName && format !== 'AI_SEED') {
+  // Branding (v67.1 Luxury Serif Watermark)
+  if (businessName && format !== 'AI_SEED' && !options.skipWatermark) {
     ctx.save();
     ctx.font = `italic 26px ${SERIF_STACK}`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
     ctx.textAlign = 'center';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
     ctx.shadowBlur = 8;
-    ctx.fillText(getVisualBidiText(businessName), targetWidth / 2, targetHeight - 38);
+    ctx.direction = RTL_CHAR.test(businessName) ? 'rtl' : 'ltr';
+    ctx.fillText(businessName, targetWidth / 2, targetHeight - 38);
     ctx.restore();
   }
 
@@ -239,66 +251,61 @@ function renderOverlay(ctx: any, targetWidth: number, targetHeight: number, opti
         ctx.globalAlpha = 0.55; // Semi-transparent luxury watermark
         ctx.fillStyle = '#FFFFFF'; 
         ctx.shadowColor = 'rgba(255, 255, 255, 0.15)'; ctx.shadowBlur = 12; // Soft warm glow
-        ctx.textAlign = line.textAlign || 'left';
+        ctx.direction = RTL_CHAR.test(cleanText) ? 'rtl' : 'ltr';
+        ctx.textAlign = line.textAlign || (ctx.direction === 'rtl' ? 'right' : 'left');
         
-        let lx = line.xPosition !== undefined ? line.xPosition * targetWidth : 60;
+        let lx = line.xPosition !== undefined ? line.xPosition * targetWidth : (ctx.direction === 'rtl' ? targetWidth - 60 : 60);
         let ly = line.yPosition !== undefined ? line.yPosition * targetHeight : targetHeight - 180;
-
-        // Apply Safe Zone constraints
-        if (safeZone) {
-          lx = Math.max(safeZone.left, Math.min(safeZone.right - 100, lx));
-          ly = Math.max(safeZone.top + 40, Math.min(safeZone.bottom, ly));
-        }
-
-        ctx.fillText(getVisualBidiText(cleanText), lx, ly);
+        
+        ctx.fillText(cleanText, lx, ly);
         ctx.globalAlpha = 1.0;
         ctx.restore();
         continue;
       }
 
-      // --- INTELLIGENT WRAPPING & SCALING v67.0 (Luxury Typography) ---
-      const activeFont = line.type === 'TITLE' ? SERIF_STACK : SANS_STACK;
-      const fontSizeBase = Math.round((line.fontSize || 60) * (targetWidth / 1080));
+      const isRtl = RTL_CHAR.test(cleanText);
+      const activeFont = isRtl ? 'Assistant' : (line.type === 'TITLE' ? 'Playfair Display' : 'Assistant');
+      
+      const effSize = Math.round((line.fontSize || 60) * (targetWidth / 1080));
+      ctx.font = `${effSize}px ${activeFont}, "Noto Color Emoji"`;
+      
       const maxWidth = safeZone ? safeZone.width : targetWidth * 0.9;
-      const fontWeight = line.type === 'TITLE' ? '700' : 'bold';
-      
-      ctx.font = `${fontWeight} ${fontSizeBase}px ${activeFont}, ${EMOJI_STACK}`;
-      
       let lines = wrapText(ctx, cleanText, maxWidth);
-      let effSize = fontSizeBase;
+      let effSizeFit = effSize;
       const maxBlockH = targetHeight * 0.25;
       
-      // Recursive shrink to fit height/width limits
-      while (lines.length * (effSize * 1.3) > maxBlockH && effSize > 24) {
-        effSize -= 4;
-        ctx.font = `${fontWeight} ${effSize}px ${activeFont}, ${EMOJI_STACK}`;
+      while (lines.length * (effSizeFit * 1.3) > maxBlockH && effSizeFit > 24) {
+        effSizeFit -= 4;
+        ctx.font = `${effSizeFit}px ${activeFont}, "Noto Color Emoji"`;
         lines = wrapText(ctx, cleanText, maxWidth);
       }
 
-      const lineHeight = effSize * 1.3;
+      const lineHeight = effSizeFit * 1.3;
       let xPos = line.xPosition !== undefined ? line.xPosition * targetWidth : targetWidth / 2;
       let yPos = (line.yPosition || 0.8) * targetHeight;
 
-      // Safe Zone clipping for positions
-      if (safeZone) {
-        xPos = Math.max(safeZone.left + (effSize), Math.min(safeZone.right - (effSize), xPos));
-        yPos = Math.max(safeZone.top + (lines.length * lineHeight / 2), Math.min(safeZone.bottom - (lines.length * lineHeight / 2), yPos));
-      }
-
       ctx.save();
-      ctx.translate(xPos, yPos);
-      if (line.rotation) ctx.rotate((line.rotation * Math.PI) / 180);
-
-      // Luxury warm shadow system v67.0
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.75)'; 
-      ctx.shadowBlur = 25;
-      ctx.shadowOffsetY = 3;
-      ctx.fillStyle = line.type === 'PRICE' ? '#FFF8E7' : '#FFFFFF'; // Warm gold tint for prices
+      // Luxury warm shadow system v70.0 (Final)
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'; 
+      ctx.shadowBlur = 15;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = line.type === 'PRICE' ? '#FFF8E7' : '#FFFFFF';
+      
+      ctx.direction = isRtl ? 'rtl' : 'ltr';
       ctx.textAlign = line.textAlign || 'center';
+      ctx.textBaseline = 'middle';
       
       lines.forEach((txt: string, idx: number) => {
         const vertOffset = (idx - (lines.length - 1) / 2) * lineHeight;
-        ctx.fillText(getVisualBidiText(txt), 0, vertOffset);
+        if (line.rotation) {
+          ctx.save();
+          ctx.translate(xPos, yPos + vertOffset);
+          ctx.rotate((line.rotation * Math.PI) / 180);
+          ctx.fillText(txt, 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillText(txt, xPos, yPos + vertOffset);
+        }
       });
       ctx.restore();
     }

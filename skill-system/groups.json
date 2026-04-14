@@ -1,0 +1,24 @@
+{
+  "groups": {
+    "Engineering": {
+      "skills": ["nodejs-best-practices", "gemini-api-integration", "upstash-qstash", "security-audit", "debugging-strategies", "test-driven-development"],
+      "description": "Backend logic, infrastructure, and security."
+    },
+    "Frontend": {
+      "skills": ["frontend-dev-guidelines", "frontend-ui-dark-ts", "stability-ai", "ai-studio-image"],
+      "description": "UI development, styling, and AI-media generation."
+    },
+    "Marketing/Product": {
+      "skills": ["product-manager", "content-creator", "instagram", "instagram-automation", "telegram-bot-builder", "telegram-mini-app"],
+      "description": "SaaS strategy, marketing content, and social integrations."
+    },
+    "Strategy": {
+      "skills": ["senior-architect", "ai-analyzer", "brainstorming", "loki-mode"],
+      "description": "High-level architecture, research, and orchestration."
+    },
+    "System": {
+      "skills": ["github-mcp-server", "chrome-devtools-mcp", "notebooklm-master"],
+      "description": "Platform-level tools and external knowledge synchronization."
+    }
+  }
+}
