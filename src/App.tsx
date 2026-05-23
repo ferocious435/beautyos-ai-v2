@@ -15,6 +15,7 @@ const Portfolio = lazy(() => import('./pages/Portfolio'));
 const Booking = lazy(() => import('./pages/Booking'));
 const ClientDashboard = lazy(() => import('./pages/ClientDashboard'));
 const MasterCalendar = lazy(() => import('./pages/MasterCalendar'));
+const Messages = lazy(() => import('./pages/Messages'));
 
 const PageLoader = () => (
   <div className="min-h-screen bg-[#050508] flex items-center justify-center">
@@ -114,6 +115,7 @@ function App() {
               {/* Shared Routes */}
               <Route path="/discovery" element={<Discovery />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/messages" element={<Messages />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/portfolio" element={<Portfolio />} />
             </Routes>

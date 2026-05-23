@@ -29,6 +29,22 @@ const isPrivilegedTelegramUser = (telegramId?: number) => {
 
 const activeBookingStatuses = ['pending', 'confirmed'];
 
+const getWebAppUrl = () => (process.env.WEBAPP_URL || '').replace(/\/$/, '');
+
+const setPersistentMenuButton = async (ctx: BotContext, path = '/') => {
+  const webAppUrl = getWebAppUrl();
+  if (!webAppUrl) return;
+
+  const url = `${webAppUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  await ctx.setChatMenuButton({
+    type: 'web_app',
+    text: 'BeautyOS',
+    web_app: { url },
+  }).catch((err) => {
+    console.warn('[Bot] Failed to set chat menu button:', err instanceof Error ? err.message : err);
+  });
+};
+
 const hasBookingOverlap = async (
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
   masterId: string,
@@ -215,6 +231,8 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   // Start command
   bot.start(async (ctx) => {
+    await setPersistentMenuButton(ctx, '/');
+
     // 🧹 Refresh UI
     try {
       const clearMsg = await ctx.reply('מעדכן ממשק...', Markup.removeKeyboard());
@@ -246,41 +264,46 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         }, { onConflict: 'telegram_id' });
       }
       
+      const webAppUrl = getWebAppUrl();
       const adminMenu = Markup.keyboard([
-        [Markup.button.webApp('🚀 פתח הכל ב-Studio', process.env.WEBAPP_URL || '')],
-        ['🗓️ תורים שלי', '⚙️ הגדרות']
+        [Markup.button.webApp('🚀 פתח הכל ב-Studio', `${webAppUrl}/`)],
+        [Markup.button.webApp('🗓️ ניהול יומן', `${webAppUrl}/calendar`), Markup.button.webApp('💳 מחירון', `${webAppUrl}/pricing`)],
+        [Markup.button.webApp('💬 הודעות וברכות', `${webAppUrl}/messages`), Markup.button.webApp('⚙️ הגדרות', `${webAppUrl}/settings`)]
       ]).resize();
 
-      return ctx.reply(`🏰 **ברוך שובך, מנהל המערכת (${name})!**\n\nקיבלת הרשאות Admin מלאה.\n💡 *הערה: כל כלי ה-AI (שיפור תמונות, פוסטים) עובדים ישירות כאן בצ'אט (פשוט שלח/י תמונה). כל פונקציות המערכת פתוחות עבורך ב-Mini App.*`, adminMenu);
+      await ctx.reply(`🏰 **ברוך שובך, מנהל המערכת (${name})!**\n\nקיבלת הרשאות Admin מלאה.\n💡 *הערה: כל כלי ה-AI (שיפור תמונות, פוסטים) עובדים ישירות כאן בצ'אט (פשוט שלח/י תמונה). כל פונקציות המערכת פתוחות עבורך ב-Mini App.*`, adminMenu);
+      return;
     } else {
       // 🛍 REGULAR USER FLOW
       await ctx.reply(`✨ **ברוכים הבאים ל-BeautyOS AI v2!** ✨\n\nהיי ${name}, המערכת מזהה אותך.\n💡 *יצירת פוסטים ושיפור תמונות מתבצעים ישירות כאן בצ'אט - פשוט שלח/י ויזואליה!*`, 
         Markup.inlineKeyboard([
-          [Markup.button.webApp('🗓️ יומן והזמנת תורים', process.env.WEBAPP_URL || '')],
+          [Markup.button.webApp('🗓️ יומן והזמנת תורים', `${getWebAppUrl()}/`)],
           [Markup.button.callback('📝 הרשמה למערכת', 'register_request')]
         ])
       );
     }
 
     // 📱 Persistent Role-Aware Reply Menu (v2.3)
-    const webAppUrl = process.env.WEBAPP_URL || '';
+    const webAppUrl = getWebAppUrl();
     
     // Fetch latest role for keyboard selection
     let userRole = 'client';
     const { data: dbUser } = await supabase.from('users').select('role').eq('telegram_id', ctx.from?.id).single();
     if (dbUser) userRole = dbUser.role;
 
-    let kb: any[] = [];
+    let kb: any[];
     
     if (userRole === 'admin' || userRole === 'master') {
       kb = [
         [{ text: '🚀 פתח הכל ב-Studio', web_app: { url: `${webAppUrl}/?start=root` } }],
-        [{ text: '🗓️ ניהול יומן', web_app: { url: `${webAppUrl}/calendar` } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }]
+        [{ text: '🗓️ ניהול יומן', web_app: { url: `${webAppUrl}/calendar` } }, { text: '💳 מחירון', web_app: { url: `${webAppUrl}/pricing` } }],
+        [{ text: '💬 הודעות וברכות', web_app: { url: `${webAppUrl}/messages` } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }]
       ];
     } else {
       kb = [
         [{ text: '🔍 חיפוש מומחה וקביעת תור', web_app: { url: `${webAppUrl}/discovery` } }],
-        [{ text: '🗓️ התורים שלי', web_app: { url: `${webAppUrl}/calendar` } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }]
+        [{ text: '🗓️ התורים שלי', web_app: { url: `${webAppUrl}/calendar` } }, { text: '💳 מחירון', web_app: { url: `${webAppUrl}/pricing` } }],
+        [{ text: '💬 הודעות וברכות', web_app: { url: `${webAppUrl}/messages` } }, { text: '⚙️ הגדרות', web_app: { url: `${webAppUrl}/settings` } }]
       ];
     }
     
@@ -291,6 +314,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
   // Command handlers
   bot.command('register', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
+  bot.command('id', async (ctx) => {
+    await ctx.reply(`Telegram ID שלך: ${ctx.from?.id || 'unknown'}\nRole change: אם זה חשבון מנהל, שלח /start admin אחרי שה-ID נוסף ל-BOT_ADMIN_TELEGRAM_IDS.`);
+  });
   bot.hears('📝 הרשמה', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
 
   bot.command('role', async (ctx) => {
