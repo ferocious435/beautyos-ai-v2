@@ -132,6 +132,17 @@ ALTER TABLE bot_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE market_trends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
+REVOKE ALL PRIVILEGES ON TABLE
+    users,
+    services,
+    master_schedules,
+    bookings,
+    portfolio,
+    bot_sessions,
+    market_trends,
+    analytics_events
+FROM anon, authenticated;
+
 -- Public read data stays available for discovery/booking screens.
 -- Writes are intentionally blocked for anon/authenticated clients and must go
 -- through Vercel API routes that validate Telegram initData and use service role.
@@ -146,6 +157,7 @@ DROP POLICY IF EXISTS "View involved bookings" ON bookings;
 DROP POLICY IF EXISTS "Create bookings" ON bookings;
 DROP POLICY IF EXISTS "Update bookings" ON bookings;
 DROP POLICY IF EXISTS "Portfolio is viewable by everyone" ON portfolio;
+DROP POLICY IF EXISTS "Public can view portfolio" ON portfolio;
 DROP POLICY IF EXISTS "Portfolio writes are server only" ON portfolio;
 DROP POLICY IF EXISTS "User writes are server only" ON users;
 DROP POLICY IF EXISTS "Service writes are server only" ON services;
@@ -156,24 +168,9 @@ DROP POLICY IF EXISTS "Schedule reads are server only" ON master_schedules;
 DROP POLICY IF EXISTS "Booking reads are server only" ON bookings;
 DROP POLICY IF EXISTS "Portfolio reads are server only" ON portfolio;
 
--- Browser clients must read through verified server APIs to avoid PII exposure.
-CREATE POLICY "User reads are server only" ON users FOR SELECT USING (false);
-CREATE POLICY "User writes are server only" ON users FOR ALL USING (false) WITH CHECK (false);
-
--- Services are returned by API routes that can whitelist fields per scenario.
-CREATE POLICY "Service reads are server only" ON services FOR SELECT USING (false);
-CREATE POLICY "Service writes are server only" ON services FOR ALL USING (false) WITH CHECK (false);
-
--- Schedules can reveal business availability and are served through API/RPC.
-CREATE POLICY "Schedule reads are server only" ON master_schedules FOR SELECT USING (false);
-
--- Bookings contain client/master PII and must never be anon-readable.
-CREATE POLICY "Booking reads are server only" ON bookings FOR SELECT USING (false);
-CREATE POLICY "Booking writes are server only" ON bookings FOR ALL USING (false) WITH CHECK (false);
-
--- Portfolio visibility is decided by server routes instead of broad anon SQL.
-CREATE POLICY "Portfolio reads are server only" ON portfolio FOR SELECT USING (false);
-CREATE POLICY "Portfolio writes are server only" ON portfolio FOR ALL USING (false) WITH CHECK (false);
+-- No anon/authenticated policies are created here. With RLS enabled and direct
+-- table grants revoked, browser clients are denied by default while Vercel API
+-- routes use the service role for validated server-side access.
 
 
 -- ==============================================================================
@@ -225,3 +222,6 @@ BEGIN
     END LOOP;
 END;
 $$;
+
+ALTER FUNCTION public.get_available_slots(BIGINT, DATE)
+SET search_path = public, pg_temp;
