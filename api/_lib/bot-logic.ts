@@ -5,7 +5,7 @@ import { getSupabase, uploadToPortfolio } from './supabase.js';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { analyzeAndGenerate, enhanceImage } from './content-engine.js';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { enqueueAiProcessing } from './qstash.js';
+import { enqueueAiProcessing, scheduleNotification } from './qstash.js';
 import { CONFIG } from './config.js';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import axios from 'axios';
@@ -17,6 +17,55 @@ export interface BotContext extends Context {
 }
 
 export const REGISTRATION_SCENE_ID = 'REGISTRATION_SCENE';
+
+const isPrivilegedTelegramUser = (telegramId?: number) => {
+  if (!telegramId) return false;
+  return (process.env.BOT_ADMIN_TELEGRAM_IDS || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .includes(String(telegramId));
+};
+
+const activeBookingStatuses = ['pending', 'confirmed'];
+
+const hasBookingOverlap = async (
+  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  masterId: string,
+  startTime: string,
+  endTime: string,
+  excludeBookingId?: string
+) => {
+  let query = supabase
+    .from('bookings')
+    .select('id')
+    .eq('master_id', masterId)
+    .in('status', activeBookingStatuses)
+    .lt('start_time', endTime)
+    .gt('end_time', startTime)
+    .limit(1);
+
+  if (excludeBookingId) query = query.neq('id', excludeBookingId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return Boolean(data?.length);
+};
+
+const scheduleBookingReminders = async (booking: any) => {
+  const now = Date.now();
+  const start = new Date(booking.start_time).getTime();
+
+  const delay24h = (start - (24 * 60 * 60 * 1000) - now) / 1000;
+  if (delay24h > 0 && !booking.notified_24h) {
+    await scheduleNotification(Math.floor(delay24h), '24h', booking.id);
+  }
+
+  const delay3h = (start - (3 * 60 * 60 * 1000) - now) / 1000;
+  if (delay3h > 0 && !booking.notified_3h) {
+    await scheduleNotification(Math.floor(delay3h), '3h', booking.id);
+  }
+};
 
 // --- Session Middleware (Supabase Stateless) ---
 export async function supabaseSessionMiddleware(ctx: any, next: () => Promise<void>) {
@@ -181,6 +230,10 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
     // MAGIC ADMIN BYPASS (Zero-Click Registration for Owner)
     if (payload === 'root' || payload === 'admin') {
+      if (!isPrivilegedTelegramUser(ctx.from?.id)) {
+        return ctx.reply('Unauthorized admin bootstrap request.');
+      }
+
       if (supabase && ctx.from) {
         // Silent admin registration
         await supabase.from('users').upsert({
@@ -241,6 +294,10 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   bot.hears('📝 הרשמה', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
 
   bot.command('role', async (ctx) => {
+    if (!isPrivilegedTelegramUser(ctx.from?.id)) {
+      return ctx.reply('Unauthorized role change request.');
+    }
+
     const role = (ctx.message as any).text.split(' ')[1];
     if (!['master', 'client', 'admin'].includes(role)) {
       return ctx.reply('❌ Use: /role <master|client|admin>');
@@ -276,6 +333,11 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   const fastRoles = ['master', 'client', 'admin'];
   fastRoles.forEach(role => {
     bot.action(`set_fast_role_${role}`, async (ctx) => {
+      if (role === 'admin' && !isPrivilegedTelegramUser(ctx.from?.id)) {
+        await ctx.answerCbQuery('Unauthorized role change request.');
+        return;
+      }
+
       const supabase = getSupabase();
       if (supabase && ctx.from) {
         await supabase.from('users').update({ role }).eq('telegram_id', ctx.from.id);
@@ -292,11 +354,39 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     if (!supabase) return;
 
     try {
+      const { data: pendingBooking, error: readErr } = await supabase
+        .from('bookings')
+        .eq('id', bookingId)
+        .select('*, client:client_id(telegram_id, full_name), master:master_id(telegram_id, business_name, full_name)')
+        .single();
+
+      if (readErr) throw readErr;
+      if (Number(pendingBooking.master.telegram_id) !== Number(ctx.from?.id)) {
+        await ctx.answerCbQuery('Unauthorized booking action.');
+        return;
+      }
+      if (pendingBooking.status !== 'pending') {
+        await ctx.answerCbQuery('This booking is no longer pending.');
+        return;
+      }
+      const overlaps = await hasBookingOverlap(
+        supabase,
+        pendingBooking.master_id,
+        pendingBooking.start_time,
+        pendingBooking.end_time,
+        pendingBooking.id
+      );
+      if (overlaps) {
+        await ctx.answerCbQuery('This time is no longer available.');
+        return;
+      }
+
       const { data: booking, error: bErr } = await supabase
         .from('bookings')
         .update({ status: 'confirmed' })
         .eq('id', bookingId)
-        .select('*, client:client_id(telegram_id, full_name), master:master_id(business_name, full_name)')
+        .eq('status', 'pending')
+        .select('*, client:client_id(telegram_id, full_name), master:master_id(telegram_id, business_name, full_name)')
         .single();
 
       if (bErr) throw bErr;
@@ -307,6 +397,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       // Notify Client
       const clientMsg = `✨ **חדשות טובות!**\nהתור שלך ב-${booking.master.business_name || booking.master.full_name} אושר! 🎉\nמחכים לראות אותך!`;
       await ctx.telegram.sendMessage(booking.client.telegram_id, clientMsg);
+      await scheduleBookingReminders(booking);
 
     } catch (err: any) {
       console.error('APPROVE_ERR:', err);
@@ -320,10 +411,27 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     if (!supabase) return;
 
     try {
+      const { data: pendingBooking, error: readErr } = await supabase
+        .from('bookings')
+        .eq('id', bookingId)
+        .select('*, client:client_id(telegram_id), master:master_id(telegram_id)')
+        .single();
+
+      if (readErr) throw readErr;
+      if (Number(pendingBooking.master.telegram_id) !== Number(ctx.from?.id)) {
+        await ctx.answerCbQuery('Unauthorized booking action.');
+        return;
+      }
+      if (pendingBooking.status !== 'pending') {
+        await ctx.answerCbQuery('This booking is no longer pending.');
+        return;
+      }
+
       const { data: booking, error: bErr } = await supabase
         .from('bookings')
-        .update({ status: 'cancelled_by_master' })
+        .update({ status: 'cancelled_by_master', notified_24h: false, notified_3h: false })
         .eq('id', bookingId)
+        .eq('status', 'pending')
         .select('*, client:client_id(telegram_id)')
         .single();
 
@@ -580,12 +688,22 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     if (!supabase || !ctx.from) return;
 
     const userId = ctx.from.id;
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('telegram_id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      await ctx.answerCbQuery('Profile not found.');
+      return;
+    }
     
     // Check limit
     const { data: currentPortfolio } = await supabase
       .from('portfolio')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', profile.id);
 
     if (currentPortfolio && currentPortfolio.length >= 5) {
       // Portfolio full - Ask to replace
@@ -604,7 +722,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       
       const publicUrl = await uploadToPortfolio(userId, enhanced);
       if (publicUrl) {
-        await supabase.from('portfolio').insert([{ user_id: userId, image_url: publicUrl }]);
+        await supabase.from('portfolio').insert([{ user_id: profile.id, image_url: publicUrl }]);
         await ctx.reply('✅ העבודה נוספה לפורטפוליו במיני-אפ!');
       }
     }
@@ -617,17 +735,28 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
     await ctx.answerCbQuery('מעדכן...');
     
-    // Delete old
-    await supabase.from('portfolio').delete().eq('id', portfolioId);
+    const userId = ctx.from.id;
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('telegram_id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      await ctx.answerCbQuery('Profile not found.');
+      return;
+    }
+
+    // Delete old only if it belongs to the current Telegram user.
+    await supabase.from('portfolio').delete().eq('id', portfolioId).eq('user_id', profile.id);
     
     // Add new
-    const userId = ctx.from.id;
     const imageData = Buffer.from(ctx.session.lastEnhancedImage.buffer, 'base64');
     const enhanced = await enhanceImage(imageData, ctx.session.lastEnhancedImage.imagenPrompt);
     const publicUrl = await uploadToPortfolio(userId, enhanced);
     
     if (publicUrl) {
-      await supabase.from('portfolio').insert([{ user_id: userId, image_url: publicUrl }]);
+      await supabase.from('portfolio').insert([{ user_id: profile.id, image_url: publicUrl }]);
       await ctx.reply('✅ העבודה הוחלפה בהצלחה!');
     }
   });

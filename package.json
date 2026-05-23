@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "node scripts/setup-assets.js && npx rimraf dist && tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:smoke": "node --import tsx --test tests/qstash-url.test.ts && node --test tests/vercel-rewrites.test.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -23,11 +24,13 @@
     "micro": "^10.0.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-router-dom": "^7.15.1",
     "sharp": "^0.34.5",
     "stripe": "^21.0.0",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/jimp": "^0.2.1",
     "@types/node": "^20.0.0",
@@ -36,12 +39,16 @@
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.27",
     "axios": "^1.13.6",
+    "eslint": "^10.4.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
     "framer-motion": "^12.38.0",
     "globals": "^17.4.0",
     "lucide-react": "^0.577.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
+    "typescript-eslint": "^8.59.4",
     "vite": "^8.0.1",
     "zustand": "^5.0.12"
   }

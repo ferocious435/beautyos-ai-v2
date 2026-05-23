@@ -2,8 +2,10 @@
  
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const isProduction = process.env.NODE_ENV === 'production';
 
 let _client: SupabaseClient | null = null;
 
@@ -12,8 +14,19 @@ export function getSupabase(): SupabaseClient | null {
     console.warn('⚠️ SUPABASE_URL not configured');
     return null;
   }
+  const serverKey = supabaseServiceRoleKey || (!isProduction ? supabaseAnonKey : '');
+  if (!serverKey) {
+    console.error('SUPABASE_SERVICE_ROLE_KEY is required for server-side database access');
+    return null;
+  }
+
   if (!_client) {
-    _client = createClient(supabaseUrl, supabaseAnonKey);
+    _client = createClient(supabaseUrl, serverKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
   }
   return _client;
 }

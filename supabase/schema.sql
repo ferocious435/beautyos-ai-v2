@@ -58,6 +58,26 @@ CREATE TABLE IF NOT EXISTS bookings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'bookings_no_active_overlap'
+    ) THEN
+        ALTER TABLE bookings
+        ADD CONSTRAINT bookings_no_active_overlap
+        EXCLUDE USING gist (
+            master_id WITH =,
+            tstzrange(start_time, end_time, '[)') WITH &&
+        )
+        WHERE (status IN ('pending', 'confirmed'));
+    END IF;
+END;
+$$;
+
 -- Portfolios
 CREATE TABLE IF NOT EXISTS portfolio (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -108,31 +128,52 @@ ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE portfolio ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bot_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE market_trends ENABLE ROW LEVEL SECURITY;
+ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
--- We assume frontend users access Supabase using ANON key.
--- Without proper auth triggers, we map RLS based on UUID? 
--- Real security dictates we should use Custom JWTs. But as interim, 
--- allow reading public data, restrict writes.
+-- Public read data stays available for discovery/booking screens.
+-- Writes are intentionally blocked for anon/authenticated clients and must go
+-- through Vercel API routes that validate Telegram initData and use service role.
 
--- Users: Anyone can read profiles. (Needed for master search)
-CREATE POLICY "Users are viewable by everyone" ON users FOR SELECT USING (true);
-CREATE POLICY "Users can update own profile" ON users FOR UPDATE USING (true); -- Note: In real prod, restrict to auth.uid() if JWT used.
-CREATE POLICY "Users can insert own profile" ON users FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Users are viewable by everyone" ON users;
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
+DROP POLICY IF EXISTS "Services are viewable by everyone" ON services;
+DROP POLICY IF EXISTS "Masters can edit services" ON services;
+DROP POLICY IF EXISTS "Schedules are viewable by everyone" ON master_schedules;
+DROP POLICY IF EXISTS "View involved bookings" ON bookings;
+DROP POLICY IF EXISTS "Create bookings" ON bookings;
+DROP POLICY IF EXISTS "Update bookings" ON bookings;
+DROP POLICY IF EXISTS "Portfolio is viewable by everyone" ON portfolio;
+DROP POLICY IF EXISTS "Portfolio writes are server only" ON portfolio;
+DROP POLICY IF EXISTS "User writes are server only" ON users;
+DROP POLICY IF EXISTS "Service writes are server only" ON services;
+DROP POLICY IF EXISTS "Booking writes are server only" ON bookings;
+DROP POLICY IF EXISTS "User reads are server only" ON users;
+DROP POLICY IF EXISTS "Service reads are server only" ON services;
+DROP POLICY IF EXISTS "Schedule reads are server only" ON master_schedules;
+DROP POLICY IF EXISTS "Booking reads are server only" ON bookings;
+DROP POLICY IF EXISTS "Portfolio reads are server only" ON portfolio;
 
--- Services: Public read, writing only by masters (for now allowed openly, need API gate)
-CREATE POLICY "Services are viewable by everyone" ON services FOR SELECT USING (is_active = true);
-CREATE POLICY "Masters can edit services" ON services FOR ALL USING (true);
+-- Browser clients must read through verified server APIs to avoid PII exposure.
+CREATE POLICY "User reads are server only" ON users FOR SELECT USING (false);
+CREATE POLICY "User writes are server only" ON users FOR ALL USING (false) WITH CHECK (false);
 
--- Schedules: Public read
-CREATE POLICY "Schedules are viewable by everyone" ON master_schedules FOR SELECT USING (is_working = true);
+-- Services are returned by API routes that can whitelist fields per scenario.
+CREATE POLICY "Service reads are server only" ON services FOR SELECT USING (false);
+CREATE POLICY "Service writes are server only" ON services FOR ALL USING (false) WITH CHECK (false);
 
--- Bookings: Only involved parties can view
-CREATE POLICY "View involved bookings" ON bookings FOR SELECT USING (true);
-CREATE POLICY "Create bookings" ON bookings FOR INSERT WITH CHECK (true);
-CREATE POLICY "Update bookings" ON bookings FOR UPDATE USING (true);
+-- Schedules can reveal business availability and are served through API/RPC.
+CREATE POLICY "Schedule reads are server only" ON master_schedules FOR SELECT USING (false);
 
--- Portfolio: Public read
-CREATE POLICY "Portfolio is viewable by everyone" ON portfolio FOR SELECT USING (true);
+-- Bookings contain client/master PII and must never be anon-readable.
+CREATE POLICY "Booking reads are server only" ON bookings FOR SELECT USING (false);
+CREATE POLICY "Booking writes are server only" ON bookings FOR ALL USING (false) WITH CHECK (false);
+
+-- Portfolio visibility is decided by server routes instead of broad anon SQL.
+CREATE POLICY "Portfolio reads are server only" ON portfolio FOR SELECT USING (false);
+CREATE POLICY "Portfolio writes are server only" ON portfolio FOR ALL USING (false) WITH CHECK (false);
 
 
 -- ==============================================================================

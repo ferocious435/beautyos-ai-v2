@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, no-irregular-whitespace */
  
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabaseClient';
+import { getTelegramInitData, getTelegramUserId, telegramAuthHeaders } from '../lib/telegramAuth';
 
 const Booking = () => {
   const [searchParams] = useSearchParams();
@@ -18,40 +18,44 @@ const Booking = () => {
   const [slots, setSlots] = useState<any[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   // Load Master and Services
   useEffect(() => {
     const loadMasterAndServices = async () => {
-      if (!masterId) return;
-      
-      const { data: masterData } = await supabase
-        .from('users')
-        .select('id, full_name, business_name')
-        .eq('telegram_id', masterId)
-        .single();
-        
-      setMaster(masterData);
+      if (!masterId) {
+        setLoadingServices(false);
+        return;
+      }
 
-      if (masterData) {
-        setLoadingServices(true);
-        const { data: servicesData } = await supabase
-          .from('services')
-          .select('*')
-          .eq('master_id', masterData.id)
-          .eq('is_active', true);
-        
-        setServices(servicesData || []);
-        
-        // If rescheduling, try to pre-select service if possible (or wait for user)
-        if (rescheduleId) {
-            const { data: b } = await supabase.from('bookings').select('service_id').eq('id', rescheduleId).single();
-            if (b && servicesData) {
-                const found = servicesData.find((s: any) => s.id === b.service_id);
-                if (found) setSelectedService(found);
-            }
+      setLoadingServices(true);
+      setLoadError(null);
+
+      try {
+        const response = await fetch('/api/services?action=get-master-details', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+          body: JSON.stringify({
+            masterTelegramId: Number(masterId),
+            rescheduleId,
+          }),
+        });
+
+        if (!response.ok) throw new Error('Failed to load master details');
+
+        const data = await response.json();
+        setMaster(data.master);
+        setServices(data.services || []);
+
+        if (data.selectedServiceId) {
+          const found = (data.services || []).find((service: any) => service.id === data.selectedServiceId);
+          if (found) setSelectedService(found);
         }
-        
+      } catch (err) {
+        console.error('BOOKING: Load master error:', err);
+        setLoadError('master_not_found');
+      } finally {
         setLoadingServices(false);
       }
     };
@@ -64,13 +68,23 @@ const Booking = () => {
       if (!masterId || !selectedDate || !selectedService) return;
       
       setLoadingSlots(true);
-      const { data, error } = await supabase.rpc('get_available_slots', {
-        m_id: parseInt(masterId),
-        select_date: selectedDate
-      });
-      
-      if (!error) setSlots(data || []);
-      else console.error('BOOKING: RPC Error:', error);
+      try {
+        const response = await fetch('/api/services?action=get-available-slots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+          body: JSON.stringify({
+            masterTelegramId: Number(masterId),
+            date: selectedDate,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load slots');
+        setSlots(data.slots || []);
+      } catch (err) {
+        console.error('BOOKING: Slots API Error:', err);
+        setSlots([]);
+      }
       
       setLoadingSlots(false);
     };
@@ -78,22 +92,24 @@ const Booking = () => {
   }, [masterId, selectedDate, selectedService]);
 
   const handleBook = async (slotTime: string) => {
-    const tg = (window as any).Telegram?.WebApp;
-    const tgId = tg?.initDataUnsafe?.user?.id || 12345678;
+    const tgId = getTelegramUserId() || (import.meta.env.DEV ? 12345678 : null);
 
     if (!masterId || !selectedService) return;
+    if (!tgId) {
+      setBookingStatus('error');
+      return;
+    }
 
     setBookingStatus('loading');
     
     try {
-      const initData = tg?.initData || '';
       const action = rescheduleId ? 'update-booking' : 'create-booking';
       
       const response = await fetch(`/api/services?action=${action}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-telegram-init-data': initData 
+          'x-telegram-init-data': getTelegramInitData(),
         },
         body: JSON.stringify({
           bookingId: rescheduleId, // Only used in update
@@ -133,7 +149,20 @@ const Booking = () => {
     </div>
   );
 
-  if (!master) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loadingServices) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" /></div>;
+
+  if (!master || loadError) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
+      <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-400 text-3xl">!</div>
+      <div className="space-y-2">
+        <h2 className="text-xl font-bold text-white">׳”׳׳•׳׳—׳” ׳׳ ׳ ׳׳¦׳</h2>
+        <p className="text-zinc-500 text-sm">׳”׳§׳™׳©׳•׳¨ ׳׳”׳–׳׳ ׳× ׳×׳•׳¨ ׳׳ ׳×׳§׳™׳ ׳׳• ׳©׳₪׳’ ׳×׳•׳§׳£.</p>
+      </div>
+      <button onClick={() => navigate('/discovery')} className="gold-gradient px-8 py-4 rounded-2xl text-black font-black">
+        ׳׳¦׳ ׳׳•׳׳—׳” ׳׳—׳¨
+      </button>
+    </div>
+  );
 
   return (
     <div className="p-4 space-y-8 pb-20 RTL" style={{ direction: 'rtl' }}>

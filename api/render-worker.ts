@@ -87,21 +87,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
     const realBusinessName = userData?.business_name || 'Beauty Expert';
 
-    // 🚀 UNIFIED RENDERING via Processor (v1.1)
-    const design = {
-      overlay: session_data.lastOverlay || [],
-      style: session_data.lastStyle || { preset: 'GLASSMorphism', primaryColor: '#FFFFFF' },
-      post: session_data.lastPost || '',
-      imagenPrompt: session_data.lastImagenPrompt || '',
-      detectedService: 'Beauty Specialist'
-    };
+    // 🚀 STACKING v61: PRO COMPOSITION ENGINE (Dynamic & Collision-Free)
+    const rawOverlays = session_data.lastOverlay || [];
+    const groupedMap = new Map<string, any>();
+    rawOverlays.forEach((line: any) => {
+      const cleanText = (line.text || '').replace(/[✨*]/g, '').trim();
+      if (!cleanText) return;
+      if (groupedMap.has(line.type)) groupedMap.get(line.type).text += '\n' + cleanText;
+      else groupedMap.set(line.type, { ...line, text: cleanText });
+    });
 
-    const finalResult = await processor.render(
-      workingBuffer, 
-      socialFormat, 
-      design as any, 
-      realBusinessName
-    );
+    const usedPositions: any[] = [];
+    const overlays = Array.from(groupedMap.values()).map((line: any) => {
+      let x = line.xPosition || (line.type === 'PRICE' ? 0.9 : (line.type === 'LOGO' ? 0.05 : 0.5));
+      let y = line.yPosition;
+      let align: any = line.textAlign || (line.type === 'PRICE' ? 'right' : (line.type === 'LOGO' ? 'left' : 'center'));
+
+      if (y === undefined) {
+        if (line.type === 'TITLE') y = 0.12;
+        else if (line.type === 'PRICE') y = 0.22;
+        else if (line.type === 'PROMO') y = 0.82;
+        else if (line.type === 'LOGO') y = 0.94;
+        else y = 0.5;
+      }
+
+      // --- STACKING v61: COLLISION RESOLUTION ---
+      const step = 0.12;
+      const thresholdY = 0.10;
+      let attempts = 0;
+      while (usedPositions.some(p => Math.abs(p.y - y) < thresholdY && Math.abs(p.x - x) < 0.35) && attempts < 5) {
+        if (y < 0.4) y += step; // Сдвигаем вниз, если в верхней части
+        else y -= step;         // Сдвигаем вверх, если в нижней части
+        attempts++;
+      }
+      y = Math.max(0.06, Math.min(0.94, y));
+      usedPositions.push({ x, y });
+
+      return {
+        ...line,
+        xPosition: x,
+        yPosition: y,
+        textAlign: align,
+        rotation: (line.type === 'PRICE' ? -2 : (line.type === 'PROMO' ? 1.5 : (Math.random() * 1.6 - 0.8)))
+      };
+    });
+
+    const finalResult = await generateSocialPost(workingBuffer, {
+      format: socialFormat,
+      businessName: realBusinessName,
+      overlay: overlays,
+      style: session_data.lastStyle || { preset: 'GLASSMorphism', primaryColor: '#FFFFFF' },
+      theme: 'ORIGINAL_CLEAN'
+    });
 
     const captionText = session_data.lastPost || 'התוצאה מוכנה! ✨';
     const shareUrl = `https://wa.me/?text=${encodeURIComponent(captionText)}`;

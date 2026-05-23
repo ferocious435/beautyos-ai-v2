@@ -1,4 +1,4 @@
-import { TaskCategory } from './task-classifier';
+import type { TaskCategory } from './task-classifier';
 
 export interface RouteMetadata {
   primary: string;

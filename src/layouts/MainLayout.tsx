@@ -8,8 +8,6 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   const user = useAppStore((state) => state.user);
   const userRole = user.role;
-  const tier = user.subscriptionTier;
-
   const isAdmin = userRole === 'admin';
 
   const navItems = [
@@ -30,12 +28,12 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       roles: ['admin'] // Only admin sees it here as explicit route
     },
     { 
-      path: isAdmin ? '/calendar' : '/booking', 
+      path: '/calendar',
       label: isAdmin ? 'קאלנדר' : 'תורים',
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
       ),
-      roles: ['client', 'master', 'admin']
+      roles: ['master', 'admin']
     },
     { 
       path: '/order', 
@@ -43,7 +41,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
       ),
-      roles: ['admin']
+      roles: []
     },
     { 
       path: '/discovery', 
@@ -71,8 +69,8 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   ];
 
-  // Fallback: if role is not set (e.g. browser testing without Telegram), default to 'master'
-  const effectiveRole = userRole || 'master';
+  // Fallback is only for transitional local states while App bootstraps.
+  const effectiveRole = userRole || 'client';
 
   const filteredItems = navItems.filter(item => {
     if (userRole === 'admin') {
@@ -82,8 +80,6 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (!item.roles.includes(effectiveRole)) return false;
     return true;
   });
-
-  console.log('[Nav] Rendering with role:', effectiveRole, 'tier:', tier, 'items:', filteredItems.length);
 
   return (
     <div className="min-h-screen relative bg-[#050505] overflow-x-hidden text-white" dir="rtl" data-testid="main-layout" data-role={effectiveRole}>
@@ -100,7 +96,6 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <Link 
               key={item.path} 
               to={item.path}
-              onClick={() => console.log('[Nav] Clicking:', item.path)}
               className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative ${isActive ? 'text-yellow-500' : 'text-zinc-500 hover:text-zinc-300'}`}
               style={{ minWidth: '60px', minHeight: '44px', display: 'flex', justifyContent: 'center' }}
             >

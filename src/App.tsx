@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/set-state-in-effect */
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useAppStore } from './store/useAppStore';
-import { supabase } from './lib/supabaseClient';
+import { telegramAuthHeaders } from './lib/telegramAuth';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Discovery = lazy(() => import('./pages/Discovery'));
@@ -24,6 +24,7 @@ const PageLoader = () => (
 
 function App() {
   const userRole = useAppStore((state) => state.user.role);
+  const [bootstrapReady, setBootstrapReady] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -38,82 +39,61 @@ function App() {
 
         const tgUser = (tg as any)?.initDataUnsafe?.user;
         
-        // If no Telegram user is found, this means we are in local browser env.
+        // Never grant admin outside Telegram in production.
         if (!tgUser) {
-          console.warn('APP: Local development environment detected. Mocking user session.');
+          console.warn('APP: Telegram user missing.');
           useAppStore.setState({ 
             user: {
-              id: 'local-dev-id-1234',
-              name: 'Local Admin',
-              role: 'owner', // Defaulting to owner to show UI elements during dev
-              subscriptionTier: 'pro',
+              id: import.meta.env.DEV ? 'local-dev-id-1234' : '',
+              name: import.meta.env.DEV ? 'Local Developer' : 'Guest',
+              role: import.meta.env.DEV ? 'admin' : 'client',
+              subscriptionTier: import.meta.env.DEV ? 'pro' : 'free',
             }
           });
           return;
         }
 
-        const tgId = tgUser.id;
-        console.log(`APP: Fetching profile for TG ID: ${tgId}`);
+        console.log(`APP: Fetching profile for TG ID: ${tgUser.id}`);
 
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('telegram_id', tgId)
-          .single();
+        const response = await fetch('/api/services?action=get-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+        });
 
-        if (error) {
-          console.warn('APP: Supabase error (expected if DB not seeded):', error.message);
-        }
+        if (!response.ok) throw new Error('Profile bootstrap failed');
 
-        if (data) {
-          console.log('APP: Profile found:', data.business_name || data.full_name);
-          useAppStore.setState({ 
-            user: {
-              id: data.id,
-              name: data.full_name,
-              role: data.role || 'client',
-              subscriptionTier: data.subscription_tier || 'free',
-              avatar: data.avatar_url
-            }
-          });
-        } else {
-          console.warn('APP: No profile in DB. Auto-registering as client to prevent E2E flow break.');
-          const defaultName = tgUser?.first_name ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : `User ${tgId}`;
-          
-          const { data: newUser, error: insertErr } = await supabase
-            .from('users')
-            .upsert({ 
-              telegram_id: tgId, 
-              full_name: defaultName,
-              role: 'client' 
-            }, { onConflict: 'telegram_id' })
-            .select()
-            .single();
-
-          if (newUser) {
-            useAppStore.setState({ 
-              user: {
-                id: newUser.id,
-                name: newUser.full_name,
-                role: 'client',
-                subscriptionTier: 'free',
-              }
-            });
-          } else {
-            console.error('APP: Auto-registration failed:', insertErr);
-            useAppStore.setState(state => ({
-              user: { ...state.user, role: 'client' }
-            }));
-          }
-        }
+        const { profile } = await response.json();
+        console.log('APP: Profile found:', profile.business_name || profile.full_name);
+        useAppStore.setState({
+          user: {
+            id: profile.id,
+            name: profile.full_name,
+            role: profile.role || 'client',
+            subscriptionTier: profile.subscription_tier || 'free',
+            avatar: profile.avatar_url,
+          },
+        });
       } catch (err) {
         console.error('APP: Critical initialization error:', err);
+        useAppStore.setState({
+          user: {
+            id: '',
+            name: 'Guest',
+            role: 'client',
+            subscriptionTier: 'free',
+          },
+        });
+      } finally {
+        setBootstrapReady(true);
       }
     };
 
     fetchUser();
   }, []);
 
+  if (!bootstrapReady) {
+    return <PageLoader />;
+  }
 
   return (
     <Router>
@@ -123,7 +103,7 @@ function App() {
             <Routes>
               {/* Main Entry Points with conditional logic */}
               <Route path="/" element={userRole === 'client' ? <ClientDashboard /> : <Dashboard />} />
-              <Route path="/booking" element={userRole === 'client' ? <Booking /> : <MasterCalendar />} />
+              <Route path="/booking" element={<Booking />} />
               
               {/* Explicit Admin/Unified Routes */}
               <Route path="/dashboard/master" element={<Dashboard />} />

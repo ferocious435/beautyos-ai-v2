@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { supabase } from '../lib/supabaseClient';
+import { telegramAuthHeaders } from '../lib/telegramAuth';
 import { useAppStore } from '../store/useAppStore';
 import * as Lucide from 'lucide-react';
 const { 
@@ -28,37 +28,30 @@ const MasterCalendar = () => {
   useEffect(() => {
     const fetchBookings = async () => {
       // ✅ ROOT/ADMIN BYPASS (v2.2.1)
-      if (!appUser.id) return;
+      if (!appUser.id) {
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
-      
-      let query = supabase
-          .from('bookings')
-          .select('*, client:client_id (full_name, phone), master:master_id (full_name, telegram_id)');
-
-      if (viewMode === 'day') {
-        const startOfDay = new Date(selectedDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(selectedDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        query = query.gte('start_time', startOfDay.toISOString()).lte('start_time', endOfDay.toISOString());
-      } else {
-        // Month View: Fetch all for current month
-        const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59);
-        query = query.gte('start_time', startOfMonth.toISOString()).lte('start_time', endOfMonth.toISOString());
-      }
-
-      // Security: If not admin, see only own master bookings
-      if (appUser.role !== 'admin') {
-        query = query.eq('master_id', appUser.id);
-      }
 
       try {
-        const { data, error } = await query.order('start_time', { ascending: true });
-        if (error) throw error;
-        setBookings(data || []);
+        const response = await fetch('/api/services?action=get-my-bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+          body: JSON.stringify({
+            role: appUser.role === 'admin' ? 'admin' : 'master',
+            date: selectedDate.toISOString(),
+            viewMode,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load bookings');
+        setBookings(data.bookings || []);
       } catch (err) {
         console.error('CALENDAR: Fetch error:', err);
+        setBookings([]);
       } finally {
         setLoading(false);
       }
@@ -69,8 +62,14 @@ const MasterCalendar = () => {
 
   const handleCancel = async (bookingId: string) => {
     if (!window.confirm('האם לבטל את התור?')) return;
-    const { error } = await supabase.from('bookings').update({ status: 'cancelled_by_master' }).eq('id', bookingId);
-    if (!error) setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled_by_master' } : b));
+    const response = await fetch('/api/services?action=cancel-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+      body: JSON.stringify({ bookingId, userId: appUser.id, role: 'master' }),
+    });
+    if (response.ok) {
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled_by_master' } : b));
+    }
   };
 
   const handleReschedule = (booking: Booking) => {

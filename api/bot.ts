@@ -20,7 +20,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   try {
     if (req.method === 'POST') {
-      console.log(`[Bot] Update Body:`, JSON.stringify(req.body));
+      const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+      const receivedSecret = req.headers['x-telegram-bot-api-secret-token'];
+
+      if (expectedSecret && receivedSecret !== expectedSecret) {
+        console.warn('[Bot] Rejected webhook request with invalid Telegram secret token.');
+        return res.status(401).send('Unauthorized');
+      }
+
+      if (!expectedSecret && process.env.NODE_ENV === 'production') {
+        console.error('[Bot] TELEGRAM_WEBHOOK_SECRET is required in production.');
+        return res.status(500).send('Webhook secret is not configured');
+      }
+
       // Telegram Webhook Handler
       await bot.handleUpdate(req.body);
       console.log(`[Bot] HandleUpdate SUCCESS`);

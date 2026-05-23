@@ -9,7 +9,11 @@ import crypto from 'crypto';
  * @param botToken Токен телеграм-бота
  * @returns boolean - валидна ли подпись
  */
-export function validateTelegramWebAppData(initData: string, botToken?: string): boolean {
+export function validateTelegramWebAppData(
+  initData: string,
+  botToken?: string,
+  maxAgeSeconds = 24 * 60 * 60
+): boolean {
   if (!initData || !botToken) return false;
 
   try {
@@ -30,7 +34,17 @@ export function validateTelegramWebAppData(initData: string, botToken?: string):
     const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
     const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
-    return calculatedHash === hash;
+    const calculatedBuffer = Buffer.from(calculatedHash, 'hex');
+    const hashBuffer = Buffer.from(hash, 'hex');
+    if (calculatedBuffer.length !== hashBuffer.length || !crypto.timingSafeEqual(calculatedBuffer, hashBuffer)) {
+      return false;
+    }
+
+    const authDate = Number(urlParams.get('auth_date'));
+    if (!Number.isFinite(authDate)) return false;
+
+    const ageSeconds = Math.floor(Date.now() / 1000) - authDate;
+    return ageSeconds >= 0 && ageSeconds <= maxAgeSeconds;
   } catch (err) {
     console.error('Telegram Validation Error:', err);
     return false;

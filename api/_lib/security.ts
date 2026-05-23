@@ -1,5 +1,3 @@
- 
- 
 import { Receiver } from "@upstash/qstash";
 import { VercelRequest } from "@vercel/node";
 

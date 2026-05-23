@@ -12,7 +12,7 @@ const {
   LoaderCircle 
 } = Lucide as any;
 import { useTelegram } from '../hooks/useTelegram';
-import { supabase } from '../lib/supabaseClient';
+import { telegramAuthHeaders } from '../lib/telegramAuth';
 import { useAppStore } from '../store/useAppStore';
 
 const Dashboard = () => {
@@ -48,34 +48,30 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!appUser.id) return;
+      if (!appUser.id) {
+        setStats({ views: 0, appointments: 0 });
+        setPendingBookings([]);
+        setUpcomingBookings([]);
+        setIsLoadingData(false);
+        return;
+      }
       setIsLoadingData(true);
       try {
-        // 1. Fetch Stats (Profile Views)
-        const { count: viewsCount } = await supabase
-          .from('analytics_events')
-          .select('*', { count: 'exact', head: true })
-          .eq('master_id', appUser.id)
-          .eq('event_type', 'profile_view');
+        const response = await fetch('/api/services?action=get-my-bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+          body: JSON.stringify({ role: appUser.role === 'admin' ? 'admin' : 'master' }),
+        });
 
-        // 2. Fetch Appointments count (Last 7 days)
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load dashboard data');
+
+        const allBookings = data.bookings || [];
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-        const { count: bookCount } = await supabase
-          .from('bookings')
-          .select('*', { count: 'exact', head: true })
-          .eq('master_id', appUser.id)
-          .gte('created_at', weekAgo.toISOString());
+        const recentCount = allBookings.filter((booking: any) => new Date(booking.created_at) >= weekAgo).length;
 
-        setStats({ views: viewsCount || 0, appointments: bookCount || 0 });
-
-        // 3. Fetch Bookings
-        const { data: allBookings } = await supabase
-          .from('bookings')
-          .select('id, start_time, status, client:client_id (full_name)')
-          .eq('master_id', appUser.id)
-          .gte('start_time', new Date().toISOString())
-          .order('start_time', { ascending: true });
+        setStats({ views: 0, appointments: recentCount });
 
         const pending = allBookings?.filter((b: any) => b.status === 'pending') || [];
         const upcoming = allBookings?.filter((b: any) => b.status === 'confirmed').slice(0, 5) || [];
@@ -90,7 +86,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [appUser.id]);
+  }, [appUser.id, appUser.role]);
 
   useEffect(() => {
     const currentText = generatedResults ? (generatedResults[activeSocial.toLowerCase()] || generatedResults.instagram) : null;
@@ -138,7 +134,7 @@ const Dashboard = () => {
       const baseUrl = window.location.origin; 
       const response = await fetch(`${baseUrl}/api/enhance`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
         body: JSON.stringify({ image: imagePreview, format: activeSocial, businessName }),
       });
       if (!response.ok) {
@@ -162,16 +158,17 @@ const Dashboard = () => {
     setIsSaving(true);
     haptic('medium');
     try {
-      const { error } = await supabase
-        .from('portfolio')
-        .insert([{ 
-          user_id: user.id.toString(), 
-          image_url: imagePreview,
+      const response = await fetch('/api/services?action=save-portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+        body: JSON.stringify({
+          imageUrl: imagePreview,
           type: 'ai_creation',
-          metadata: { format: activeSocial, businessName }
-        }]);
+          metadata: { format: activeSocial, businessName },
+        }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Portfolio save failed');
       setSaveSuccess(true);
       haptic('success');
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -193,7 +190,7 @@ const Dashboard = () => {
     try {
       const resp = await fetch('/api/services?action=approve-booking', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
         body: JSON.stringify({ bookingId })
       });
       if (resp.ok) {
@@ -214,7 +211,7 @@ const Dashboard = () => {
     try {
       const resp = await fetch('/api/services?action=reject-booking', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
         body: JSON.stringify({ bookingId })
       });
       if (resp.ok) {
@@ -232,7 +229,7 @@ const Dashboard = () => {
     try {
       const response = await fetch('/api/services?action=cancel-booking', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
         body: JSON.stringify({ bookingId, userId: appUser.id, role: 'master' })
       });
       

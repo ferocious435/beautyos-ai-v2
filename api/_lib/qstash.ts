@@ -10,6 +10,9 @@ const QSTASH_TOKEN = process.env.QSTASH_TOKEN || '';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const APP_URL = process.env.WEBAPP_URL || '';
 
+export const buildPublishUrl = (qUrl: string, destinationUrl: string) =>
+  `${qUrl}/v2/publish/${encodeURIComponent(destinationUrl)}`;
+
 /**
  * Планирует уведомление через QStash (будильник)
  * @param delaySeconds Задержка в секундах
@@ -26,15 +29,16 @@ export async function scheduleNotification(delaySeconds: number, type: '24h' | '
   }
 
   try {
-    const destinationUrl = `${appUrl}/api/webhooks/reminders`;
+    const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/services?action=reminder`;
     
     await axios.post(
-      `${qUrl}/v2/publish/${destinationUrl}`,
+      buildPublishUrl(qUrl, destinationUrl),
       { bookingId, type },
       {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Upstash-Delay': `${delaySeconds}s`
         }
       }
     );
@@ -69,7 +73,7 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
     await telegraf.telegram.editMessageText(chatId, messageId, undefined, `📡 שולח פקודה לעיבוד ענן...`);
     
     await axios.post(
-      `${qUrl}/v2/publish/${destinationUrl}`,
+      buildPublishUrl(qUrl, destinationUrl),
       { chatId, messageId, fileUrl, fileId, caption },
       {
         timeout: 10000,
@@ -101,7 +105,7 @@ export async function enqueueRenderProcessing(chatId: number, formatType: string
   
   try {
     await axios.post(
-      `${qUrl}/v2/publish/${destinationUrl}`,
+      buildPublishUrl(qUrl, destinationUrl),
       { chatId, formatType },
       {
         headers: {
@@ -130,13 +134,12 @@ export async function enqueueRetouchProcessing(chatId: number, fileUrl: string, 
   
   try {
     await axios.post(
-      `${qUrl}/v2/publish/${destinationUrl}`,
+      buildPublishUrl(qUrl, destinationUrl),
       { chatId, fileUrl, fileId },
       {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Upstash-Forward-x-internal-secret': process.env.TELEGRAM_BOT_TOKEN
+          'Content-Type': 'application/json'
         }
       }
     );

@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import dotenv from 'dotenv';
 import { processor } from './_lib/processor.js';
 import { SocialFormat } from './_lib/graphic-engine.js';
+import { validateTelegramWebAppData } from './_lib/telegram-auth.js';
 
 dotenv.config();
 
@@ -11,6 +12,13 @@ dotenv.config();
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (process.env.NODE_ENV !== 'development') {
+    const initData = req.headers['x-telegram-init-data'] as string;
+    if (!validateTelegramWebAppData(initData, process.env.TELEGRAM_BOT_TOKEN)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
 
   try {
     const { image, format, businessName } = req.body;
@@ -43,16 +51,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ 
       error: error.message || 'Generation failed',
       details: error.response?.data || 'Check logs'
-    });
-  }
-}
-
-  } catch (error: any) {
-    console.error('Unified Generation Error:', error);
-    return res.status(500).json({ 
-      error: error.message || 'Generation failed',
-      details: error.response?.data || 'No detailed data',
-      model: CONFIG.MODELS.ANALYSIS 
     });
   }
 }

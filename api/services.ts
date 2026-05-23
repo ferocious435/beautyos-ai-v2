@@ -4,6 +4,91 @@ import { scheduleNotification } from './_lib/qstash.js';
 import { Telegraf } from 'telegraf';
 import { validateTelegramWebAppData, getUserFromInitData } from './_lib/telegram-auth.js';
 
+type TelegramAuthUser = {
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+};
+
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+const getTelegramId = (value: unknown): number | null => {
+  const id = Number(value);
+  return Number.isFinite(id) && id > 0 ? id : null;
+};
+
+const getErrorMessage = (err: unknown) => err instanceof Error ? err.message : 'Unexpected server error';
+
+const dayBounds = (date: string) => {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString() };
+};
+
+const monthBounds = (date: string) => {
+  const selected = new Date(date);
+  const start = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  const end = new Date(selected.getFullYear(), selected.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString() };
+};
+
+const distanceKm = (
+  a?: { lat?: number; lng?: number },
+  b?: { lat?: number | null; lng?: number | null }
+) => {
+  if (!a?.lat || !a?.lng || !b?.lat || !b?.lng) return null;
+  const toRad = (value: number) => value * Math.PI / 180;
+  const earthKm = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return earthKm * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+};
+
+const subscriptionPlans = {
+  essential: { name: 'BeautyOS Essential', priceIls: 29, envPriceId: 'STRIPE_PRICE_ID_ESSENTIAL' },
+  pro: { name: 'BeautyOS Pro Master', priceIls: 69, envPriceId: 'STRIPE_PRICE_ID_PRO' },
+  elite: { name: 'BeautyOS Elite Partner', priceIls: 149, envPriceId: 'STRIPE_PRICE_ID_ELITE' },
+} as const;
+
+const getPublicAppUrl = (req: VercelRequest) => {
+  const configuredUrl = process.env.WEBAPP_URL || process.env.VITE_APP_URL;
+  const origin = req.headers.origin;
+  return String(configuredUrl || origin || 'http://127.0.0.1:5173').replace(/\/$/, '');
+};
+
+const activeBookingStatuses = ['pending', 'confirmed'];
+
+const hasBookingOverlap = async (
+  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  masterId: string,
+  startTime: string,
+  endTime: string,
+  excludeBookingId?: string
+) => {
+  let query = supabase
+    .from('bookings')
+    .select('id')
+    .eq('master_id', masterId)
+    .in('status', activeBookingStatuses)
+    .lt('start_time', endTime)
+    .gt('end_time', startTime)
+    .limit(1);
+
+  if (excludeBookingId) query = query.neq('id', excludeBookingId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return Boolean(data?.length);
+};
+
 /**
  * Unified services endpoint — combines analytics, payments, webhooks.
  * Route by query param ?action=<action_name>
@@ -12,27 +97,77 @@ import { validateTelegramWebAppData, getUserFromInitData } from './_lib/telegram
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
+
+  if (action === 'env-check') {
+    if (!isDevelopment) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    const envStatus = {
+      supabaseUrl: Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
+      supabaseAnonKey: Boolean(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY),
+      supabaseServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      webappUrl: Boolean(process.env.WEBAPP_URL),
+      telegramBotToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+      qstashToken: Boolean(process.env.QSTASH_TOKEN),
+      qstashSigningKeys: Boolean(process.env.QSTASH_CURRENT_SIGNING_KEY && process.env.QSTASH_NEXT_SIGNING_KEY),
+      stripeSecretKey: Boolean(process.env.STRIPE_SECRET_KEY),
+      stripeWebhookSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+    };
+
+    return res.status(200).json({
+      ok: Object.values(envStatus).every(Boolean),
+      environment: process.env.NODE_ENV || 'unknown',
+      envStatus,
+    });
+  }
+
   const supabase = getSupabase();
   if (!supabase) return res.status(500).send('Supabase connection failed');
 
   // --- Security Middleware (Telegram Auth) ---
   // Определяем, какие action требуют валидации TG Hash.
-  const secureActions = ['create-booking', 'update-booking', 'approve-booking', 'reject-booking', 'cancel-booking'];
+  const secureActions = [
+    'get-profile',
+    'get-master-details',
+    'get-available-slots',
+    'get-my-bookings',
+    'get-portfolio',
+    'list-masters',
+    'save-profile',
+    'save-portfolio',
+    'create-payment',
+    'create-booking',
+    'update-booking',
+    'approve-booking',
+    'reject-booking',
+    'cancel-booking',
+  ];
   
-  let authUser: any = null;
+  let authUser: TelegramAuthUser | null = null;
 
   if (secureActions.includes(action)) {
     const initData = req.headers['x-telegram-init-data'] as string;
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     
-    const isDev = process.env.NODE_ENV === 'development';
-    const isValid = isDev || validateTelegramWebAppData(initData, botToken);
+    const isValid = isDevelopment || validateTelegramWebAppData(initData, botToken);
     
     if (!isValid) {
       return res.status(401).json({ error: 'Unauthorized: Invalid Telegram Signature (API Security Block)' });
     }
     
     authUser = getUserFromInitData(initData);
+    if (!authUser?.id && isDevelopment) {
+      const fallbackId = getTelegramId(
+        req.body?.clientTelegramId ??
+        req.body?.masterTelegramId ??
+        req.body?.telegramId ??
+        process.env.LOCAL_DEV_TELEGRAM_ID ??
+        12345678
+      );
+      authUser = fallbackId ? { id: fallbackId } : null;
+    }
+
     if (!authUser?.id) {
       return res.status(401).json({ error: 'Unauthorized: User data missing' });
     }
@@ -40,6 +175,344 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   switch (action) {
 
+
+    case 'get-profile': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const fullName = `${authUser?.first_name || ''} ${authUser?.last_name || ''}`.trim() || `User ${telegramId}`;
+      const { data: profile, error } = await supabase
+        .from('users')
+        .upsert({
+          telegram_id: telegramId,
+          full_name: fullName,
+          role: 'client',
+        }, {
+          onConflict: 'telegram_id',
+          ignoreDuplicates: true,
+        })
+        .select()
+        .single();
+
+      if (error || !profile) {
+        const { data: existingProfile, error: readError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('telegram_id', telegramId)
+          .single();
+
+        if (readError || !existingProfile) {
+          return res.status(500).json({ error: 'Profile bootstrap failed' });
+        }
+
+        return res.status(200).json({ profile: existingProfile });
+      }
+
+      return res.status(200).json({ profile });
+    }
+
+    case 'get-master-details': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const masterTelegramId = getTelegramId(req.body?.masterTelegramId);
+      if (!masterTelegramId) return res.status(400).json({ error: 'Missing valid masterTelegramId' });
+
+      const { data: master, error: masterError } = await supabase
+        .from('users')
+        .select('id, telegram_id, full_name, business_name, address')
+        .eq('telegram_id', masterTelegramId)
+        .single();
+
+      if (masterError || !master) return res.status(404).json({ error: 'Master not found' });
+
+      const { data: services, error: servicesError } = await supabase
+        .from('services')
+        .select('*')
+        .eq('master_id', master.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (servicesError) return res.status(500).json({ error: getErrorMessage(servicesError) });
+
+      let selectedServiceId: string | null = null;
+      const rescheduleId = typeof req.body?.rescheduleId === 'string' ? req.body.rescheduleId : null;
+      if (rescheduleId) {
+        const { data: booking } = await supabase
+          .from('bookings')
+          .select('service_id, master:master_id(telegram_id), client:client_id(telegram_id)')
+          .eq('id', rescheduleId)
+          .single();
+
+        const requesterTelegramId = getTelegramId(authUser?.id);
+        const bookingMasterTelegramId = getTelegramId((booking as any)?.master?.telegram_id);
+        const bookingClientTelegramId = getTelegramId((booking as any)?.client?.telegram_id);
+        const canReadBooking =
+          isDevelopment ||
+          requesterTelegramId === bookingMasterTelegramId ||
+          requesterTelegramId === bookingClientTelegramId;
+
+        if (!canReadBooking) {
+          return res.status(403).json({ error: 'Forbidden: Cannot read this booking' });
+        }
+
+        selectedServiceId = booking?.service_id || null;
+      }
+
+      return res.status(200).json({ master, services: services || [], selectedServiceId });
+    }
+
+    case 'get-available-slots': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const masterTelegramId = getTelegramId(req.body?.masterTelegramId);
+      const selectedDate = typeof req.body?.date === 'string' ? req.body.date : null;
+      if (!masterTelegramId || !selectedDate) {
+        return res.status(400).json({ error: 'Missing masterTelegramId or date' });
+      }
+
+      const { data, error } = await supabase.rpc('get_available_slots', {
+        m_id: masterTelegramId,
+        select_date: selectedDate,
+      });
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ slots: data || [] });
+    }
+
+    case 'get-my-bookings': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const requestedRole = req.body?.role === 'master' || req.body?.role === 'admin' ? req.body.role : 'client';
+      const { data: profile } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (!profile) return res.status(200).json({ bookings: [] });
+
+      let query = supabase
+        .from('bookings')
+        .select('*, client:client_id (full_name, phone, telegram_id), master:master_id (full_name, business_name, address, latitude, longitude, telegram_id)');
+
+      if (requestedRole === 'client') {
+        query = query.eq('client_id', profile.id);
+      } else if (requestedRole === 'admin' && profile.role === 'admin') {
+        // Admin intentionally sees all bookings through the server boundary.
+      } else {
+        query = query.eq('master_id', profile.id);
+      }
+
+      const date = typeof req.body?.date === 'string' ? req.body.date : null;
+      if (date) {
+        const bounds = req.body?.viewMode === 'month' ? monthBounds(date) : dayBounds(date);
+        query = query.gte('start_time', bounds.start).lte('start_time', bounds.end);
+      }
+
+      const { data, error } = await query.order('start_time', { ascending: true });
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+
+      return res.status(200).json({ bookings: data || [] });
+    }
+
+    case 'get-portfolio': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const { data: profile } = await supabase
+        .from('users')
+        .select('id')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (!profile) return res.status(200).json({ images: [] });
+
+      const { data, error } = await supabase
+        .from('portfolio')
+        .select('*')
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ images: data || [] });
+    }
+
+    case 'list-masters': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const location = req.body?.location;
+      const userLocation = typeof location?.lat === 'number' && typeof location?.lng === 'number'
+        ? { lat: location.lat, lng: location.lng }
+        : undefined;
+
+      const { data: masters, error } = await supabase
+        .from('users')
+        .select('id, telegram_id, full_name, business_name, latitude, longitude')
+        .in('role', ['master', 'admin'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+
+      const masterIds = (masters || []).map((master: any) => master.id);
+      const { data: portfolio } = masterIds.length
+        ? await supabase
+          .from('portfolio')
+          .select('user_id, image_url, created_at')
+          .in('user_id', masterIds)
+          .order('created_at', { ascending: false })
+        : { data: [] };
+
+      const previewsByUser = new Map<string, string[]>();
+      (portfolio || []).forEach((item: any) => {
+        const previews = previewsByUser.get(item.user_id) || [];
+        if (previews.length < 3) previews.push(item.image_url);
+        previewsByUser.set(item.user_id, previews);
+      });
+
+      const result = (masters || [])
+        .map((master: any) => ({
+          ...master,
+          dist_km: distanceKm(userLocation, { lat: master.latitude, lng: master.longitude }),
+          portfolio_previews: previewsByUser.get(master.id) || [],
+        }))
+        .sort((a: any, b: any) => {
+          if (a.dist_km === null && b.dist_km === null) return 0;
+          if (a.dist_km === null) return 1;
+          if (b.dist_km === null) return -1;
+          return a.dist_km - b.dist_km;
+        });
+
+      return res.status(200).json({ masters: result });
+    }
+
+    case 'save-profile': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const { businessName, address } = req.body || {};
+      const { data: profile, error } = await supabase
+        .from('users')
+        .update({
+          business_name: typeof businessName === 'string' ? businessName.trim() : null,
+          address: typeof address === 'string' ? address.trim() : null,
+        })
+        .eq('telegram_id', telegramId)
+        .select()
+        .single();
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ profile });
+    }
+
+    case 'save-portfolio': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const { imageUrl, type = 'ai_creation', metadata = {} } = req.body || {};
+      if (typeof imageUrl !== 'string' || !imageUrl.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Missing valid portfolio image' });
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (profileError || !profile) return res.status(404).json({ error: 'Profile not found' });
+
+      const { error } = await supabase
+        .from('portfolio')
+        .insert([{
+          user_id: profile.id,
+          image_url: imageUrl,
+          type,
+          metadata,
+        }]);
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ success: true });
+    }
+
+    case 'create-payment': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const { plan } = req.body || {};
+      if (typeof plan !== 'string' || !(plan in subscriptionPlans)) {
+        return res.status(400).json({ error: 'Missing or unsupported payment plan' });
+      }
+
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return res.status(501).json({
+          error: 'Payments are not configured yet',
+          code: 'PAYMENTS_NOT_CONFIGURED',
+        });
+      }
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const selectedPlan = subscriptionPlans[plan as keyof typeof subscriptionPlans];
+      const configuredPriceId = process.env[selectedPlan.envPriceId];
+      const appUrl = getPublicAppUrl(req);
+
+      const { data: profile } = await supabase
+        .from('users')
+        .select('id, telegram_id, full_name')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (!profile) return res.status(404).json({ error: 'Profile not found' });
+
+      const lineItem = configuredPriceId
+        ? { price: configuredPriceId, quantity: 1 }
+        : {
+          price_data: {
+            currency: 'ils',
+            recurring: { interval: 'month' },
+            unit_amount: selectedPlan.priceIls * 100,
+            product_data: { name: selectedPlan.name },
+          },
+          quantity: 1,
+        };
+
+      const { default: Stripe } = await import('stripe');
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [lineItem],
+        success_url: `${appUrl}/pricing?checkout=success&plan=${encodeURIComponent(plan)}`,
+        cancel_url: `${appUrl}/pricing?checkout=cancelled`,
+        client_reference_id: String(profile.telegram_id),
+        allow_promotion_codes: true,
+        metadata: {
+          plan,
+          telegram_id: String(profile.telegram_id),
+          user_id: profile.id,
+        },
+        subscription_data: {
+          metadata: {
+            plan,
+            telegram_id: String(profile.telegram_id),
+            user_id: profile.id,
+          },
+        },
+      });
+
+      return res.status(200).json({ url: session.url });
+    }
 
 
     // --- Reminder Webhook ---
@@ -62,6 +535,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', bookingId).single();
       
       if (error || !booking) return res.status(404).send('Booking not found');
+      if (booking.status !== 'confirmed') {
+        return res.status(200).json({ skipped: true, reason: 'booking_not_confirmed' });
+      }
+      if ((type === '24h' && booking.notified_24h) || (type === '3h' && booking.notified_3h)) {
+        return res.status(200).json({ skipped: true, reason: 'already_notified' });
+      }
       
       const timeStr = new Date(booking.start_time).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
       const pre = type === '24h' ? '📢 תזכורת: מחר' : '⏰ תזכורת: בעוד 3 שעות';
@@ -71,8 +550,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       try {
         await Promise.all([
-          bot.telegram.sendMessage(booking.master.telegram_id, clientMsg),
-          bot.telegram.sendMessage(booking.client.telegram_id, masterMsg)
+          bot.telegram.sendMessage(booking.master.telegram_id, masterMsg),
+          bot.telegram.sendMessage(booking.client.telegram_id, clientMsg)
         ]);
         const updateField = type === '24h' ? { notified_24h: true } : { notified_3h: true };
         await supabase.from('bookings').update(updateField).eq('id', bookingId);
@@ -85,6 +564,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // --- [DIAGNOSTIC MODE v37] ---
     case 'diagnostic': {
+      if (!isDevelopment) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
       const results: any = { timestamp: new Date().toISOString(), tests: {} };
       try {
         const { analyzeAndGenerate } = await import('./_lib/content-engine.js');
@@ -105,7 +588,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!mId || !cId) return res.status(400).send('Missing valid IDs');
 
       // Security Check: You can only book for yourself (or you are admin, but let's stick to strict validation)
-      if (authUser && Number(authUser.id) !== cId && process.env.NODE_ENV !== 'development') {
+      if (authUser && Number(authUser.id) !== cId && !isDevelopment) {
           return res.status(403).json({ error: 'Forbidden: Cannot create booking for another user' });
       }
 
@@ -119,14 +602,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let duration = 60;
         let price = 0;
         if (serviceId) {
-          const { data: svc } = await supabase.from('services').select('price, duration_mins').eq('id', serviceId).single();
-          if (svc) {
-            price = Number(svc.price);
-            duration = Number(svc.duration_mins);
-          }
+          const { data: svc } = await supabase
+            .from('services')
+            .select('price, duration_mins')
+            .eq('id', serviceId)
+            .eq('master_id', mUser.id)
+            .eq('is_active', true)
+            .single();
+
+          if (!svc) return res.status(400).json({ error: 'Selected service is not available for this master' });
+          price = Number(svc.price);
+          duration = Number(svc.duration_mins);
         }
 
         const calculatedEndTime = new Date(new Date(startTime).getTime() + duration * 60 * 1000).toISOString();
+        const finalEndTime = endTime || calculatedEndTime;
+        const overlaps = await hasBookingOverlap(supabase, mUser.id, startTime, finalEndTime);
+        if (overlaps) return res.status(409).json({ error: 'Selected time is no longer available' });
 
         const { data: booking, error: bErr } = await supabase
           .from('bookings')
@@ -136,7 +628,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             service_id: serviceId || null,
             total_price: price || null,
             start_time: startTime,
-            end_time: endTime || calculatedEndTime,
+            end_time: finalEndTime,
             status: 'pending'
           })
           .select()
@@ -182,10 +674,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!bookingId) return res.status(400).send('Missing bookingId');
 
       try {
+        const { data: existingBooking, error: ownershipErr } = await supabase
+          .from('bookings')
+          .select('id, master_id, status, start_time, end_time, master:master_id (telegram_id)')
+          .eq('id', bookingId)
+          .single();
+
+        if (ownershipErr || !existingBooking) return res.status(404).send('Booking not found');
+
+        const masterTelegramId = getTelegramId((existingBooking as any).master?.telegram_id);
+        if (!isDevelopment && masterTelegramId !== getTelegramId(authUser?.id)) {
+          return res.status(403).json({ error: 'Forbidden: Only the assigned master can approve this booking' });
+        }
+        if (existingBooking.status !== 'pending') {
+          return res.status(409).json({ error: 'Only pending bookings can be approved' });
+        }
+        const overlaps = await hasBookingOverlap(
+          supabase,
+          existingBooking.master_id,
+          existingBooking.start_time,
+          existingBooking.end_time,
+          existingBooking.id
+        );
+        if (overlaps) return res.status(409).json({ error: 'Selected time is no longer available' });
+
         const { data: booking, error: bErr } = await supabase
           .from('bookings')
           .update({ status: 'confirmed' })
           .eq('id', bookingId)
+          .eq('status', 'pending')
           .select('*, master:master_id (telegram_id, business_name, full_name), client:client_id (telegram_id, full_name)')
           .single();
 
@@ -220,10 +737,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!bookingId) return res.status(400).send('Missing bookingId');
 
       try {
+        const { data: existingBooking, error: ownershipErr } = await supabase
+          .from('bookings')
+          .select('id, status, master:master_id (telegram_id)')
+          .eq('id', bookingId)
+          .single();
+
+        if (ownershipErr || !existingBooking) return res.status(404).send('Booking not found');
+
+        const masterTelegramId = getTelegramId((existingBooking as any).master?.telegram_id);
+        if (!isDevelopment && masterTelegramId !== getTelegramId(authUser?.id)) {
+          return res.status(403).json({ error: 'Forbidden: Only the assigned master can reject this booking' });
+        }
+        if (existingBooking.status !== 'pending') {
+          return res.status(409).json({ error: 'Only pending bookings can be rejected' });
+        }
+
         const { data: booking, error: bErr } = await supabase
           .from('bookings')
-          .update({ status: 'rejected' })
+          .update({ status: 'cancelled_by_master' })
           .eq('id', bookingId)
+          .eq('status', 'pending')
           .select('*, master:master_id (telegram_id, business_name, full_name), client:client_id (telegram_id, full_name)')
           .single();
 
@@ -246,16 +780,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
       const { bookingId, userId, role } = req.body;
       if (!bookingId || !userId) return res.status(400).send('Missing bookingId or userId');
-
-      // Security Review: we trust the verified caller ID matches the initiator
-      // We will enhance checking later via DB RLS or strict back-checks.
+      if (!['master', 'client'].includes(role)) return res.status(400).send('Invalid cancellation role');
 
       try {
+        const { data: existingBooking, error: ownershipErr } = await supabase
+          .from('bookings')
+          .select('id, status, master:master_id (telegram_id), client:client_id (telegram_id)')
+          .eq('id', bookingId)
+          .single();
+
+        if (ownershipErr || !existingBooking) return res.status(404).send('Booking not found');
+
+        const requesterTelegramId = getTelegramId(authUser?.id);
+        const masterTelegramId = getTelegramId((existingBooking as any).master?.telegram_id);
+        const clientTelegramId = getTelegramId((existingBooking as any).client?.telegram_id);
+        const isAuthorized =
+          role === 'master'
+            ? requesterTelegramId === masterTelegramId
+            : requesterTelegramId === clientTelegramId;
+
+        if (!isDevelopment && !isAuthorized) {
+          return res.status(403).json({ error: 'Forbidden: Cannot cancel a booking for another user' });
+        }
+        if (!activeBookingStatuses.includes(existingBooking.status)) {
+          return res.status(409).json({ error: 'Booking is not active' });
+        }
+
         const status = role === 'master' ? 'cancelled_by_master' : 'cancelled_by_client';
         const { data: booking, error: bErr } = await supabase
           .from('bookings')
-          .update({ status })
+          .update({ status, notified_24h: false, notified_3h: false })
           .eq('id', bookingId)
+          .in('status', activeBookingStatuses)
           .select('*, master:master_id (telegram_id, business_name, full_name), client:client_id (telegram_id, full_name)')
           .single();
 
@@ -287,16 +843,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!bookingId || !startTime) return res.status(400).send('Missing bookingId or startTime');
 
       try {
-        const { data: oldBooking } = await supabase.from('bookings').select('*, service:service_id(duration_mins)').eq('id', bookingId).single();
+        const { data: oldBooking } = await supabase
+          .from('bookings')
+          .select('*, service:service_id(duration_mins), master:master_id(telegram_id), client:client_id(telegram_id)')
+          .eq('id', bookingId)
+          .single();
+
         if (!oldBooking) return res.status(404).send('Booking not found');
+        if (!activeBookingStatuses.includes(oldBooking.status)) {
+          return res.status(409).json({ error: 'Booking is not active' });
+        }
+
+        const requesterTelegramId = getTelegramId(authUser?.id);
+        const masterTelegramId = getTelegramId((oldBooking as any).master?.telegram_id);
+        const clientTelegramId = getTelegramId((oldBooking as any).client?.telegram_id);
+        if (!isDevelopment && requesterTelegramId !== masterTelegramId && requesterTelegramId !== clientTelegramId) {
+          return res.status(403).json({ error: 'Forbidden: Cannot reschedule a booking for another user' });
+        }
 
         const duration = oldBooking.service?.duration_mins || 60;
         const endTime = new Date(new Date(startTime).getTime() + duration * 60 * 1000).toISOString();
+        const overlaps = await hasBookingOverlap(supabase, oldBooking.master_id, startTime, endTime, oldBooking.id);
+        if (overlaps) return res.status(409).json({ error: 'Selected time is no longer available' });
 
         const { data: booking, error: bErr } = await supabase
           .from('bookings')
-          .update({ start_time: startTime, end_time: endTime, status: 'pending' })
+          .update({ start_time: startTime, end_time: endTime, status: 'pending', notified_24h: false, notified_3h: false })
           .eq('id', bookingId)
+          .in('status', activeBookingStatuses)
           .select('*, master:master_id (telegram_id, business_name, full_name), client:client_id (telegram_id, full_name)')
           .single();
 

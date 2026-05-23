@@ -1,37 +1,41 @@
 import { useState, useEffect } from 'react';
-import { useTelegram } from '../hooks/useTelegram';
 import * as Lucide from 'lucide-react';
 const { Camera, Sparkles, LoaderCircle } = Lucide as any;
-import { supabase } from '../lib/supabaseClient';
+import { telegramAuthHeaders } from '../lib/telegramAuth';
+import { useAppStore } from '../store/useAppStore';
 import type { PortfolioImage } from '../types/database';
 
 const Portfolio = () => {
-  const { user } = useTelegram();
+  const user = useAppStore(state => state.user);
   const [images, setImages] = useState<PortfolioImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchImages() {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setIsLoading(false);
+        return;
+      }
       
       try {
-        const { data, error } = await supabase
-          .from('portfolio')
-          .select('*')
-          .eq('user_id', user.id.toString())
-          .order('created_at', { ascending: false });
+        const response = await fetch('/api/services?action=get-portfolio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+        });
 
-        if (error) throw error;
-        if (data) setImages(data);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load portfolio');
+        setImages(data.images || []);
       } catch (err) {
         console.error('Error fetching portfolio:', err);
+        setImages([]);
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchImages();
-  }, [user]);
+  }, [user.id]);
 
   if (isLoading) {
     return (

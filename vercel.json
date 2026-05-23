@@ -22,7 +22,7 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api(?:/|$)|src(?:/|$)|@vite(?:/|$)|@react-refresh(?:/|$)|node_modules(?:/|$)|assets(?:/|$)|.*\\.[^/]+$).*)",
       "destination": "/index.html"
     }
   ],

@@ -1,38 +1,46 @@
  
  
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
 import { useTelegram } from '../hooks/useTelegram';
+import { telegramAuthHeaders } from '../lib/telegramAuth';
+import { useAppStore } from '../store/useAppStore';
 import { Sparkles, Check, User } from 'lucide-react';
 
 const Settings = () => {
-  const { user, haptic } = useTelegram();
+  const { haptic } = useTelegram();
+  const appUser = useAppStore(state => state.user);
   const [businessName, setBusinessName] = useState('');
   const [address, setAddress] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (user?.id) {
-        const { data } = await supabase.from('users').select('*').eq('telegram_id', user.id).single();
-        if (data) {
-          setBusinessName(data.business_name || '');
-          setAddress(data.address || '');
+      if (appUser.id) {
+        const response = await fetch('/api/services?action=get-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+        });
+        if (response.ok) {
+          const { profile } = await response.json();
+          setBusinessName(profile.business_name || '');
+          setAddress(profile.address || '');
         }
       }
     };
     loadProfile();
-  }, [user]);
+  }, [appUser.id]);
 
   const handleSave = async () => {
     setIsSaving(true);
     haptic('heavy');
     try {
-      if (user?.id) {
-        await supabase
-          .from('users')
-          .update({ business_name: businessName, address })
-          .eq('telegram_id', user.id);
+      if (appUser.id) {
+        const response = await fetch('/api/services?action=save-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+          body: JSON.stringify({ businessName, address }),
+        });
+        if (!response.ok) throw new Error('Profile save failed');
         alert('הגדרות נשמרו בהצלחה! ✨');
       }
     } catch (err) {

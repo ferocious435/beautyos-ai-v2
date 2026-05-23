@@ -32,6 +32,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!chatId || !fileUrl) {
     return res.status(400).send('Missing required fields');
   }
+  try {
+    const parsedFileUrl = new URL(String(fileUrl));
+    if (parsedFileUrl.protocol !== 'https:' || parsedFileUrl.hostname !== 'api.telegram.org') {
+      return res.status(400).json({ error: 'Unsupported file URL' });
+    }
+  } catch {
+    return res.status(400).json({ error: 'Invalid file URL' });
+  }
 
   console.log(`[AI-Worker v44] Starting processing for chat: ${chatId}`);
 
@@ -87,14 +95,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[AI-Worker v52.4] Success: Master-Panel Sent');
     return res.status(200).send('Completed');
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('AI-Worker Error:', err);
+    const message = err instanceof Error ? err.message : String(err);
     try {
-      await bot.telegram.sendMessage(chatId, `❌ **שגיאת עיבוד:** המערכת נתקלה בבעיה טכנית: ${err.message}`).catch(() => {});
-    } catch (err: any) {
-      console.error('QSTASH ERROR:', err.message);
-      return res.status(500).json({ error: err.message });
+      await bot.telegram.sendMessage(chatId, `❌ **שגיאת עיבוד:** המערכת נתקלה вבעיה טכנית: ${message}`).catch(() => {});
+    } catch (e) {
+      console.error('Failed to notify error to Telegram:', e);
     }
-    return res.status(500).send(err.message);
+    return res.status(500).send(message);
   }
 }

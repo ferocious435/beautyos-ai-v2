@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { supabase } from '../lib/supabaseClient';
+import { telegramAuthHeaders } from '../lib/telegramAuth';
 import { useAppStore } from '../store/useAppStore';
 import * as Lucide from 'lucide-react';
 
@@ -23,19 +23,25 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     const fetchMyBookings = async () => {
-      if (!appUser.id) return;
+      if (!appUser.id) {
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('bookings')
-          .select('*, master:master_id (business_name, full_name, address, latitude, longitude)')
-          .eq('client_id', appUser.id)
-          .order('start_time', { ascending: true });
+        const response = await fetch('/api/services?action=get-my-bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+          body: JSON.stringify({ role: 'client' }),
+        });
 
-        if (error) throw error;
-        setBookings(data || []);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load bookings');
+        setBookings(data.bookings || []);
       } catch (err) {
         console.error('CLIENT DASHBOARD: Fetch error:', err);
+        setBookings([]);
       } finally {
         setLoading(false);
       }
@@ -50,7 +56,7 @@ const ClientDashboard = () => {
     try {
       const response = await fetch('/api/services?action=cancel-booking', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
         body: JSON.stringify({ bookingId, userId: appUser.id, role: 'client' })
       });
       

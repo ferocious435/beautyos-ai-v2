@@ -1,5 +1,7 @@
-import { TaskClassifier, TaskContext } from './task-classifier';
-import { SkillRouterService, RouteMetadata } from './skill-router-service';
+import { TaskClassifier } from './task-classifier';
+import type { TaskContext } from './task-classifier';
+import { SkillRouterService } from './skill-router-service';
+import type { RouteMetadata } from './skill-router-service';
 import { SkillTraceLogger } from './skill-trace-logger';
 
 export class SkillOrchestratorService {
