@@ -127,9 +127,8 @@ export async function generateSocialPost(
     // Use a neutral luxury solid color that AI can easily replace.
     ctx.fillStyle = '#1A1A1A'; // Sleek Studio Black
     ctx.fillRect(0, 0, targetWidth, targetHeight);
-  } else {
+    } else {
     try {
-      // @ts-expect-error - setting custom filter
       ctx.filter = 'blur(50px)';
       ctx.drawImage(canvas, 0, 0);
     } catch {

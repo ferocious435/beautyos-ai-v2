@@ -1,5 +1,4 @@
 
-// @ts-expect-error - bidi-js has no type definitions
 import bidi from 'bidi-js';
 
 // --- BiDi Engine v2.0 (Emoji-Safe) ---
@@ -27,7 +26,8 @@ function getBidi() {
  */
 function toGraphemes(text: string): string[] {
   try {
-    const seg = new Intl.Segmenter('he', { granularity: 'grapheme' });
+    const Segmenter = (Intl as any).Segmenter;
+    const seg = new Segmenter('he', { granularity: 'grapheme' });
     return [...seg.segment(text)].map(s => s.segment);
   } catch {
     return Array.from(text);

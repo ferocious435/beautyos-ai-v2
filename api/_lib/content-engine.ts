@@ -130,7 +130,6 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT' as any, threshold: 'BLOCK_NONE' as any }
       ],
     });
-    // @ts-expect-error - no exact types available
     (model as any).generationConfig = { responseModalities: ['TEXT', 'IMAGE'] };
     
       // SYSTEM_MASTER_INSTRUCTION (v55.2 NAIL & SKIN POLISH DNA)

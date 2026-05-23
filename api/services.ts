@@ -3,6 +3,7 @@ import { getSupabase } from './_lib/supabase.js';
 import { scheduleNotification } from './_lib/qstash.js';
 import { Telegraf } from 'telegraf';
 import { validateTelegramWebAppData, getUserFromInitData } from './_lib/telegram-auth.js';
+import type Stripe from 'stripe';
 
 type TelegramAuthUser = {
   id: number;
@@ -611,12 +612,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!profile) return res.status(404).json({ error: 'Profile not found' });
 
-      const lineItem = configuredPriceId
+      const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = configuredPriceId
         ? { price: configuredPriceId, quantity: 1 }
         : {
           price_data: {
             currency: 'ils',
-            recurring: { interval: 'month' },
+            recurring: { interval: 'month' as const },
             unit_amount: selectedPlan.priceIls * 100,
             product_data: { name: selectedPlan.name },
           },

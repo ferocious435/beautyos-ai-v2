@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from './_lib/supabase.js';
+import type Stripe from 'stripe';
 
 export const config = {
   api: {

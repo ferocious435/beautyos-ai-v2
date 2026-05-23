@@ -382,8 +382,8 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     try {
       const { data: pendingBooking, error: readErr } = await supabase
         .from('bookings')
-        .eq('id', bookingId)
         .select('*, client:client_id(telegram_id, full_name), master:master_id(telegram_id, business_name, full_name)')
+        .eq('id', bookingId)
         .single();
 
       if (readErr) throw readErr;
@@ -439,8 +439,8 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     try {
       const { data: pendingBooking, error: readErr } = await supabase
         .from('bookings')
-        .eq('id', bookingId)
         .select('*, client:client_id(telegram_id), master:master_id(telegram_id)')
+        .eq('id', bookingId)
         .single();
 
       if (readErr) throw readErr;
