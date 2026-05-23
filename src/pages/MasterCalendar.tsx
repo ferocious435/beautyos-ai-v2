@@ -1,38 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import * as Lucide from 'lucide-react';
 import { telegramAuthHeaders } from '../lib/telegramAuth';
 import { useAppStore } from '../store/useAppStore';
-import * as Lucide from 'lucide-react';
-const { 
-  Clock, 
-  ChevronRight, 
-  ChevronLeft, 
-  Move, 
-  Trash2 
-} = Lucide as any;
 import type { Booking } from '../types/database';
+
+const {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Move,
+  Trash2,
+} = Lucide as any;
 
 const MasterCalendar = () => {
   const navigate = useNavigate();
-  const appUser = useAppStore(state => state.user);
+  const appUser = useAppStore((state) => state.user);
   const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Hours to display (08:00 to 22:00)
-  const hours = Array.from({ length: 15 }, (_, i) => i + 8);
-
+  const hours = Array.from({ length: 15 }, (_, index) => index + 8);
 
   useEffect(() => {
     const fetchBookings = async () => {
-      // ✅ ROOT/ADMIN BYPASS (v2.2.1)
       if (!appUser.id) {
         setBookings([]);
         setLoading(false);
         return;
       }
+
       setLoading(true);
 
       try {
@@ -49,8 +48,8 @@ const MasterCalendar = () => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to load bookings');
         setBookings(data.bookings || []);
-      } catch (err) {
-        console.error('CALENDAR: Fetch error:', err);
+      } catch (error) {
+        console.error('CALENDAR: Fetch error:', error);
         setBookings([]);
       } finally {
         setLoading(false);
@@ -58,17 +57,21 @@ const MasterCalendar = () => {
     };
 
     fetchBookings();
-  }, [appUser.id, selectedDate, viewMode, appUser.role]);
+  }, [appUser.id, appUser.role, selectedDate, viewMode]);
 
   const handleCancel = async (bookingId: string) => {
-    if (!window.confirm('האם לבטל את התור?')) return;
+    if (!window.confirm('לבטל את התור הזה?')) return;
+
     const response = await fetch('/api/services?action=cancel-booking', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
       body: JSON.stringify({ bookingId, userId: appUser.id, role: 'master' }),
     });
+
     if (response.ok) {
-      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled_by_master' } : b));
+      setBookings((current) => current.map((booking) => (
+        booking.id === bookingId ? { ...booking, status: 'cancelled_by_master' } : booking
+      )));
     }
   };
 
@@ -78,56 +81,82 @@ const MasterCalendar = () => {
 
   const getDateStrip = () => {
     const dates = [];
-    for (let i = -2; i < 12; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      dates.push(d);
+    for (let index = -2; index < 12; index += 1) {
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + index);
+      dates.push(nextDate);
     }
     return dates;
   };
 
-  const isSelected = (d: Date) => d.toDateString() === selectedDate.toDateString();
+  const isSelected = (date: Date) => date.toDateString() === selectedDate.toDateString();
 
   const getMinuteOffset = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return (d.getHours() - 8) * 60 + d.getMinutes();
+    const date = new Date(dateStr);
+    return (date.getHours() - 8) * 60 + date.getMinutes();
   };
 
-  // --- MONTH GRID LOGIC ---
+  const getBookingDurationMinutes = (booking: Booking) => {
+    const start = new Date(booking.start_time).getTime();
+    const end = new Date(booking.end_time).getTime();
+
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+      return Math.max(Math.round((end - start) / 60000), 15);
+    }
+
+    return Math.max(booking.service?.duration_mins || 60, 15);
+  };
+
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const moveMonth = (direction: -1 | 1) => {
+    setSelectedDate((current) => {
+      const next = new Date(current);
+      next.setMonth(next.getMonth() + direction);
+      return next;
+    });
+  };
 
   const renderMonthGrid = () => {
     const daysCount = getDaysInMonth(selectedDate.getFullYear(), selectedDate.getMonth());
     const firstDay = getFirstDayOfMonth(selectedDate.getFullYear(), selectedDate.getMonth());
-    const days = [];
-    
-    // Empty cells for alignment
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let i = 1; i <= daysCount; i++) days.push(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), i));
+    const days: Array<Date | null> = [];
+
+    for (let index = 0; index < firstDay; index += 1) days.push(null);
+    for (let day = 1; day <= daysCount; day += 1) {
+      days.push(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day));
+    }
 
     return (
       <div className="grid grid-cols-7 gap-1 p-2">
-        {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map(d => (
-          <div key={d} className="text-center text-[10px] font-bold text-zinc-600 py-2">{d}</div>
+        {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map((dayName) => (
+          <div key={dayName} className="py-2 text-center text-[10px] font-bold text-zinc-600">
+            {dayName}
+          </div>
         ))}
-        {days.map((d, i) => {
-          if (!d) return <div key={`empty-${i}`} className="aspect-square" />;
-          const dayBookings = bookings.filter(b => new Date(b.start_time).toDateString() === d.toDateString());
-          const isSelectedDay = d.toDateString() === selectedDate.toDateString();
-          
+
+        {days.map((day, index) => {
+          if (!day) return <div key={`empty-${index}`} className="aspect-square" />;
+
+          const dayBookings = bookings.filter((booking) => new Date(booking.start_time).toDateString() === day.toDateString());
+          const isSelectedDay = day.toDateString() === selectedDate.toDateString();
+
           return (
             <button
-              key={i}
-              onClick={() => { setSelectedDate(d); setViewMode('day'); }}
-              className={`aspect-square rounded-xl border flex flex-col items-center justify-center relative transition-all ${
-                isSelectedDay ? 'bg-yellow-500 border-yellow-500 text-black' : 'bg-zinc-900/50 border-white/5 text-zinc-400'
+              key={`${day.toISOString()}-${index}`}
+              onClick={() => {
+                setSelectedDate(day);
+                setViewMode('day');
+              }}
+              className={`relative flex aspect-square flex-col items-center justify-center rounded-xl border transition-all ${
+                isSelectedDay ? 'border-yellow-500 bg-yellow-500 text-black' : 'border-white/5 bg-zinc-900/50 text-zinc-400'
               }`}
             >
-              <span className="text-sm font-bold">{d.getDate()}</span>
-              {dayBookings.length > 0 && (
-                <div className={`w-1 h-1 rounded-full absolute bottom-1.5 ${isSelectedDay ? 'bg-black' : 'bg-yellow-500 animate-pulse'}`} />
-              )}
+              <span className="text-sm font-bold">{day.getDate()}</span>
+              {dayBookings.length > 0 ? (
+                <div className={`absolute bottom-1.5 h-1 w-1 rounded-full ${isSelectedDay ? 'bg-black' : 'bg-yellow-500 animate-pulse'}`} />
+              ) : null}
             </button>
           );
         })}
@@ -136,95 +165,108 @@ const MasterCalendar = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white p-4 pb-32 RTL" style={{ direction: 'rtl' }}>
-      <header className="flex justify-between items-center mb-6 pt-4">
+    <div className="min-h-screen bg-[#050508] p-4 pb-32 text-white" dir="rtl">
+      <header className="mb-6 flex items-center justify-between pt-4">
         <div>
-           <h1 className="text-2xl font-black">יומן {appUser.role === 'admin' ? 'מערכת 🏰' : 'תורים 🗓️'}</h1>
-           <p className="text-zinc-500 text-xs">ניהול לו״ז וזמינות בזמן אמת</p>
+          <h1 className="text-2xl font-black">
+            {appUser.role === 'admin' ? 'יומן המערכת' : 'יומן התורים'}
+          </h1>
+          <p className="text-xs text-zinc-500">
+            עכשיו משך כל תור מוצג לפי הזמן האמיתי שלו.
+          </p>
         </div>
-        <div className="flex bg-zinc-900/80 p-1 rounded-xl border border-white/5">
-           <button 
+
+        <div className="flex rounded-xl border border-white/5 bg-zinc-900/80 p-1">
+          <button
             onClick={() => setViewMode('day')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'day' ? 'bg-white text-black shadow-lg' : 'text-zinc-500'}`}
-           >
-             יום
-           </button>
-           <button 
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${viewMode === 'day' ? 'bg-white text-black shadow-lg' : 'text-zinc-500'}`}
+          >
+            יום
+          </button>
+          <button
             onClick={() => setViewMode('month')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-white text-black shadow-lg' : 'text-zinc-500'}`}
-           >
-             חודש
-           </button>
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-white text-black shadow-lg' : 'text-zinc-500'}`}
+          >
+            חודש
+          </button>
         </div>
       </header>
 
       {viewMode === 'month' ? (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-premium rounded-3xl border border-white/5 overflow-hidden">
-          <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/5">
-             <button onClick={() => setSelectedDate(new Date(selectedDate.setMonth(selectedDate.getMonth() - 1)))}><ChevronRight size={20}/></button>
-             <div className="font-bold">{selectedDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })}</div>
-             <button onClick={() => setSelectedDate(new Date(selectedDate.setMonth(selectedDate.getMonth() + 1)))}><ChevronLeft size={20}/></button>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-premium overflow-hidden rounded-3xl border border-white/5">
+          <div className="flex items-center justify-between border-b border-white/5 bg-white/5 p-4">
+            <button onClick={() => moveMonth(-1)}><ChevronRight size={20} /></button>
+            <div className="font-bold">{selectedDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })}</div>
+            <button onClick={() => moveMonth(1)}><ChevronLeft size={20} /></button>
           </div>
           {renderMonthGrid()}
         </motion.div>
       ) : (
         <div className="space-y-6">
-          {/* Date Strip */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar py-2">
-            {getDateStrip().map((date, i) => (
+          <div className="flex gap-2 overflow-x-auto py-2">
+            {getDateStrip().map((date) => (
               <button
-                key={i}
+                key={date.toISOString()}
                 onClick={() => setSelectedDate(date)}
-                className={`flex-shrink-0 w-12 h-16 rounded-2xl flex flex-col items-center justify-center transition-all ${
-                  isSelected(date) ? 'bg-yellow-500 text-black font-black scale-110 shadow-xl' : 'bg-zinc-900 border border-white/5 text-zinc-500'
+                className={`flex h-16 w-12 flex-shrink-0 flex-col items-center justify-center rounded-2xl transition-all ${
+                  isSelected(date) ? 'scale-110 bg-yellow-500 font-black text-black shadow-xl' : 'border border-white/5 bg-zinc-900 text-zinc-500'
                 }`}
               >
-                <span className="text-[8px] uppercase font-bold">{date.toLocaleDateString('he-IL', { weekday: 'short' })}</span>
+                <span className="text-[8px] font-bold uppercase">{date.toLocaleDateString('he-IL', { weekday: 'short' })}</span>
                 <span className="text-lg font-black">{date.getDate()}</span>
               </button>
             ))}
           </div>
 
-          {/* Timeline View */}
           <div className="relative pt-4">
-            {hours.map(hour => (
+            {hours.map((hour) => (
               <div key={hour} className="flex h-[80px] border-t border-white/5">
                 <div className="w-12 -mt-2.5 text-[10px] font-bold text-zinc-600">{hour.toString().padStart(2, '0')}:00</div>
                 <div className="flex-1" />
               </div>
             ))}
 
-            {/* Bookings Overlay */}
-            <div className="absolute top-4 right-12 left-0 h-full">
-              {!loading && bookings.map(booking => {
+            <div className="absolute left-0 right-12 top-4 h-full">
+              {!loading && bookings.map((booking) => {
                 const top = (getMinuteOffset(booking.start_time) / 60) * 80;
-                const height = 80; // Fixed 1h for UI
-                
+                const durationMinutes = getBookingDurationMinutes(booking);
+                const height = Math.max((durationMinutes / 60) * 80, 56);
+                const startLabel = new Date(booking.start_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                const endLabel = new Date(booking.end_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
                 return (
                   <motion.div
                     key={booking.id}
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     style={{ top, height, zIndex: 10 }}
-                    className={`absolute right-1 left-1 p-3 rounded-2xl border flex flex-col justify-between ${
-                      booking.status === 'confirmed' ? 'bg-zinc-900 border-green-500/30' : 'bg-zinc-900/80 border-white/10'
+                    className={`absolute left-1 right-1 flex flex-col justify-between rounded-2xl border p-3 ${
+                      booking.status === 'confirmed' ? 'border-green-500/30 bg-zinc-900' : 'border-white/10 bg-zinc-900/80'
                     }`}
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-xs font-bold truncate">{booking.client?.full_name || 'לקוח/ה'}</div>
-                        <div className="text-[8px] text-zinc-500 uppercase tracking-tighter">
-                          {appUser.role === 'admin' ? `מאסטר: ${booking.master?.full_name}` : 'טיפול אישי'}
+                        <div className="truncate text-xs font-bold">{booking.client?.full_name || 'לקוחה'}</div>
+                        <div className="text-[9px] text-zinc-500">
+                          {appUser.role === 'admin'
+                            ? `מאסטר: ${booking.master?.full_name || 'ללא שם'}`
+                            : (booking.service?.name || 'טיפול אישי')}
                         </div>
                       </div>
+
                       <div className="flex gap-1">
-                         <button onClick={() => handleReschedule(booking)} className="p-1.5 bg-white/5 rounded-lg text-zinc-400 hover:text-white"><Move size={12} /></button>
-                         <button onClick={() => handleCancel(booking.id)} className="p-1.5 bg-red-500/10 rounded-lg text-red-500 hover:bg-red-500/20"><Trash2 size={12} /></button>
+                        <button onClick={() => handleReschedule(booking)} className="rounded-lg bg-white/5 p-1.5 text-zinc-400 hover:text-white">
+                          <Move size={12} />
+                        </button>
+                        <button onClick={() => handleCancel(booking.id)} className="rounded-lg bg-red-500/10 p-1.5 text-red-500 hover:bg-red-500/20">
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </div>
+
                     <div className="flex items-center gap-1.5 text-[10px] font-medium text-yellow-500">
                       <Clock size={10} />
-                      {new Date(booking.start_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                      {startLabel} - {endLabel}
                     </div>
                   </motion.div>
                 );
@@ -234,11 +276,11 @@ const MasterCalendar = () => {
         </div>
       )}
 
-      {!loading && viewMode === 'day' && bookings.length === 0 && (
-        <div className="mt-10 py-20 text-center glass-premium rounded-[40px] border border-dashed border-zinc-800">
-           <h3 className="font-bold text-zinc-500">אין תורים רשומים ליום זה</h3>
+      {!loading && viewMode === 'day' && bookings.length === 0 ? (
+        <div className="glass-premium mt-10 rounded-[40px] border border-dashed border-zinc-800 py-20 text-center">
+          <h3 className="font-bold text-zinc-500">אין תורים רשומים ביום הזה</h3>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

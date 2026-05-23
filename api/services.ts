@@ -133,9 +133,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'get-available-slots',
     'get-my-bookings',
     'get-portfolio',
+    'get-my-services',
     'list-masters',
     'save-profile',
+    'save-service',
     'save-portfolio',
+    'delete-service',
     'create-payment',
     'create-booking',
     'update-booking',
@@ -268,12 +271,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const masterTelegramId = getTelegramId(req.body?.masterTelegramId);
       const selectedDate = typeof req.body?.date === 'string' ? req.body.date : null;
-      if (!masterTelegramId || !selectedDate) {
-        return res.status(400).json({ error: 'Missing masterTelegramId or date' });
+      const serviceId = typeof req.body?.serviceId === 'string' ? req.body.serviceId : null;
+      if (!masterTelegramId || !selectedDate || !serviceId) {
+        return res.status(400).json({ error: 'Missing master, date or service' });
       }
 
       const { data, error } = await supabase.rpc('get_available_slots', {
         m_id: masterTelegramId,
+        requested_service_id: serviceId,
         select_date: selectedDate,
       });
 
@@ -298,7 +303,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let query = supabase
         .from('bookings')
-        .select('*, client:client_id (full_name, phone, telegram_id), master:master_id (full_name, business_name, address, latitude, longitude, telegram_id)');
+        .select('*, service:service_id(name, duration_mins, price), client:client_id (full_name, phone, telegram_id), master:master_id (full_name, business_name, address, latitude, longitude, telegram_id)');
 
       if (requestedRole === 'client') {
         query = query.eq('client_id', profile.id);
@@ -362,6 +367,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (error) return res.status(500).json({ error: getErrorMessage(error) });
 
       const masterIds = (masters || []).map((master: any) => master.id);
+      const { data: activeServices } = masterIds.length
+        ? await supabase
+          .from('services')
+          .select('master_id')
+          .in('master_id', masterIds)
+          .eq('is_active', true)
+        : { data: [] };
+
+      const enabledMasterIds = new Set((activeServices || []).map((service: any) => service.master_id));
       const { data: portfolio } = masterIds.length
         ? await supabase
           .from('portfolio')
@@ -378,6 +392,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       const result = (masters || [])
+        .filter((master: any) => enabledMasterIds.has(master.id))
         .map((master: any) => ({
           ...master,
           dist_km: distanceKm(userLocation, { lat: master.latitude, lng: master.longitude }),
@@ -412,6 +427,126 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (error) return res.status(500).json({ error: getErrorMessage(error) });
       return res.status(200).json({ profile });
+    }
+
+    case 'get-my-services': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (profileError || !profile) return res.status(404).json({ error: 'Profile not found' });
+      if (!['master', 'admin'].includes(profile.role)) {
+        return res.status(403).json({ error: 'Only masters can manage services' });
+      }
+
+      const { data: services, error } = await supabase
+        .from('services')
+        .select('id, name, price, duration_mins, is_active, created_at')
+        .eq('master_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ services: services || [] });
+    }
+
+    case 'save-service': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const { id, name, price, durationMins, isActive } = req.body || {};
+      const cleanName = typeof name === 'string' ? name.trim() : '';
+      const cleanPrice = Number(price);
+      const cleanDuration = Number(durationMins);
+
+      if (!cleanName) return res.status(400).json({ error: 'Service name is required' });
+      if (!Number.isFinite(cleanPrice) || cleanPrice < 0) {
+        return res.status(400).json({ error: 'Service price must be 0 or higher' });
+      }
+      if (!Number.isFinite(cleanDuration) || cleanDuration < 15 || cleanDuration > 480) {
+        return res.status(400).json({ error: 'Service duration must be between 15 and 480 minutes' });
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (profileError || !profile) return res.status(404).json({ error: 'Profile not found' });
+      if (!['master', 'admin'].includes(profile.role)) {
+        return res.status(403).json({ error: 'Only masters can manage services' });
+      }
+
+      const payload = {
+        master_id: profile.id,
+        name: cleanName,
+        price: cleanPrice,
+        duration_mins: cleanDuration,
+        is_active: typeof isActive === 'boolean' ? isActive : true,
+      };
+
+      if (typeof id === 'string' && id.trim()) {
+        const { data: service, error } = await supabase
+          .from('services')
+          .update(payload)
+          .eq('id', id)
+          .eq('master_id', profile.id)
+          .select('id, name, price, duration_mins, is_active')
+          .single();
+
+        if (error) return res.status(500).json({ error: getErrorMessage(error) });
+        return res.status(200).json({ service });
+      }
+
+      const { data: service, error } = await supabase
+        .from('services')
+        .insert(payload)
+        .select('id, name, price, duration_mins, is_active')
+        .single();
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ service });
+    }
+
+    case 'delete-service': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const { id } = req.body || {};
+      if (typeof id !== 'string' || !id.trim()) {
+        return res.status(400).json({ error: 'Service id is required' });
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (profileError || !profile) return res.status(404).json({ error: 'Profile not found' });
+      if (!['master', 'admin'].includes(profile.role)) {
+        return res.status(403).json({ error: 'Only masters can manage services' });
+      }
+
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', id)
+        .eq('master_id', profile.id);
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ success: true });
     }
 
     case 'save-portfolio': {

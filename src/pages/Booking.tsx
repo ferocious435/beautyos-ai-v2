@@ -21,6 +21,12 @@ const Booking = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
+  useEffect(() => {
+    if (!masterId) {
+      navigate('/discovery', { replace: true });
+    }
+  }, [masterId, navigate]);
+
   // Load Master and Services
   useEffect(() => {
     const loadMasterAndServices = async () => {
@@ -75,6 +81,7 @@ const Booking = () => {
           body: JSON.stringify({
             masterTelegramId: Number(masterId),
             date: selectedDate,
+            serviceId: selectedService.id,
           }),
         });
 
@@ -143,7 +150,7 @@ const Booking = () => {
         <h2 className="text-xl font-bold text-white">לא נבחר מומחה ❌</h2>
         <p className="text-zinc-500 text-sm">אנא בחר/י מומחה מרשימת המומחים על מנת להציג את היומן ולקבוע תור.</p>
       </div>
-      <button onClick={() => navigate('/')} className="gold-gradient px-8 py-4 rounded-2xl text-black font-black">
+      <button onClick={() => navigate('/discovery')} className="gold-gradient px-8 py-4 rounded-2xl text-black font-black">
         חזרה לדף הבית
       </button>
     </div>

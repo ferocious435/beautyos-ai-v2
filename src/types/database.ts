@@ -34,11 +34,17 @@ export interface Booking {
   master_id: string;
   service_id?: string;
   start_time: string;
+  end_time: string;
   status: 'pending' | 'confirmed' | 'cancelled_by_master' | 'cancelled_by_client' | 'completed';
   created_at: string;
   // Joined fields
   client?: Client;
   master?: Master;
+  service?: {
+    name?: string;
+    duration_mins?: number;
+    price?: number;
+  };
 }
 
 export interface PortfolioImage {

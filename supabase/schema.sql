@@ -187,7 +187,7 @@ DROP POLICY IF EXISTS "Portfolio reads are server only" ON portfolio;
 -- ==============================================================================
 
 -- Generates available slots for a master on a specific date
-CREATE OR REPLACE FUNCTION get_available_slots(m_id BIGINT, select_date DATE)
+CREATE OR REPLACE FUNCTION get_available_slots(m_id BIGINT, requested_service_id UUID, select_date DATE)
 RETURNS TABLE (slot_time TIMESTAMP WITH TIME ZONE) 
 LANGUAGE plpgsql
 AS $$
@@ -196,6 +196,11 @@ DECLARE
     target_start TIMESTAMP WITH TIME ZONE;
     target_end TIMESTAMP WITH TIME ZONE;
     current_time_slot TIMESTAMP WITH TIME ZONE;
+    work_start TIME;
+    work_end TIME;
+    is_working_day BOOLEAN;
+    service_duration_mins INTEGER := 60;
+    slot_end_time TIMESTAMP WITH TIME ZONE;
 BEGIN
     -- Resolve master UUID from telegram ID
     SELECT id INTO master_uuid FROM users WHERE telegram_id = m_id LIMIT 1;
@@ -204,33 +209,59 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Setup operating hours (Hardcoded 09:00 - 19:00 if master_schedules is empty)
-    -- select_date is treated as local timezone for simplicity in MVP
-    target_start := select_date + time '09:00:00';
-    target_end := select_date + time '19:00:00';
+    IF requested_service_id IS NOT NULL THEN
+        SELECT duration_mins
+        INTO service_duration_mins
+        FROM services
+        WHERE id = requested_service_id
+          AND master_id = master_uuid
+          AND is_active = TRUE
+        LIMIT 1;
+    END IF;
+
+    service_duration_mins := GREATEST(COALESCE(service_duration_mins, 60), 15);
+
+    SELECT
+        ms.start_time,
+        ms.end_time,
+        ms.is_working
+    INTO work_start, work_end, is_working_day
+    FROM master_schedules ms
+    WHERE ms.master_id = master_uuid
+      AND ms.day_of_week = EXTRACT(DOW FROM select_date)::INTEGER
+    LIMIT 1;
+
+    IF is_working_day = FALSE THEN
+        RETURN;
+    END IF;
+
+    -- Fallback to default operating hours when the master has not configured a custom day.
+    target_start := select_date + COALESCE(work_start, time '09:00:00');
+    target_end := select_date + COALESCE(work_end, time '19:00:00');
+
+    IF target_end <= target_start THEN
+        RETURN;
+    END IF;
     
     current_time_slot := target_start;
 
-    WHILE current_time_slot < target_end LOOP
-        -- Check if SLOT overlaps with existing non-cancelled bookings
-        -- Assuming fixed 1-hour slots for MVP Fallback compatibility
+    WHILE current_time_slot + make_interval(mins => service_duration_mins) <= target_end LOOP
+        slot_end_time := current_time_slot + make_interval(mins => service_duration_mins);
+
         IF NOT EXISTS (
             SELECT 1 FROM bookings 
             WHERE master_id = master_uuid 
             AND status IN ('pending', 'confirmed')
-            AND (
-                (current_time_slot >= start_time AND current_time_slot < end_time) OR
-                ((current_time_slot + interval '60 minutes') > start_time AND (current_time_slot + interval '60 minutes') <= end_time)
-            )
+            AND tstzrange(start_time, end_time, '[)') && tstzrange(current_time_slot, slot_end_time, '[)')
         ) THEN
             slot_time := current_time_slot;
             RETURN NEXT;
         END IF;
         
-        current_time_slot := current_time_slot + interval '60 minutes'; -- Interval step
+        current_time_slot := current_time_slot + interval '15 minutes';
     END LOOP;
 END;
 $$;
 
-ALTER FUNCTION public.get_available_slots(BIGINT, DATE)
+ALTER FUNCTION public.get_available_slots(BIGINT, UUID, DATE)
 SET search_path = public, pg_temp;
