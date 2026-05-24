@@ -12,9 +12,9 @@ FROM (
 ) AS admin_user
 CROSS JOIN (
     VALUES
-        ('Manicure gel polish', 60, 120),
-        ('Pedicure gel polish', 75, 150),
-        ('Nail building', 120, 260)
+        ('מניקור ג''ל', 60, 120),
+        ('פדיקור ג''ל', 75, 150),
+        ('בניית ציפורניים', 120, 260)
 ) AS starter(name, duration_mins, price)
 WHERE NOT EXISTS (
     SELECT 1
