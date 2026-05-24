@@ -330,6 +330,86 @@ const sendManagerCalendarStartFromChat = async (ctx: BotContext, webAppUrl: stri
   );
 };
 
+const sendAdminSystemOverviewFromChat = async (ctx: BotContext, webAppUrl: string) => {
+  const supabase = getSupabase();
+  const fallback = Markup.inlineKeyboard([
+    [Markup.button.webApp('פתיחת המערכת', `${webAppUrl}/`)],
+    [Markup.button.callback('בדיקה כלקוח', 'preview_role_client'), Markup.button.callback('בדיקה כמאסטר', 'preview_role_master')],
+  ]);
+
+  if (!supabase) {
+    await ctx.reply('מצב אדמין פעיל. אפשר לפתוח את המערכת או לבחור מצב בדיקה.', fallback);
+    return;
+  }
+
+  const profile = await getRoleProfile(supabase, ctx.from?.id);
+  if (profile?.role !== 'admin' || !isPrivilegedTelegramUser(ctx.from?.id)) {
+    await ctx.reply('האפשרות הזו זמינה רק לאדמין.', fallback);
+    return;
+  }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const [
+    { data: users },
+    { data: services },
+    { data: todayBookings },
+    { data: nextBookings },
+  ] = await Promise.all([
+    supabase.from('users').select('id, role'),
+    supabase.from('services').select('id, is_active'),
+    supabase
+      .from('bookings')
+      .select('id, status')
+      .in('status', activeBookingStatuses)
+      .gte('start_time', todayStart.toISOString())
+      .lte('start_time', todayEnd.toISOString()),
+    supabase
+      .from('bookings')
+      .select('id, status, start_time, client:client_id(full_name), master:master_id(full_name, business_name)')
+      .in('status', activeBookingStatuses)
+      .gte('start_time', new Date().toISOString())
+      .order('start_time', { ascending: true })
+      .limit(5),
+  ]);
+
+  const clients = (users || []).filter((user: any) => user.role === 'client').length;
+  const masters = (users || []).filter((user: any) => user.role === 'master').length;
+  const admins = (users || []).filter((user: any) => user.role === 'admin').length;
+  const activeServices = (services || []).filter((service: any) => service.is_active).length;
+  const pendingToday = (todayBookings || []).filter((booking: any) => booking.status === 'pending').length;
+  const confirmedToday = (todayBookings || []).filter((booking: any) => booking.status === 'confirmed').length;
+  const nextLines = (nextBookings || [])
+    .map((booking: any) => {
+      const master = booking.master?.business_name || booking.master?.full_name || 'מאסטר';
+      const client = booking.client?.full_name || 'לקוח';
+      return `• ${formatChatDateTime(booking.start_time)} - ${client} אצל ${master}`;
+    })
+    .join('\n');
+
+  await ctx.reply(
+    `מצב אדמין פעיל.\n\nתמונה קצרה של המערכת:\nלקוחות: ${clients}\nמאסטרים: ${masters}\nאדמינים: ${admins}\nשירותים פעילים: ${activeServices}\nהיום: ${confirmedToday} מאושרים, ${pendingToday} ממתינים.\n\n${nextLines ? `התורים הקרובים:\n${nextLines}` : 'אין תורים קרובים להצגה כרגע.'}`,
+    Markup.inlineKeyboard([
+      [Markup.button.webApp('פתיחת המערכת', `${webAppUrl}/`)],
+      [Markup.button.webApp('יומן המערכת', `${webAppUrl}/calendar`), Markup.button.webApp('מחירון', `${webAppUrl}/pricing`)],
+      [Markup.button.callback('בדיקה כלקוח', 'preview_role_client'), Markup.button.callback('בדיקה כמאסטר', 'preview_role_master')],
+    ])
+  );
+};
+
+const sendAdminAppointmentChoiceFromChat = async (ctx: BotContext, webAppUrl: string) => {
+  await ctx.reply(
+    'באיזה כיוון לבדוק את זה?\n\nכלקוח: לראות איך אדם מזמין תור לעצמו.\nכמאסטר: לראות איך נותן שירות מנהל תורים של לקוחות.',
+    Markup.inlineKeyboard([
+      [Markup.button.callback('בדיקה כלקוח', 'preview_role_client'), Markup.button.webApp('פתיחת קביעת תור', `${webAppUrl}/discovery`)],
+      [Markup.button.callback('בדיקה כמאסטר', 'preview_role_master'), Markup.button.webApp('ניהול יומן', `${webAppUrl}/calendar`)],
+    ])
+  );
+};
+
 const sendManagerAppointmentReply = async (ctx: BotContext, webAppUrl: string, text: string) => {
   const bookingTarget = detectBookingRequestTarget(text);
 
@@ -917,7 +997,11 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     const supabase = getSupabase();
     const profile = supabase ? await getRoleProfile(supabase, ctx.from?.id) : null;
     const effectiveRole = getEffectiveBotRole(profile?.role, ctx.session?.previewRole);
-    if (effectiveRole === 'master' || effectiveRole === 'admin') {
+    if (effectiveRole === 'admin') {
+      await sendAdminSystemOverviewFromChat(ctx, getWebAppUrl());
+      return;
+    }
+    if (effectiveRole === 'master') {
       await sendManagerCalendarStartFromChat(ctx, getWebAppUrl());
       return;
     }
@@ -932,6 +1016,11 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   bot.action('chat_template_menu', async (ctx) => {
     await ctx.answerCbQuery('פותח הודעות');
     await sendTemplateMenuFromChat(ctx, getWebAppUrl());
+  });
+
+  bot.action('chat_admin_overview', async (ctx) => {
+    await ctx.answerCbQuery('פותח מצב אדמין');
+    await sendAdminSystemOverviewFromChat(ctx, getWebAppUrl());
   });
 
   bot.action(/^chat_template_(birthday|reminder|promo|aftercare)$/, async (ctx) => {
@@ -1143,6 +1232,55 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         : 'אני רוצה לדייק ולא לעשות משהו לא נכון.';
 
     const quickKeyboard = (rows: any[][]) => Markup.inlineKeyboard(rows);
+
+    if (effectiveRole === 'admin') {
+      switch (understood.intent) {
+        case 'appointment':
+          await sendAdminAppointmentChoiceFromChat(ctx, webAppUrl);
+          return;
+        case 'calendar':
+        case 'status':
+        case 'smalltalk':
+        case 'unknown':
+          await sendAdminSystemOverviewFromChat(ctx, webAppUrl);
+          return;
+        case 'messages':
+          await sendTemplateMenuFromChat(ctx, webAppUrl);
+          return;
+        case 'services':
+        case 'settings':
+          await ctx.reply(
+            `${actionPrefix}\n\nכאן אפשר לבדוק או לעדכן את ההגדרות והמחירים של צד המאסטר. אם המטרה היא רק בדיקה, עדיף לעבור קודם למצב מאסטר.`,
+            quickKeyboard([
+              [Markup.button.callback('בדיקה כמאסטר', 'preview_role_master')],
+              [Markup.button.webApp('פתיחת הגדרות', `${webAppUrl}/settings`)],
+            ])
+          );
+          return;
+        case 'pricing':
+          await ctx.reply(
+            `${actionPrefix}\n\nאפשר לפתוח את המחירון כמו שמשתמש רואה אותו, או לעבור למצב מאסטר כדי לערוך שירותים ומחירים.`,
+            quickKeyboard([
+              [Markup.button.webApp('פתיחת מחירון', `${webAppUrl}/pricing`)],
+              [Markup.button.callback('בדיקה כמאסטר', 'preview_role_master')],
+            ])
+          );
+          return;
+        case 'portfolio':
+        case 'image_post':
+          await ctx.reply(
+            `${actionPrefix}\n\nיצירת פוסטים, שיפור תמונות ותיק עבודות שייכים לצד המאסטר. אפשר לעבור לבדיקה כמאסטר ולהמשיך משם.`,
+            quickKeyboard([
+              [Markup.button.callback('בדיקה כמאסטר', 'preview_role_master')],
+              [Markup.button.webApp('פתיחת תיק עבודות', `${webAppUrl}/portfolio`)],
+            ])
+          );
+          return;
+        default:
+          await sendAdminSystemOverviewFromChat(ctx, webAppUrl);
+          return;
+      }
+    }
 
     if (isManager) {
       switch (understood.intent) {
