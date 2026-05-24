@@ -53,12 +53,16 @@ const getEffectiveBotRole = (actualRole?: string | null, previewRole?: string | 
   return normalizedRole;
 };
 
-const buildAdminPreviewInlineKeyboard = () =>
+const buildAdminVisibleMenuInlineKeyboard = (webAppUrl: string) =>
   Markup.inlineKeyboard([
     [
       Markup.button.callback('בדיקה כלקוח', 'preview_role_client'),
       Markup.button.callback('בדיקה כמאסטר', 'preview_role_master'),
       Markup.button.callback('חזרה לאדמין', 'preview_role_admin'),
+    ],
+    [
+      Markup.button.webApp('פתיחת המערכת', `${webAppUrl}/`),
+      Markup.button.callback('תמונת מצב', 'chat_admin_overview'),
     ],
   ]);
 
@@ -115,8 +119,8 @@ const sendRoleAwareMainMenu = async (
 
   if (actualRole === 'admin') {
     await ctx.reply(
-      `מצב צפייה נוכחי: ${roleTitles[effectiveRole]} - ${roleHints[effectiveRole]}`,
-      buildAdminPreviewInlineKeyboard()
+      `מצב צפייה נוכחי: ${roleTitles[effectiveRole]} - ${roleHints[effectiveRole]}\nבחר כאן איך לראות את המערכת:`,
+      buildAdminVisibleMenuInlineKeyboard(webAppUrl)
     );
   }
 };
@@ -812,6 +816,27 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       ctx.session.previewRole
     );
   };
+
+  bot.command('mode', async (ctx) => {
+    await applyAdminPreviewRole(ctx, getEffectiveBotRole('admin', ctx.session?.previewRole));
+  });
+
+  bot.hears(['תפריט', 'menu', 'Menu'], async (ctx) => {
+    const supabase = getSupabase();
+    let actualRole: BotRole = 'client';
+
+    if (supabase && ctx.from?.id) {
+      const { data: dbUser } = await supabase.from('users').select('role').eq('telegram_id', ctx.from.id).single();
+      actualRole = normalizeBotRole(dbUser?.role);
+    }
+
+    await sendRoleAwareMainMenu(
+      ctx,
+      actualRole,
+      'החזרתי את התפריט למסך.',
+      ctx.session?.previewRole
+    );
+  });
 
   bot.hears(Object.keys(previewRoleTexts), async (ctx) => {
     await applyAdminPreviewRole(ctx, previewRoleTexts[ctx.message.text]);
