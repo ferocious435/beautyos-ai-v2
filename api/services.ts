@@ -67,6 +67,18 @@ const getPublicAppUrl = (req: VercelRequest) => {
 
 const activeBookingStatuses = ['pending', 'confirmed'];
 
+const parseIsoDateTime = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isPastBookingStart = (value: unknown) => {
+  const parsed = parseIsoDateTime(value);
+  if (!parsed) return true;
+  return parsed.getTime() <= Date.now();
+};
+
 const hasBookingOverlap = async (
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
   masterId: string,
@@ -225,11 +237,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const { data: master, error: masterError } = await supabase
         .from('users')
-        .select('id, telegram_id, full_name, business_name, address')
+        .select('id, telegram_id, role, full_name, business_name, address')
         .eq('telegram_id', masterTelegramId)
         .single();
 
-      if (masterError || !master) return res.status(404).json({ error: 'Master not found' });
+      if (masterError || !master || master.role !== 'master') return res.status(404).json({ error: 'Master not found' });
 
       const { data: services, error: servicesError } = await supabase
         .from('services')
@@ -277,6 +289,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Missing master, date or service' });
       }
 
+      const { data: masterProfile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('telegram_id', masterTelegramId)
+        .single();
+
+      if (!masterProfile || masterProfile.role !== 'master') {
+        return res.status(404).json({ error: 'Master not found' });
+      }
+
       const { data, error } = await supabase.rpc('get_available_slots', {
         m_id: masterTelegramId,
         requested_service_id: serviceId,
@@ -284,7 +306,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       if (error) return res.status(500).json({ error: getErrorMessage(error) });
-      return res.status(200).json({ slots: data || [] });
+      const slots = (data || []).filter((slot: any) => {
+        const slotTime = parseIsoDateTime(slot?.slot_time);
+        return slotTime ? slotTime.getTime() > Date.now() : false;
+      });
+      return res.status(200).json({ slots });
     }
 
     case 'get-my-bookings': {
@@ -361,7 +387,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data: masters, error } = await supabase
         .from('users')
         .select('id, telegram_id, full_name, business_name, latitude, longitude')
-        .in('role', ['master', 'admin'])
+        .eq('role', 'master')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -729,10 +755,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       try {
-        const { data: mUser } = await supabase.from('users').select('id, business_name, full_name, telegram_id').eq('telegram_id', mId).single();
+        const { data: mUser } = await supabase.from('users').select('id, role, business_name, full_name, telegram_id').eq('telegram_id', mId).single();
         const { data: cUser } = await supabase.from('users').select('id, full_name, telegram_id').eq('telegram_id', cId).single();
         
         if (!mUser || !cUser) return res.status(404).json({ error: 'Master or Client not found in DB' });
+        if (mUser.role !== 'master') return res.status(400).json({ error: 'Selected provider is not available for booking' });
 
         // Если передана услуга, получаем её цену и длительность
         let duration = 60;
@@ -749,6 +776,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (!svc) return res.status(400).json({ error: 'Selected service is not available for this master' });
           price = Number(svc.price);
           duration = Number(svc.duration_mins);
+        }
+
+        if (isPastBookingStart(startTime)) {
+          return res.status(409).json({ error: 'Selected time has already passed. Please choose a later time.' });
         }
 
         const calculatedEndTime = new Date(new Date(startTime).getTime() + duration * 60 * 1000).toISOString();
@@ -825,6 +856,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (existingBooking.status !== 'pending') {
           return res.status(409).json({ error: 'Only pending bookings can be approved' });
+        }
+        if (isPastBookingStart(existingBooking.start_time)) {
+          return res.status(409).json({ error: 'This appointment time has already passed and can no longer be approved' });
         }
         const overlaps = await hasBookingOverlap(
           supabase,
@@ -999,6 +1033,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const duration = oldBooking.service?.duration_mins || 60;
+        if (isPastBookingStart(startTime)) {
+          return res.status(409).json({ error: 'Selected time has already passed. Please choose a later time.' });
+        }
         const endTime = new Date(new Date(startTime).getTime() + duration * 60 * 1000).toISOString();
         const overlaps = await hasBookingOverlap(supabase, oldBooking.master_id, startTime, endTime, oldBooking.id);
         if (overlaps) return res.status(409).json({ error: 'Selected time is no longer available' });

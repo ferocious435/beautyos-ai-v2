@@ -56,7 +56,7 @@ export async function analyzeAndGenerate(
 
   const userPrompt = `
     Analyze the uploaded beauty photo as a Senior Marketing Art-Director.
-    1. Identify Focal Point: (hands, nails, face).
+    1. Identify Focal Point: (service result, hair, skin, face, hands, brows, lashes, makeup).
     2. Composition Strategy:
        - Subject Protection: No text on the focal point.
        - Asymmetry: Prefer top-corners, side-backgrounds, or balanced bottom.
@@ -68,7 +68,7 @@ export async function analyzeAndGenerate(
     {
       "caption": "Selling Hebrew text here...",
       "hashtags": ["#luxury", "..."],
-      "detectedService": "Manicue/Botox/etc",
+      "detectedService": "Facial/Makeup/Hair/Massage/etc",
       "design": {
         "PRICE": { "x": 0.85, "y": 0.15, "align": "right" },
         "TITLE": { "x": 0.5, "y": 0.05, "align": "center" }
@@ -135,7 +135,7 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
       // SYSTEM_MASTER_INSTRUCTION (v55.2 NAIL & SKIN POLISH DNA)
       const enhancePrompt = `
         PRO-LEVEL BEAUTY RETOUCH & STUDIO EXPANSION (v65.0 Art-Director Edition).
-        1. MASTER POLISH: Identify the focal point (nails, skin, face). Perform high-end retouching, remove imperfections, even out tones, and add professional highlights.
+        1. MASTER POLISH: Identify the focal point (service result, skin, face, hair, hands, brows, lashes, makeup). Perform high-end retouching, remove imperfections, even out tones, and add professional highlights.
         2. SEAMLESS EXPANSION: The input image contains a sharp subject inside a "Blurred Frame" context. Use this context (colors and textures) as a guide to EXPAND the scene into a full, seamless luxury beauty studio. 
         3. ZERO ARTIFACTS: Focus on the transition zones. There must be NO visible seams, mismatched lighting, or unnatural borders between the original subject and the expanded background.
         4. LUXURY AESTHETIC: Finish the background with professional studio elements (marble surfaces, elegant bokeh, soft diffusion lighting).

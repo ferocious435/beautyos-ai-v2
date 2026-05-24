@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +18,7 @@ const Booking = () => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [bookingErrorMessage, setBookingErrorMessage] = useState('לא הצלחנו להשלים את הפעולה. אפשר לנסות שוב בעוד רגע.');
 
   useEffect(() => {
     if (!masterId) {
@@ -85,7 +84,11 @@ const Booking = () => {
 
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'לא הצלחנו לטעון שעות פנויות');
-        setSlots(data.slots || []);
+        const now = Date.now();
+        setSlots((data.slots || []).filter((slot: any) => {
+          const slotTime = new Date(slot.slot_time).getTime();
+          return Number.isFinite(slotTime) && slotTime > now;
+        }));
       } catch (err) {
         console.error('BOOKING: Slots API Error:', err);
         setSlots([]);
@@ -106,6 +109,7 @@ const Booking = () => {
     }
 
     setBookingStatus('loading');
+    setBookingErrorMessage('לא הצלחנו להשלים את הפעולה. אפשר לנסות שוב בעוד רגע.');
 
     try {
       const action = rescheduleId ? 'update-booking' : 'create-booking';
@@ -131,6 +135,11 @@ const Booking = () => {
       } else {
         const errorData = await response.json();
         console.error('BOOKING: API Error:', errorData);
+        if (typeof errorData?.error === 'string' && errorData.error.includes('passed')) {
+          setBookingErrorMessage('השעה הזאת כבר עברה. בחרו מועד מאוחר יותר.');
+        } else if (typeof errorData?.error === 'string' && errorData.error.includes('no longer available')) {
+          setBookingErrorMessage('המועד הזה כבר לא פנוי. בחרו שעה אחרת.');
+        }
         setBookingStatus('error');
       }
     } catch (err) {
@@ -276,7 +285,7 @@ const Booking = () => {
         )}
 
         {bookingStatus === 'error' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-x-4 bottom-28 z-[100] rounded-2xl border border-red-500/30 bg-red-500/15 p-4 text-center text-sm text-red-100">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} title={bookingErrorMessage} className="fixed inset-x-4 bottom-28 z-[100] rounded-2xl border border-red-500/30 bg-red-500/15 p-4 text-center text-sm text-red-100">
             לא הצלחנו להשלים את הפעולה כרגע. נסו שוב בעוד רגע.
           </motion.div>
         )}

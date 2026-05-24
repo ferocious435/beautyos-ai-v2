@@ -27,10 +27,11 @@ export const CONFIG = {
     // Универсальный мастер-промпт для улучшения (Золотой Стандарт v29)
     BEAUTY_SYSTEM_MASTER_PROMPT: `
       BeautyOS Universal Enhancer Mode.
-      1. ANALYZE: Service type (nails, hair, brows, lashes, skin, aesthetics).
+      1. ANALYZE: Service type (nails, hair, brows, lashes, skin, makeup, massage, aesthetics, wellness).
       2. ENHANCE: Professional high-end retouching tailored to specific area. 
          - Nails/Brows/Lashes: Precision focus, sharp textures, high-gloss shine.
-         - Hair/Skin: Silk-smooth texture, healthy glow, professional studio skin tones.
+         - Hair/Skin/Makeup: Silk-smooth texture, healthy glow, balanced tones, refined finish.
+         - Massage/Wellness/Aesthetics: Clean treatment context, calm luxury atmosphere, realistic results.
       3. QUALITY: Ultra-sharpness, cinematic studio lighting, 8k professional resolution.
          - Fix: Motion blur, noise, artifacts, messy backgrounds.
       4. COMPOSITION: Editorial framing. 

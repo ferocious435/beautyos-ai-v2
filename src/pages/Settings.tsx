@@ -276,7 +276,7 @@ const Settings = () => {
                     value={serviceDraft.name}
                     onChange={(event) => setServiceDraft((current) => ({ ...current, name: event.target.value }))}
                     className="w-full rounded-2xl border border-white/10 bg-black/20 p-4 text-white outline-none transition focus:border-yellow-500/50"
-                    placeholder="למשל: מניקור ג'ל"
+                    placeholder="למשל: עיסוי, איפור ערב או טיפול פנים"
                   />
                 </div>
 

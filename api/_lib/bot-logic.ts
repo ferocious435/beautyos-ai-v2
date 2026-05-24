@@ -248,7 +248,7 @@ const sendBookingStartFromChat = async (ctx: BotContext, webAppUrl: string) => {
   const { data: masters } = await supabase
     .from('users')
     .select('id, telegram_id, full_name, business_name')
-    .in('role', ['master', 'admin'])
+    .eq('role', 'master')
     .order('created_at', { ascending: false })
     .limit(20);
 
