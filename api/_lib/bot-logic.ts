@@ -83,10 +83,6 @@ const buildRoleAwareReplyKeyboard = (webAppUrl: string, effectiveRole: BotRole, 
     ]);
     rows.push([
       Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`),
-      Markup.button.webApp('מחירון', `${webAppUrl}/pricing`),
-    ]);
-    rows.push([
-      Markup.button.webApp('הודעות', `${webAppUrl}/messages`),
     ]);
     return Markup.keyboard(rows).resize();
   }
@@ -1389,20 +1385,20 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         return;
       case 'messages':
         await ctx.reply(
-          `${actionPrefix}\n\nבמסך ההודעות אפשר לראות או לשלוח הודעה דרך המערכת. שום דבר לא נשלח בלי בחירה שלך.`,
+          `${actionPrefix}\n\nכל מה שקשור להודעות ותזכורות עובר דרך התורים שלך והשיחה עם הבוט. אם תרצי, אני פותח לך את רשימת התורים.`,
           quickKeyboard([
-            [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
             [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+            [Markup.button.webApp('קביעת תור חדש', `${webAppUrl}/discovery`)],
           ])
         );
         return;
       case 'pricing':
       case 'services':
         await ctx.reply(
-          `${actionPrefix}\n\nאפשר לראות מחירון, לבחור מומחה ולבדוק אילו טיפולים זמינים לפני קביעת תור.`,
+          `${actionPrefix}\n\nאצל לקוח, המחירים מופיעים כשבוחרים בעלת מקצוע וטיפול. אני פותח לך את הבחירה הנכונה.`,
           quickKeyboard([
-            [Markup.button.webApp('פתח מחירון', `${webAppUrl}/pricing`)],
             [Markup.button.webApp('בחירת מומחה וטיפול', `${webAppUrl}/discovery`)],
+            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
           ])
         );
         return;
@@ -1426,11 +1422,10 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         return;
       default:
         await ctx.reply(
-          `${actionPrefix}\n\nאני יכול לעזור בקביעת תור, בדיקת התורים שלך, מחירון והודעות.\n\nכתבי למשל: "אני רוצה לקבוע תור" או "איפה התורים שלי?".`,
+          `${actionPrefix}\n\nאני יכול לעזור בקביעת תור חדש ובדיקת התורים שלך.\n\nכתבי למשל: "אני רוצה לקבוע תור" או "איפה התורים שלי?".`,
           quickKeyboard([
             [Markup.button.callback('התחלת קביעת תור', 'chat_booking_start')],
             [Markup.button.callback('בדיקת התורים שלי', 'chat_calendar_start')],
-            [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
           ])
         );
     }
