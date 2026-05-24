@@ -17,7 +17,109 @@ export interface BotContext extends Context {
   wizard: Scenes.WizardContextWizard<BotContext>;
 }
 
+type BotRole = 'client' | 'master' | 'admin';
+
 export const REGISTRATION_SCENE_ID = 'REGISTRATION_SCENE';
+
+const roleTitles: Record<BotRole, string> = {
+  client: 'לקוח',
+  master: 'מאסטר',
+  admin: 'אדמין',
+};
+
+const roleHints: Record<BotRole, string> = {
+  client: 'מקבל שירות',
+  master: 'נותן שירות',
+  admin: 'ניהול מלא',
+};
+
+const normalizeBotRole = (role?: string | null): BotRole => {
+  if (role === 'master' || role === 'admin') {
+    return role;
+  }
+
+  return 'client';
+};
+
+const getEffectiveBotRole = (actualRole?: string | null, previewRole?: string | null): BotRole => {
+  const normalizedRole = normalizeBotRole(actualRole);
+  if (
+    normalizedRole === 'admin' &&
+    (previewRole === 'client' || previewRole === 'master' || previewRole === 'admin')
+  ) {
+    return previewRole;
+  }
+
+  return normalizedRole;
+};
+
+const buildAdminPreviewInlineKeyboard = () =>
+  Markup.inlineKeyboard([
+    [
+      Markup.button.callback('בדיקה כלקוח', 'preview_role_client'),
+      Markup.button.callback('בדיקה כמאסטר', 'preview_role_master'),
+      Markup.button.callback('חזרה לאדמין', 'preview_role_admin'),
+    ],
+  ]);
+
+const buildRoleAwareReplyKeyboard = (webAppUrl: string, effectiveRole: BotRole, actualRole: BotRole) => {
+  const rows: any[][] = [];
+
+  if (actualRole === 'admin') {
+    rows.push([
+      Markup.button.text('בדיקת לקוח'),
+      Markup.button.text('בדיקת מאסטר'),
+      Markup.button.text('מצב אדמין'),
+    ]);
+  }
+
+  if (effectiveRole === 'client') {
+    rows.push([
+      Markup.button.webApp('חיפוש מומחה וקביעת תור', `${webAppUrl}/discovery`),
+    ]);
+    rows.push([
+      Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`),
+      Markup.button.webApp('מחירון', `${webAppUrl}/pricing`),
+    ]);
+    rows.push([
+      Markup.button.webApp('הודעות', `${webAppUrl}/messages`),
+    ]);
+    return Markup.keyboard(rows).resize();
+  }
+
+  rows.push([
+    Markup.button.webApp('פתח את הסטודיו', actualRole === 'admin' && effectiveRole === 'admin' ? `${webAppUrl}/?start=root` : `${webAppUrl}/`),
+  ]);
+  rows.push([
+    Markup.button.webApp('ניהול יומן', `${webAppUrl}/calendar`),
+    Markup.button.webApp('מחירון', `${webAppUrl}/pricing`),
+  ]);
+  rows.push([
+    Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`),
+    Markup.button.webApp('הגדרות', `${webAppUrl}/settings`),
+  ]);
+
+  return Markup.keyboard(rows).resize();
+};
+
+const sendRoleAwareMainMenu = async (
+  ctx: BotContext,
+  actualRole: BotRole,
+  message: string,
+  previewRole?: string | null
+) => {
+  const webAppUrl = getWebAppUrl();
+  const effectiveRole = getEffectiveBotRole(actualRole, previewRole);
+
+  await ctx.reply(message, buildRoleAwareReplyKeyboard(webAppUrl, effectiveRole, actualRole));
+
+  if (actualRole === 'admin') {
+    await ctx.reply(
+      `מצב צפייה נוכחי: ${roleTitles[effectiveRole]} - ${roleHints[effectiveRole]}`,
+      buildAdminPreviewInlineKeyboard()
+    );
+  }
+};
 
 const isPrivilegedTelegramUser = (telegramId?: number) => {
   if (!telegramId) return false;
@@ -396,8 +498,8 @@ export const registrationWizard = new Scenes.WizardScene<BotContext>(
   async (ctx) => {
     await ctx.reply('✨ ברוכים הבאים ל-BeautyOS AI v2! ✨\nבואו נגדיר את הפרופיל שלכם. מי אתם?', 
       Markup.inlineKeyboard([
-        [Markup.button.callback('💆‍♂️ אני מאסטר / בעלת עסק', 'set_role_master')],
-        [Markup.button.callback('🛍️ אני לקוחה / לקוח', 'set_role_client')]
+        [Markup.button.callback('אני מאסטר - נותן/ת שירות', 'set_role_master')],
+        [Markup.button.callback('אני לקוח/ה - מקבל/ת שירות', 'set_role_client')]
       ])
     );
     return ctx.wizard.next();
@@ -408,7 +510,7 @@ export const registrationWizard = new Scenes.WizardScene<BotContext>(
       const role = ctx.callbackQuery.data === 'set_role_master' ? 'master' : 'client';
       (ctx.wizard.state as any).role = role;
       await ctx.answerCbQuery();
-      await ctx.reply(`מעולה! בחרתם ${role === 'master' ? 'מאסטר' : 'לקוח'}. איך קוראים לכם?`);
+      await ctx.reply(`מעולה. בחרתם ${role === 'master' ? 'מאסטר' : 'לקוח'}. איך קוראים לכם?`);
       return ctx.wizard.next();
     }
     return ctx.reply('נא לבחור תפקיד מהכפתורים למעלה.');
@@ -520,6 +622,14 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
           address: 'System'
         }, { onConflict: 'telegram_id' });
       }
+      ctx.session.previewRole = 'admin';
+      await sendRoleAwareMainMenu(
+        ctx,
+        'admin',
+        `ברוך שובך, ${name}.\nיש לך ניהול מלא, ועכשיו אפשר גם לבדוק את המערכת כמו לקוח או כמו מאסטר בלי לשנות את ההרשאות האמיתיות שלך.`,
+        ctx.session.previewRole
+      );
+      return;
       
       const webAppUrl = getWebAppUrl();
       const adminMenu = Markup.keyboard([
@@ -541,6 +651,22 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     }
 
     // 📱 Persistent Role-Aware Reply Menu (v2.3)
+    let actualRole: BotRole = 'client';
+    if (supabase && ctx.from?.id) {
+      const { data: dbUser } = await supabase.from('users').select('role').eq('telegram_id', ctx.from.id).single();
+      actualRole = normalizeBotRole(dbUser?.role);
+    }
+
+    await sendRoleAwareMainMenu(
+      ctx,
+      actualRole,
+      actualRole === 'client'
+        ? 'התפריט מוכן. אפשר לדבר איתי רגיל, או לפתוח את המסך המתאים מהכפתורים.'
+        : 'התפריט עודכן. אפשר להמשיך מכאן דרך הצ׳אט או לפתוח את המסך המתאים.',
+      ctx.session?.previewRole
+    );
+    return;
+
     const webAppUrl = getWebAppUrl();
     
     // Fetch latest role for keyboard selection
@@ -575,6 +701,48 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     await ctx.reply(`מזהה Telegram שלך: ${ctx.from?.id || 'לא ידוע'}\nאם זה חשבון מנהל, צריך להוסיף את המזהה לרשימת המנהלים ואז לשלוח /start admin.`);
   });
   bot.hears('📝 הרשמה', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
+
+  const previewRoleTexts: Record<string, BotRole> = {
+    'בדיקת לקוח': 'client',
+    'בדיקת מאסטר': 'master',
+    'מצב אדמין': 'admin',
+  };
+
+  const applyAdminPreviewRole = async (ctx: BotContext, role: BotRole) => {
+    const supabase = getSupabase();
+    let actualRole: BotRole = 'client';
+
+    if (supabase && ctx.from?.id) {
+      const { data: dbUser } = await supabase.from('users').select('role').eq('telegram_id', ctx.from.id).single();
+      actualRole = normalizeBotRole(dbUser?.role);
+    }
+
+    if (actualRole !== 'admin' || !isPrivilegedTelegramUser(ctx.from?.id)) {
+      await ctx.reply('האפשרות הזו זמינה רק לאדמין.');
+      return;
+    }
+
+    ctx.session.previewRole = role;
+    await sendRoleAwareMainMenu(
+      ctx,
+      'admin',
+      role === 'admin'
+        ? 'חזרת למצב אדמין מלא.'
+        : `מעכשיו אני מציג לך את המערכת כמו ${roleTitles[role]} - ${roleHints[role]}.`,
+      ctx.session.previewRole
+    );
+  };
+
+  bot.hears(Object.keys(previewRoleTexts), async (ctx) => {
+    await applyAdminPreviewRole(ctx, previewRoleTexts[ctx.message.text]);
+  });
+
+  (['client', 'master', 'admin'] as BotRole[]).forEach((role) => {
+    bot.action(`preview_role_${role}`, async (ctx) => {
+      await ctx.answerCbQuery();
+      await applyAdminPreviewRole(ctx, role);
+    });
+  });
 
   bot.command('role', async (ctx) => {
     if (!isPrivilegedTelegramUser(ctx.from?.id)) {
@@ -748,7 +916,8 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     await ctx.answerCbQuery('בודק יומן');
     const supabase = getSupabase();
     const profile = supabase ? await getRoleProfile(supabase, ctx.from?.id) : null;
-    if (profile?.role === 'master' || profile?.role === 'admin') {
+    const effectiveRole = getEffectiveBotRole(profile?.role, ctx.session?.previewRole);
+    if (effectiveRole === 'master' || effectiveRole === 'admin') {
       await sendManagerCalendarStartFromChat(ctx, getWebAppUrl());
       return;
     }
@@ -950,7 +1119,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
     const supabase = getSupabase();
     const webAppUrl = getWebAppUrl();
-    let userRole = 'client';
+    let userRole: BotRole = 'client';
 
     if (supabase && ctx.from?.id) {
       const { data: dbUser } = await supabase
@@ -958,10 +1127,11 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         .select('role')
         .eq('telegram_id', ctx.from.id)
         .single();
-      if (dbUser?.role) userRole = dbUser.role;
+      if (dbUser?.role) userRole = normalizeBotRole(dbUser.role);
     }
 
-    const isManager = userRole === 'master' || userRole === 'admin';
+    const effectiveRole = getEffectiveBotRole(userRole, ctx.session?.previewRole);
+    const isManager = effectiveRole === 'master' || effectiveRole === 'admin';
     const understood = classifyConversationIntent(text);
     const isActionRequest = understood.mode === 'act';
     const isInfoRequest = understood.mode === 'inform';

@@ -1,12 +1,45 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 import type { AppRole } from '../store/useAppStore';
 
 type NavRole = AppRole;
 
+const roleMeta: Record<NavRole, { label: string; subtitle: string; homePath: string }> = {
+  client: {
+    label: 'לקוח',
+    subtitle: 'מקבל שירות',
+    homePath: '/',
+  },
+  master: {
+    label: 'מאסטר',
+    subtitle: 'נותן שירות',
+    homePath: '/dashboard/master',
+  },
+  admin: {
+    label: 'אדמין',
+    subtitle: 'ניהול מלא',
+    homePath: '/',
+  },
+};
+
+const routeAccess: Array<{ match: RegExp; roles: NavRole[] }> = [
+  { match: /^\/$/, roles: ['client', 'master', 'admin'] },
+  { match: /^\/dashboard\/master$/, roles: ['master', 'admin'] },
+  { match: /^\/dashboard\/client$/, roles: ['client', 'admin'] },
+  { match: /^\/calendar$/, roles: ['client', 'master', 'admin'] },
+  { match: /^\/booking$/, roles: ['client', 'master', 'admin'] },
+  { match: /^\/order$/, roles: ['client', 'master', 'admin'] },
+  { match: /^\/discovery$/, roles: ['client', 'master', 'admin'] },
+  { match: /^\/pricing$/, roles: ['client', 'master', 'admin'] },
+  { match: /^\/messages$/, roles: ['client', 'master', 'admin'] },
+  { match: /^\/portfolio$/, roles: ['master', 'admin'] },
+  { match: /^\/settings$/, roles: ['master', 'admin'] },
+];
+
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const user = useAppStore((state) => state.user);
   const previewRole = useAppStore((state) => state.previewRole);
   const setPreviewRole = useAppStore((state) => state.setPreviewRole);
@@ -14,10 +47,19 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const actualRole = (user.role || 'client') as NavRole;
   const isAdmin = actualRole === 'admin';
 
+  useEffect(() => {
+    const currentRoute = routeAccess.find((route) => route.match.test(location.pathname));
+    if (!currentRoute || currentRoute.roles.includes(userRole)) {
+      return;
+    }
+
+    navigate(roleMeta[userRole].homePath, { replace: true });
+  }, [location.pathname, navigate, userRole]);
+
   const navItems = [
     {
       path: userRole === 'client' ? '/' : '/dashboard/master',
-      label: userRole === 'client' ? 'התורים שלי' : 'סטודיו',
+      label: userRole === 'client' ? 'התורים שלי' : 'הסטודיו',
       roles: ['client', 'master', 'admin'] as NavRole[],
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -117,15 +159,17 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#050505] text-white" dir="rtl" data-testid="main-layout" data-role={userRole}>
-      <main className={isAdmin ? 'pt-20' : ''}>{children}</main>
+      <main className={isAdmin ? 'pt-24' : ''}>{children}</main>
 
       {isAdmin ? (
         <div className="fixed left-3 right-3 top-3 z-[110]">
-          <div className="mx-auto flex max-w-xl items-center justify-between gap-3 rounded-3xl border border-yellow-500/20 bg-[#0b0b0d]/92 p-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3 rounded-3xl border border-yellow-500/20 bg-[#0b0b0d]/92 p-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-[0.22em] text-yellow-500">View Mode</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.22em] text-yellow-500">מצב בדיקה</div>
               <div className="truncate text-xs text-zinc-400">
-                {previewRole ? `תצוגה זמנית: ${previewRole}` : 'אתה כרגע בתצוגת אדמין מלאה'}
+                {previewRole
+                  ? `מוצג עכשיו: ${roleMeta[userRole].label} - ${roleMeta[userRole].subtitle}`
+                  : 'מוצג עכשיו: אדמין - ניהול מלא'}
               </div>
             </div>
 
@@ -164,7 +208,9 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <Link
                 key={`${item.path}-${item.label}`}
                 to={item.path}
-                className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-2 transition-all duration-300 ${isActive ? 'bg-yellow-500/10 text-yellow-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+                className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-2 transition-all duration-300 ${
+                  isActive ? 'bg-yellow-500/10 text-yellow-500' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
                 style={{ minWidth: '68px', minHeight: '48px' }}
               >
                 <div className={`h-6 w-6 transition-transform duration-300 ${isActive ? 'scale-110' : 'scale-100 opacity-70'}`}>
