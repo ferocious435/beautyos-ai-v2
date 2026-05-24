@@ -15,11 +15,14 @@ const {
   Navigation 
 } = Lucide as any;
 
+const activeStatuses = ['confirmed', 'pending'];
+
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const appUser = useAppStore(state => state.user);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const fetchMyBookings = async () => {
@@ -43,6 +46,7 @@ const ClientDashboard = () => {
         console.error('CLIENT DASHBOARD: Fetch error:', err);
         setBookings([]);
       } finally {
+        setNow(Date.now());
         setLoading(false);
       }
     };
@@ -71,8 +75,20 @@ const ClientDashboard = () => {
     }
   };
 
-  const upcoming = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && new Date(b.start_time) > new Date())[0];
-  const others = bookings.filter(b => b.id !== upcoming?.id);
+  const isActiveFutureBooking = (booking: any) =>
+    activeStatuses.includes(booking.status) && new Date(booking.start_time).getTime() > now;
+
+  const getStatusLabel = (booking: any) => {
+    if (booking.status === 'confirmed') return 'מאושר';
+    if (booking.status === 'pending') return 'ממתין לאישור';
+    if (booking.status === 'cancelled_by_client' || booking.status === 'cancelled_by_master') return 'בוטל';
+    if (new Date(booking.start_time).getTime() <= now) return 'עבר';
+    return 'לא פעיל';
+  };
+
+  const upcoming = bookings.filter(isActiveFutureBooking)[0];
+  const otherActiveBookings = bookings.filter(b => b.id !== upcoming?.id && isActiveFutureBooking(b));
+  const others = bookings.filter(b => b.id !== upcoming?.id && !isActiveFutureBooking(b));
 
   const getDirections = (lat: number, lng: number) => {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
@@ -166,6 +182,51 @@ const ClientDashboard = () => {
             >
               מצא מאסטר קרוב 📍
             </button>
+        </section>
+      )}
+
+      {otherActiveBookings.length > 0 && (
+        <section className="mb-8">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-4">תורים פעילים נוספים</h3>
+          <div className="space-y-3">
+            {otherActiveBookings.map(booking => (
+              <div key={booking.id} className="glass-premium p-4 rounded-2xl border border-white/5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-zinc-500">
+                      <Clock size={20} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm">{booking.master.business_name || booking.master.full_name}</div>
+                      <div className="text-xs text-zinc-500">
+                        {new Date(booking.start_time).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} • {new Date(booking.start_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded ${
+                    booking.status === 'confirmed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'
+                  }`}>
+                    {getStatusLabel(booking)}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => navigate(`/order?masterId=${booking.master.telegram_id}&rescheduleId=${booking.id}`)}
+                    className="rounded-xl bg-white/5 py-3 text-xs font-black text-white active:scale-95"
+                  >
+                    הזזה
+                  </button>
+                  <button
+                    onClick={() => handleCancel(booking.id)}
+                    className="rounded-xl bg-red-500/10 py-3 text-xs font-black text-red-500 active:scale-95"
+                  >
+                    ביטול
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

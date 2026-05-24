@@ -74,8 +74,11 @@ const Dashboard = () => {
 
         setStats({ views: 0, appointments: recentCount });
 
-        const pending = allBookings?.filter((b: any) => b.status === 'pending') || [];
-        const upcoming = allBookings?.filter((b: any) => b.status === 'confirmed').slice(0, 5) || [];
+        const now = Date.now();
+        const isFuture = (booking: any) => new Date(booking.start_time).getTime() > now;
+        const byStartTime = (a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+        const pending = allBookings?.filter((b: any) => b.status === 'pending' && isFuture(b)).sort(byStartTime) || [];
+        const upcoming = allBookings?.filter((b: any) => b.status === 'confirmed' && isFuture(b)).sort(byStartTime).slice(0, 5) || [];
 
         setPendingBookings(pending);
         setUpcomingBookings(upcoming);
@@ -199,7 +202,9 @@ const Dashboard = () => {
         const approved = pendingBookings.find(b => b.id === bookingId);
         setPendingBookings(prev => prev.filter(b => b.id !== bookingId));
         if (approved) {
-          setUpcomingBookings(prev => [...prev, { ...approved, status: 'confirmed' }].sort((a,b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
+          setUpcomingBookings(prev => [...prev, { ...approved, status: 'confirmed' }]
+            .sort((a,b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+            .slice(0, 5));
         }
       }
     } catch (err) {

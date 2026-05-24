@@ -158,7 +158,7 @@ const Discovery = () => {
                         onClick={() => navigate(`/booking?masterId=${master.telegram_id}`)}
                         className="rounded-full bg-yellow-500 px-5 py-3 text-sm font-black text-black transition active:scale-95"
                       >
-                        לצפייה ביומן
+                        בחירת טיפול ושעה
                       </button>
                     </div>
                   </motion.article>

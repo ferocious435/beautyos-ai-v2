@@ -14,6 +14,8 @@ const {
   Trash2,
 } = Lucide as any;
 
+const activeStatuses = ['confirmed', 'pending'];
+
 const dayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
 const MasterCalendar = () => {
@@ -24,6 +26,7 @@ const MasterCalendar = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => Date.now());
 
   const hours = Array.from({ length: 15 }, (_, index) => index + 8);
 
@@ -55,6 +58,7 @@ const MasterCalendar = () => {
         console.error('CALENDAR: Fetch error:', error);
         setBookings([]);
       } finally {
+        setNow(Date.now());
         setLoading(false);
       }
     };
@@ -240,6 +244,7 @@ const MasterCalendar = () => {
                 const height = Math.max((durationMinutes / 60) * 80, 56);
                 const startLabel = new Date(booking.start_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
                 const endLabel = new Date(booking.end_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                const canManageBooking = activeStatuses.includes(booking.status) && new Date(booking.start_time).getTime() > now;
 
                 return (
                   <motion.div
@@ -248,7 +253,11 @@ const MasterCalendar = () => {
                     animate={{ scale: 1, opacity: 1 }}
                     style={{ top, height, zIndex: 10 }}
                     className={`absolute left-1 right-1 flex flex-col justify-between rounded-2xl border p-3 ${
-                      booking.status === 'confirmed' ? 'border-green-500/30 bg-zinc-900' : 'border-white/10 bg-zinc-900/80'
+                      canManageBooking
+                        ? booking.status === 'confirmed'
+                          ? 'border-green-500/30 bg-zinc-900'
+                          : 'border-yellow-500/30 bg-zinc-900/90'
+                        : 'border-white/10 bg-zinc-900/50 opacity-60'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -261,6 +270,7 @@ const MasterCalendar = () => {
                         </div>
                       </div>
 
+                      {canManageBooking ? (
                       <div className="flex gap-1">
                         <button aria-label="הזזת תור" onClick={() => handleReschedule(booking)} className="rounded-lg bg-white/5 p-1.5 text-zinc-400 hover:text-white">
                           <Move size={12} />
@@ -269,6 +279,9 @@ const MasterCalendar = () => {
                           <Trash2 size={12} />
                         </button>
                       </div>
+                      ) : (
+                        <div className="rounded-lg bg-white/5 px-2 py-1 text-[9px] font-bold text-zinc-500">עבר/בוטל</div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1.5 text-[10px] font-medium text-yellow-500">
