@@ -3,6 +3,7 @@ import { getSupabase } from './_lib/supabase.js';
 import { scheduleNotification } from './_lib/qstash.js';
 import { Telegraf } from 'telegraf';
 import { validateTelegramWebAppData, getUserFromInitData } from './_lib/telegram-auth.js';
+import { filterFutureSlots, isPastBookingStart } from './_lib/booking-time.js';
 import type Stripe from 'stripe';
 
 type TelegramAuthUser = {
@@ -66,18 +67,6 @@ const getPublicAppUrl = (req: VercelRequest) => {
 };
 
 const activeBookingStatuses = ['pending', 'confirmed'];
-
-const parseIsoDateTime = (value: unknown) => {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const isPastBookingStart = (value: unknown) => {
-  const parsed = parseIsoDateTime(value);
-  if (!parsed) return true;
-  return parsed.getTime() <= Date.now();
-};
 
 const hasBookingOverlap = async (
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
@@ -306,10 +295,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       if (error) return res.status(500).json({ error: getErrorMessage(error) });
-      const slots = (data || []).filter((slot: any) => {
-        const slotTime = parseIsoDateTime(slot?.slot_time);
-        return slotTime ? slotTime.getTime() > Date.now() : false;
-      });
+      const slots = filterFutureSlots(data || []);
       return res.status(200).json({ slots });
     }
 

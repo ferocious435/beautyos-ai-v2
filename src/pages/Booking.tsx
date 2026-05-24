@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTelegramInitData, getTelegramUserId, telegramAuthHeaders } from '../lib/telegramAuth';
 
+const defaultBookingError = 'לא הצלחנו להשלים את הפעולה. אפשר לנסות שוב בעוד רגע.';
+
 const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -18,7 +20,7 @@ const Booking = () => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [bookingErrorMessage, setBookingErrorMessage] = useState('לא הצלחנו להשלים את הפעולה. אפשר לנסות שוב בעוד רגע.');
+  const [bookingErrorMessage, setBookingErrorMessage] = useState(defaultBookingError);
 
   useEffect(() => {
     if (!masterId) {
@@ -63,6 +65,7 @@ const Booking = () => {
         setLoadingServices(false);
       }
     };
+
     loadMasterAndServices();
   }, [masterId, rescheduleId]);
 
@@ -84,6 +87,7 @@ const Booking = () => {
 
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'לא הצלחנו לטעון שעות פנויות');
+
         const now = Date.now();
         setSlots((data.slots || []).filter((slot: any) => {
           const slotTime = new Date(slot.slot_time).getTime();
@@ -92,10 +96,11 @@ const Booking = () => {
       } catch (err) {
         console.error('BOOKING: Slots API Error:', err);
         setSlots([]);
+      } finally {
+        setLoadingSlots(false);
       }
-
-      setLoadingSlots(false);
     };
+
     loadSlots();
   }, [masterId, selectedDate, selectedService]);
 
@@ -104,16 +109,16 @@ const Booking = () => {
 
     if (!masterId || !selectedService) return;
     if (!tgId) {
+      setBookingErrorMessage(defaultBookingError);
       setBookingStatus('error');
       return;
     }
 
     setBookingStatus('loading');
-    setBookingErrorMessage('לא הצלחנו להשלים את הפעולה. אפשר לנסות שוב בעוד רגע.');
+    setBookingErrorMessage(defaultBookingError);
 
     try {
       const action = rescheduleId ? 'update-booking' : 'create-booking';
-
       const response = await fetch(`/api/services?action=${action}`, {
         method: 'POST',
         headers: {
@@ -132,59 +137,72 @@ const Booking = () => {
       if (response.ok) {
         setBookingStatus('success');
         setTimeout(() => navigate('/calendar'), 2500);
-      } else {
-        const errorData = await response.json();
-        console.error('BOOKING: API Error:', errorData);
-        if (typeof errorData?.error === 'string' && errorData.error.includes('passed')) {
-          setBookingErrorMessage('השעה הזאת כבר עברה. בחרו מועד מאוחר יותר.');
-        } else if (typeof errorData?.error === 'string' && errorData.error.includes('no longer available')) {
-          setBookingErrorMessage('המועד הזה כבר לא פנוי. בחרו שעה אחרת.');
-        }
-        setBookingStatus('error');
+        return;
       }
+
+      const errorData = await response.json().catch(() => null);
+      console.error('BOOKING: API Error:', errorData);
+
+      if (typeof errorData?.error === 'string' && errorData.error.includes('passed')) {
+        setBookingErrorMessage('השעה הזאת כבר עברה. בחרו מועד מאוחר יותר.');
+      } else if (typeof errorData?.error === 'string' && errorData.error.includes('no longer available')) {
+        setBookingErrorMessage('המועד הזה כבר לא פנוי. בחרו שעה אחרת.');
+      } else if (typeof errorData?.error === 'string' && errorData.error.includes('provider')) {
+        setBookingErrorMessage('הפרופיל הזה לא זמין לקביעת תור. בחרו בעלת מקצוע אמיתית מהרשימה.');
+      }
+
+      setBookingStatus('error');
     } catch (err) {
       console.error('BOOKING: Fetch Error:', err);
       setBookingStatus('error');
     }
   };
 
-  if (!masterId) return (
-    <div className="telegram-safe-page flex min-h-screen flex-col items-center justify-center space-y-6 p-8 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-yellow-500/10 text-3xl text-yellow-500">!</div>
-      <div className="space-y-2">
-        <h2 className="text-xl font-bold text-white">לא נבחר מומחה</h2>
-        <p className="text-sm text-zinc-500">בחרו מומחה מתוך הרשימה כדי לראות שעות פנויות ולקבוע תור.</p>
+  if (!masterId) {
+    return (
+      <div className="telegram-safe-page flex min-h-screen flex-col items-center justify-center space-y-6 p-8 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-yellow-500/10 text-3xl text-yellow-500">!</div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-white">לא נבחר מומחה</h2>
+          <p className="text-sm text-zinc-500">בחרו מומחה מתוך הרשימה כדי לראות שעות פנויות ולקבוע תור.</p>
+        </div>
+        <button onClick={() => navigate('/discovery')} className="gold-gradient rounded-2xl px-8 py-4 font-black text-black">
+          בחירת מומחה
+        </button>
       </div>
-      <button onClick={() => navigate('/discovery')} className="gold-gradient rounded-2xl px-8 py-4 font-black text-black">
-        בחירת מומחה
-      </button>
-    </div>
-  );
+    );
+  }
 
-  if (loadingServices) return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-yellow-500 border-t-transparent" />
-    </div>
-  );
-
-  if (!master || loadError) return (
-    <div className="telegram-safe-page flex min-h-screen flex-col items-center justify-center space-y-6 p-8 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 text-3xl text-red-400">!</div>
-      <div className="space-y-2">
-        <h2 className="text-xl font-bold text-white">המומחה לא נמצא</h2>
-        <p className="text-sm text-zinc-500">יכול להיות שהקישור ישן או שהפרופיל עדיין לא פעיל.</p>
+  if (loadingServices) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-yellow-500 border-t-transparent" />
       </div>
-      <button onClick={() => navigate('/discovery')} className="gold-gradient rounded-2xl px-8 py-4 font-black text-black">
-        חיפוש מומחה אחר
-      </button>
-    </div>
-  );
+    );
+  }
+
+  if (!master || loadError) {
+    return (
+      <div className="telegram-safe-page flex min-h-screen flex-col items-center justify-center space-y-6 p-8 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 text-3xl text-red-400">!</div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-white">המומחה לא נמצא</h2>
+          <p className="text-sm text-zinc-500">יכול להיות שהקישור ישן או שהפרופיל עדיין לא פעיל.</p>
+        </div>
+        <button onClick={() => navigate('/discovery')} className="gold-gradient rounded-2xl px-8 py-4 font-black text-black">
+          חיפוש מומחה אחר
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="telegram-safe-page space-y-8 px-4 pb-24 text-white" dir="rtl">
       <div className="space-y-2">
         <h1 className="text-2xl font-black">{rescheduleId ? 'שינוי מועד תור' : 'קביעת תור'}</h1>
-        <p className="text-zinc-400">מומחה: <span className="font-medium text-white">{master.business_name || master.full_name}</span></p>
+        <p className="text-zinc-400">
+          מומחה: <span className="font-medium text-white">{master.business_name || master.full_name}</span>
+        </p>
       </div>
 
       {rescheduleId && (
@@ -227,9 +245,15 @@ const Booking = () => {
             <div className="flex items-center justify-between rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4">
               <div>
                 <div className="mb-1 text-sm font-bold text-yellow-500">הטיפול שנבחר</div>
-                <div className="font-bold">{selectedService.name} (₪{selectedService.price})</div>
+                <div className="font-bold">
+                  {selectedService.name} (₪{selectedService.price})
+                </div>
               </div>
-              {!rescheduleId && <button onClick={() => setSelectedService(null)} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-white">שינוי</button>}
+              {!rescheduleId && (
+                <button onClick={() => setSelectedService(null)} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-white">
+                  שינוי
+                </button>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -250,7 +274,12 @@ const Booking = () => {
                   [1, 2, 3].map((item) => <div key={item} className="h-14 animate-pulse rounded-xl bg-zinc-900" />)
                 ) : slots.length > 0 ? (
                   slots.map((slot) => {
-                    const time = new Date(slot.slot_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const time = new Date(slot.slot_time).toLocaleTimeString('he-IL', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    });
+
                     return (
                       <button
                         key={slot.slot_time}
@@ -285,8 +314,8 @@ const Booking = () => {
         )}
 
         {bookingStatus === 'error' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} title={bookingErrorMessage} className="fixed inset-x-4 bottom-28 z-[100] rounded-2xl border border-red-500/30 bg-red-500/15 p-4 text-center text-sm text-red-100">
-            לא הצלחנו להשלים את הפעולה כרגע. נסו שוב בעוד רגע.
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-x-4 bottom-28 z-[100] rounded-2xl border border-red-500/30 bg-red-500/15 p-4 text-center text-sm text-red-100">
+            {bookingErrorMessage}
           </motion.div>
         )}
       </AnimatePresence>
