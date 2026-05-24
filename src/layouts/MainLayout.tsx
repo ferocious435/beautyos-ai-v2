@@ -31,8 +31,8 @@ const routeAccess: Array<{ match: RegExp; roles: NavRole[] }> = [
   { match: /^\/booking$/, roles: ['client', 'master', 'admin'] },
   { match: /^\/order$/, roles: ['client', 'master', 'admin'] },
   { match: /^\/discovery$/, roles: ['client', 'master', 'admin'] },
-  { match: /^\/pricing$/, roles: ['client', 'master', 'admin'] },
-  { match: /^\/messages$/, roles: ['client', 'master', 'admin'] },
+  { match: /^\/pricing$/, roles: ['master', 'admin'] },
+  { match: /^\/messages$/, roles: ['master', 'admin'] },
   { match: /^\/portfolio$/, roles: ['master', 'admin'] },
   { match: /^\/settings$/, roles: ['master', 'admin'] },
 ];
@@ -110,7 +110,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     {
       path: '/pricing',
       label: 'מחירון',
-      roles: ['client', 'master', 'admin'] as NavRole[],
+      roles: ['master', 'admin'] as NavRole[],
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" x2="12" y1="2" y2="22" />
@@ -121,7 +121,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     {
       path: '/messages',
       label: 'הודעות',
-      roles: ['client', 'master', 'admin'] as NavRole[],
+      roles: ['master', 'admin'] as NavRole[],
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
