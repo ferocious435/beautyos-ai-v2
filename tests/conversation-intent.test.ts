@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { classifyConversationIntent } from '../api/_lib/conversation-intent.ts';
+
+test('detects appointment action versus appointment question', () => {
+  assert.deepEqual(
+    pick(classifyConversationIntent('תקבע לי תור למחר בבוקר')),
+    { intent: 'appointment', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('איך קובעים תור?')),
+    { intent: 'appointment', mode: 'inform' }
+  );
+});
+
+test('detects image/post action versus interest', () => {
+  assert.deepEqual(
+    pick(classifyConversationIntent('תכין לי פוסט לאינסטגרם')),
+    { intent: 'image_post', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('מה קורה עם פוסטים ותמונות?')),
+    { intent: 'image_post', mode: 'inform' }
+  );
+});
+
+test('detects core mini app areas from normal language', () => {
+  assert.deepEqual(
+    pick(classifyConversationIntent('תפתח יומן')),
+    { intent: 'calendar', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('אפשר לראות מחירון?')),
+    { intent: 'pricing', mode: 'inform' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('ברכה ללקוחה')),
+    { intent: 'messages', mode: 'clarify' }
+  );
+});
+
+const pick = (result: ReturnType<typeof classifyConversationIntent>) => ({
+  intent: result.intent,
+  mode: result.mode,
+});

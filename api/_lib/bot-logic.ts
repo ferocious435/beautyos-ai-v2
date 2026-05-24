@@ -7,6 +7,7 @@ import { analyzeAndGenerate, enhanceImage } from './content-engine.js';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { enqueueAiProcessing, scheduleNotification } from './qstash.js';
 import { CONFIG } from './config.js';
+import { classifyConversationIntent } from './conversation-intent.js';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import axios from 'axios';
 
@@ -647,6 +648,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   });
 
   bot.on('text', async (ctx) => {
+    const text = ctx.message.text.trim();
+    if (text.startsWith('/')) return;
+
     const supabase = getSupabase();
     const webAppUrl = getWebAppUrl();
     let userRole = 'client';
@@ -661,41 +665,173 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     }
 
     const isManager = userRole === 'master' || userRole === 'admin';
-    const text = ctx.message.text.trim();
-    const lowerText = text.toLowerCase();
-    const wantsBooking = /תור|יומן|זמן|שעה|booking|calendar/.test(lowerText);
-    const wantsImage = /תמונה|פוסט|אינסטגרם|עיצוב|שיווק|image|post/.test(lowerText);
+    const understood = classifyConversationIntent(text);
+    const isActionRequest = understood.mode === 'act';
+    const isInfoRequest = understood.mode === 'inform';
+
+    const actionPrefix = isActionRequest
+      ? 'הבנתי. אני לא עושה פעולה סופית בלי אישור, אבל פתחתי לך את הכיוון הנכון.'
+      : isInfoRequest
+        ? 'בטח. אני מסביר בקצרה, בלי לבצע פעולה.'
+        : 'אני רוצה לדייק ולא לעשות משהו לא נכון.';
+
+    const quickKeyboard = (rows: any[][]) => Markup.inlineKeyboard(rows);
 
     if (isManager) {
-      const hint = wantsImage
-        ? 'שלחו כאן תמונה, ואני אפתח לכם תהליך קצר לשיפור תמונה או הכנת פוסט.'
-        : wantsBooking
-          ? 'אפשר לנהל תורים ביומן, לאשר בקשות ולשנות שעות דרך הכפתורים למטה.'
-          : 'אפשר לנהל יומן, שירותים, הודעות ללקוחות וגם לשלוח כאן תמונה להכנת פוסט.';
-
-      await ctx.reply(
-        `אני כאן.\n\n${hint}\n\nבחרו פעולה:`,
-        Markup.inlineKeyboard([
-          [Markup.button.webApp('יומן וניהול תורים', `${webAppUrl}/calendar`)],
-          [Markup.button.webApp('שירותים והגדרות', `${webAppUrl}/settings`)],
-          [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
-        ])
-      );
-      return;
+      switch (understood.intent) {
+        case 'appointment':
+        case 'calendar':
+          await ctx.reply(
+            `${actionPrefix}\n\nביומן אפשר לראות תורים, לאשר בקשות, לשנות זמנים ולנהל עומסים.\n\nאם רצית רק לבדוק מצב - פתחי יומן. אם רצית לשנות תור, עדיף לעשות את זה שם כדי שלא תהיה טעות.`,
+            quickKeyboard([
+              [Markup.button.webApp('פתחי יומן', `${webAppUrl}/calendar`)],
+              [Markup.button.webApp('שירותים וזמני טיפול', `${webAppUrl}/settings`)],
+            ])
+          );
+          return;
+        case 'services':
+        case 'settings':
+          await ctx.reply(
+            `${actionPrefix}\n\nשם מנהלים את פרטי העסק, שירותים, מחירים ומשך כל טיפול.\n\nשינוי מחיר או משך טיפול משפיע על מה שלקוחות רואים ועל שעות פנויות ביומן.`,
+            quickKeyboard([
+              [Markup.button.webApp('פתחי הגדרות ושירותים', `${webAppUrl}/settings`)],
+              [Markup.button.webApp('פתחי מחירון', `${webAppUrl}/pricing`)],
+            ])
+          );
+          return;
+        case 'messages':
+          await ctx.reply(
+            `${actionPrefix}\n\nאפשר להכין ברכות, הודעות ללקוחות ותזכורות. הודעה לא תישלח אוטומטית מתוך שיחה רגילה בלי שתאשרי אותה.`,
+            quickKeyboard([
+              [Markup.button.webApp('פתחי הודעות וברכות', `${webAppUrl}/messages`)],
+              [Markup.button.webApp('פתחי יומן לקוחות', `${webAppUrl}/calendar`)],
+            ])
+          );
+          return;
+        case 'image_post':
+          await ctx.reply(
+            `${actionPrefix}\n\nכדי להכין פוסט או לשפר תמונה, שלחי כאן תמונה בצ'אט. אחרי זה אבקש לבחור סגנון ואציג תוצאה להמשך עבודה.\n\nאם רק שאלת מה אפשר לעשות: אפשר ריטוש, פוסט לאינסטגרם, סטורי, טקסט שיווקי ועיצוב מותאם.`,
+            quickKeyboard([
+              [Markup.button.webApp('פתחי גלריה ותיק עבודות', `${webAppUrl}/portfolio`)],
+              [Markup.button.webApp('פתחי הודעות וברכות', `${webAppUrl}/messages`)],
+            ])
+          );
+          return;
+        case 'pricing':
+          await ctx.reply(
+            `${actionPrefix}\n\nבמחירון אפשר לראות חבילות ומסלולים. מחירי טיפולים עצמם מנוהלים בהגדרות השירותים.`,
+            quickKeyboard([
+              [Markup.button.webApp('פתחי מחירון', `${webAppUrl}/pricing`)],
+              [Markup.button.webApp('עריכת שירותים ומחירים', `${webAppUrl}/settings`)],
+            ])
+          );
+          return;
+        case 'portfolio':
+          await ctx.reply(
+            `${actionPrefix}\n\nבתיק העבודות אפשר לשמור ולהציג עבודות. אם תרצי ליצור חומר חדש, שלחי תמונה כאן בצ'אט.`,
+            quickKeyboard([
+              [Markup.button.webApp('פתחי תיק עבודות', `${webAppUrl}/portfolio`)],
+              [Markup.button.webApp('פתחי סטודיו', `${webAppUrl}/`)],
+            ])
+          );
+          return;
+        case 'status':
+          await ctx.reply(
+            'אני כאן והבוט פעיל. אם משהו לא נפתח או נראה חסר, כתבי לי מה ניסית לעשות ואני אכוון אותך למסך הנכון.',
+            quickKeyboard([
+              [Markup.button.webApp('פתחי סטודיו', `${webAppUrl}/`)],
+              [Markup.button.webApp('פתחי יומן', `${webAppUrl}/calendar`)],
+            ])
+          );
+          return;
+        case 'smalltalk':
+          await ctx.reply(
+            'היי, אני כאן. אפשר לכתוב רגיל: לקבוע תור, לפתוח יומן, להכין פוסט, לערוך שירותים או להכין הודעה ללקוחה.',
+            quickKeyboard([
+              [Markup.button.webApp('פתחי סטודיו', `${webAppUrl}/`)],
+              [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
+            ])
+          );
+          return;
+        default:
+          await ctx.reply(
+            `${actionPrefix}\n\nאני יכול לעזור בניהול יומן, שירותים, מחירון, הודעות וברכות, תיק עבודות, וגם בהכנת פוסטים מתמונה.\n\nכתבי למשל: "תפתח יומן", "איך משנים מחיר?", או "תכין לי פוסט".`,
+            quickKeyboard([
+              [Markup.button.webApp('יומן וניהול תורים', `${webAppUrl}/calendar`)],
+              [Markup.button.webApp('שירותים והגדרות', `${webAppUrl}/settings`)],
+              [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
+            ])
+          );
+          return;
+      }
     }
 
-    const hint = wantsBooking
-      ? 'כדי לקבוע תור, פתחו את רשימת המומחים ובחרו טיפול ושעה.'
-      : 'אפשר לקבוע תור, לראות את התורים שלך או לשלוח הודעה למאסטר מתוך המערכת.';
-
-    await ctx.reply(
-      `בשמחה.\n\n${hint}\n\nמה תרצו לעשות עכשיו?`,
-      Markup.inlineKeyboard([
-        [Markup.button.webApp('קביעת תור', `${webAppUrl}/discovery`)],
-        [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
-        [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
-      ])
-    );
+    switch (understood.intent) {
+      case 'appointment':
+        await ctx.reply(
+          `${actionPrefix}\n\nכדי לקבוע תור בלי בלבול, פותחים את רשימת המומחים, בוחרים טיפול ואז שעה פנויה.\n\nאם רק שאלת איך זה עובד: זה כל התהליך.`,
+          quickKeyboard([
+            [Markup.button.webApp('קביעת תור', `${webAppUrl}/discovery`)],
+            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+          ])
+        );
+        return;
+      case 'calendar':
+        await ctx.reply(
+          `${actionPrefix}\n\nכאן אפשר לראות את התורים שלך ולעקוב אחרי מצב ההזמנות.`,
+          quickKeyboard([
+            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+            [Markup.button.webApp('קביעת תור חדש', `${webAppUrl}/discovery`)],
+          ])
+        );
+        return;
+      case 'messages':
+        await ctx.reply(
+          `${actionPrefix}\n\nבמסך ההודעות אפשר לראות או לשלוח הודעה דרך המערכת. שום דבר לא נשלח בלי בחירה שלך.`,
+          quickKeyboard([
+            [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
+            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+          ])
+        );
+        return;
+      case 'pricing':
+      case 'services':
+        await ctx.reply(
+          `${actionPrefix}\n\nאפשר לראות מחירון, לבחור מומחה ולבדוק אילו טיפולים זמינים לפני קביעת תור.`,
+          quickKeyboard([
+            [Markup.button.webApp('פתח מחירון', `${webAppUrl}/pricing`)],
+            [Markup.button.webApp('בחירת מומחה וטיפול', `${webAppUrl}/discovery`)],
+          ])
+        );
+        return;
+      case 'image_post':
+        await ctx.reply(
+          'יצירת פוסטים ושיפור תמונות מיועדים כרגע לבעלות עסק בתוך הבוט. אם את בעלת עסק, היכנסי כאדמין או מאסטר ואז שלחי תמונה כאן בצ\'אט.',
+          quickKeyboard([
+            [Markup.button.webApp('פתחי את המערכת', `${webAppUrl}/`)],
+            [Markup.button.callback('הרשמה כבעלת עסק', 'register_request')],
+          ])
+        );
+        return;
+      case 'smalltalk':
+        await ctx.reply(
+          'היי, אני כאן. אפשר לכתוב רגיל: "אני רוצה לקבוע תור", "איפה התורים שלי?", או "כמה זה עולה?".',
+          quickKeyboard([
+            [Markup.button.webApp('קביעת תור', `${webAppUrl}/discovery`)],
+            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+          ])
+        );
+        return;
+      default:
+        await ctx.reply(
+          `${actionPrefix}\n\nאני יכול לעזור בקביעת תור, בדיקת התורים שלך, מחירון והודעות.\n\nכתבי למשל: "אני רוצה לקבוע תור" או "איפה התורים שלי?".`,
+          quickKeyboard([
+            [Markup.button.webApp('קביעת תור', `${webAppUrl}/discovery`)],
+            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+            [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
+          ])
+        );
+    }
   });
 
   // Photo handler
