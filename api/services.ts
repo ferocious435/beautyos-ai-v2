@@ -21,6 +21,10 @@ const getTelegramId = (value: unknown): number | null => {
 };
 
 const getErrorMessage = (err: unknown) => err instanceof Error ? err.message : 'Unexpected server error';
+const missingDescriptionColumnError = (err: unknown) => {
+  const message = getErrorMessage(err).toLowerCase();
+  return message.includes('description') && (message.includes('column') || message.includes('schema cache'));
+};
 
 const dayBounds = (date: string) => {
   const start = new Date(date);
@@ -461,7 +465,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const { data: services, error } = await supabase
         .from('services')
-        .select('id, name, price, duration_mins, is_active, created_at')
+        .select('*')
         .eq('master_id', profile.id)
         .order('created_at', { ascending: false });
 
@@ -475,12 +479,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const telegramId = getTelegramId(authUser?.id);
       if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
 
-      const { id, name, price, durationMins, isActive } = req.body || {};
+      const { id, name, description, price, durationMins, isActive } = req.body || {};
       const cleanName = typeof name === 'string' ? name.trim() : '';
+      const cleanDescription = typeof description === 'string' ? description.trim().slice(0, 240) : '';
       const cleanPrice = Number(price);
       const cleanDuration = Number(durationMins);
 
       if (!cleanName) return res.status(400).json({ error: 'Service name is required' });
+      if (typeof description === 'string' && description.trim().length > 240) {
+        return res.status(400).json({ error: 'Service description must be 240 characters or fewer' });
+      }
       if (!Number.isFinite(cleanPrice) || cleanPrice < 0) {
         return res.status(400).json({ error: 'Service price must be 0 or higher' });
       }
@@ -502,29 +510,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const payload = {
         master_id: profile.id,
         name: cleanName,
+        description: cleanDescription || null,
         price: cleanPrice,
         duration_mins: cleanDuration,
         is_active: typeof isActive === 'boolean' ? isActive : true,
       };
 
       if (typeof id === 'string' && id.trim()) {
-        const { data: service, error } = await supabase
+        let { data: service, error } = await supabase
           .from('services')
           .update(payload)
           .eq('id', id)
           .eq('master_id', profile.id)
-          .select('id, name, price, duration_mins, is_active')
+          .select('*')
           .single();
+
+        if (error && missingDescriptionColumnError(error)) {
+          const fallbackPayload = {
+            master_id: profile.id,
+            name: cleanName,
+            price: cleanPrice,
+            duration_mins: cleanDuration,
+            is_active: typeof isActive === 'boolean' ? isActive : true,
+          };
+
+          ({ data: service, error } = await supabase
+            .from('services')
+            .update(fallbackPayload)
+            .eq('id', id)
+            .eq('master_id', profile.id)
+            .select('*')
+            .single());
+        }
 
         if (error) return res.status(500).json({ error: getErrorMessage(error) });
         return res.status(200).json({ service });
       }
 
-      const { data: service, error } = await supabase
+      let { data: service, error } = await supabase
         .from('services')
         .insert(payload)
-        .select('id, name, price, duration_mins, is_active')
+        .select('*')
         .single();
+
+      if (error && missingDescriptionColumnError(error)) {
+        const fallbackPayload = {
+          master_id: profile.id,
+          name: cleanName,
+          price: cleanPrice,
+          duration_mins: cleanDuration,
+          is_active: typeof isActive === 'boolean' ? isActive : true,
+        };
+
+        ({ data: service, error } = await supabase
+          .from('services')
+          .insert(fallbackPayload)
+          .select('*')
+          .single());
+      }
 
       if (error) return res.status(500).json({ error: getErrorMessage(error) });
       return res.status(200).json({ service });

@@ -228,6 +228,9 @@ const Booking = () => {
                   <div>
                     <div className="text-lg font-bold">{svc.name}</div>
                     <div className="text-sm text-zinc-500">{svc.duration_mins} דקות</div>
+                    {svc.description ? (
+                      <div className="mt-2 text-sm leading-6 text-zinc-400">{svc.description}</div>
+                    ) : null}
                   </div>
                   <div className="font-black text-yellow-500">₪{svc.price}</div>
                 </button>
@@ -248,6 +251,9 @@ const Booking = () => {
                 <div className="font-bold">
                   {selectedService.name} (₪{selectedService.price})
                 </div>
+                {selectedService.description ? (
+                  <div className="mt-2 text-sm leading-6 text-zinc-600">{selectedService.description}</div>
+                ) : null}
               </div>
               {!rescheduleId && (
                 <button onClick={() => setSelectedService(null)} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-white">

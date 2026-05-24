@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS services (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     master_id UUID REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    description TEXT,
     duration_mins INTEGER NOT NULL DEFAULT 60,
     price NUMERIC NOT NULL DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,

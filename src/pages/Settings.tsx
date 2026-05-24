@@ -7,6 +7,7 @@ import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 interface ServiceItem {
   id: string;
   name: string;
+  description?: string | null;
   price: number;
   duration_mins: number;
   is_active: boolean;
@@ -15,6 +16,7 @@ interface ServiceItem {
 interface ServiceDraft {
   id: string | null;
   name: string;
+  description: string;
   price: string;
   durationMins: string;
   isActive: boolean;
@@ -23,6 +25,7 @@ interface ServiceDraft {
 const emptyDraft: ServiceDraft = {
   id: null,
   name: '',
+  description: '',
   price: '',
   durationMins: '60',
   isActive: true,
@@ -182,6 +185,7 @@ const Settings = () => {
     setServiceDraft({
       id: service.id,
       name: service.name,
+      description: service.description || '',
       price: String(service.price),
       durationMins: String(service.duration_mins),
       isActive: service.is_active,
@@ -255,6 +259,10 @@ const Settings = () => {
             <p className="text-sm leading-7 text-zinc-400">
               ככל שרשימת השירותים תהיה ברורה יותר, כך ללקוח יהיה קל יותר להבין מה הוא מקבל וכמה זמן צריך לשמור עבורו ביומן.
             </p>
+            <div className="mt-4 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-100">
+              השדות החשובים באמת הם שם השירות, המחיר ומשך הזמן.
+              תיאור קצר הוא לא חובה, אבל הוא עוזר ללקוחה להבין מה היא תקבל.
+            </div>
           </div>
         </section>
 
@@ -269,6 +277,11 @@ const Settings = () => {
               </div>
 
               <div className="space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-zinc-300">
+                  כדי שלקוחה תבחר בקלות, מספיק למלא שם שירות, מחיר ומשך זמן.
+                  תיאור קצר הוא רשות, אבל הוא יכול לעזור לה להבין מה מיוחד בשירות הזה.
+                </div>
+
                 <div>
                   <label className="mb-2 block text-xs font-bold tracking-wider text-zinc-400">שם השירות</label>
                   <input
@@ -278,6 +291,19 @@ const Settings = () => {
                     className="w-full rounded-2xl border border-white/10 bg-black/20 p-4 text-white outline-none transition focus:border-yellow-500/50"
                     placeholder="למשל: עיסוי, איפור ערב או טיפול פנים"
                   />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold tracking-wider text-zinc-400">תיאור קצר (לא חובה)</label>
+                  <textarea
+                    value={serviceDraft.description}
+                    onChange={(event) => setServiceDraft((current) => ({ ...current, description: event.target.value.slice(0, 240) }))}
+                    className="min-h-[112px] w-full rounded-2xl border border-white/10 bg-black/20 p-4 text-white outline-none transition focus:border-yellow-500/50"
+                    placeholder="למשל: כולל ייעוץ קצר, התאמה אישית וסיום עדין. הלקוחה תראה את זה לפני קביעת התור."
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">
+                    התיאור עוזר ללקוחה להבין מה בדיוק היא עומדת לבחור.
+                  </p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -359,6 +385,9 @@ const Settings = () => {
                           <p className="mt-1 text-sm text-zinc-400">
                             {service.duration_mins} דקות • ₪{service.price}
                           </p>
+                          {service.description ? (
+                            <p className="mt-2 text-sm leading-6 text-zinc-400">{service.description}</p>
+                          ) : null}
                           <p className={`mt-2 text-xs font-bold ${service.is_active ? 'text-emerald-400' : 'text-zinc-500'}`}>
                             {service.is_active ? 'מוצג ללקוחות' : 'מוסתר כרגע מהלקוחות'}
                           </p>
