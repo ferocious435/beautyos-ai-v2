@@ -24,7 +24,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     },
     {
       path: '/calendar',
-      label: isAdmin ? 'קלנדר' : (userRole === 'client' ? 'היומן שלי' : 'תורים'),
+      label: isAdmin ? 'יומן' : (userRole === 'client' ? 'היומן שלי' : 'תורים'),
       roles: ['client', 'master', 'admin'] as NavRole[],
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -112,10 +112,10 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const filteredItems = navItems.filter((item) => item.roles.includes(userRole));
 
   return (
-    <div className="min-h-screen relative bg-[#050505] overflow-x-hidden text-white" dir="rtl" data-testid="main-layout" data-role={userRole}>
+    <div className="relative min-h-screen overflow-x-hidden bg-[#050505] text-white" dir="rtl" data-testid="main-layout" data-role={userRole}>
       <main className="w-full">{children}</main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#0c0c0e]/95 backdrop-blur-3xl border-t border-white/5 px-2 py-3 z-[100] pb-7 overflow-x-auto no-scrollbar">
+      <nav className="fixed bottom-0 left-0 right-0 z-[100] overflow-x-auto border-t border-white/5 bg-[#0c0c0e]/95 px-2 py-3 pb-7 backdrop-blur-3xl no-scrollbar">
         <div className="mx-auto flex min-w-max max-w-3xl items-center justify-around gap-2">
           {filteredItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -124,16 +124,16 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <Link
                 key={`${item.path}-${item.label}`}
                 to={item.path}
-                className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative rounded-2xl px-3 py-2 ${isActive ? 'text-yellow-500 bg-yellow-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}
-                style={{ minWidth: '68px', minHeight: '48px', display: 'flex', justifyContent: 'center' }}
+                className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-2 transition-all duration-300 ${isActive ? 'bg-yellow-500/10 text-yellow-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+                style={{ minWidth: '68px', minHeight: '48px' }}
               >
-                <div className={`w-6 h-6 transition-transform duration-300 ${isActive ? 'scale-110' : 'scale-100 opacity-70'}`}>
+                <div className={`h-6 w-6 transition-transform duration-300 ${isActive ? 'scale-110' : 'scale-100 opacity-70'}`}>
                   {item.icon(isActive)}
                 </div>
                 <span className={`text-[9px] font-bold tracking-tight ${isActive ? 'opacity-100' : 'opacity-60'}`}>
                   {item.label}
                 </span>
-                {isActive ? <div className="absolute -bottom-1 w-5 h-1 bg-yellow-500 rounded-full blur-[2px] opacity-50" /> : null}
+                {isActive ? <div className="absolute -bottom-1 h-1 w-5 rounded-full bg-yellow-500 opacity-50 blur-[2px]" /> : null}
               </Link>
             );
           })}

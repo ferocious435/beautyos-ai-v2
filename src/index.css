@@ -8,6 +8,7 @@
   --accent-light: #fef08a;
   --text-primary: var(--tg-theme-text-color, #ffffff);
   --text-secondary: var(--tg-theme-hint-color, #94a3b8);
+  --telegram-top-offset: calc(env(safe-area-inset-top, 0px) + 64px);
   
   --glass: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
@@ -34,6 +35,16 @@ html, body {
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+.telegram-safe-page {
+  padding-top: var(--telegram-top-offset);
+}
+
+@media (min-width: 768px) {
+  .telegram-safe-page {
+    padding-top: 2rem;
+  }
 }
 
 /* Luxury Typography Classes */

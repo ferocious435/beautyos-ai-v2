@@ -14,6 +14,8 @@ const {
   Trash2,
 } = Lucide as any;
 
+const dayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+
 const MasterCalendar = () => {
   const navigate = useNavigate();
   const appUser = useAppStore((state) => state.user);
@@ -46,7 +48,7 @@ const MasterCalendar = () => {
         });
 
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed to load bookings');
+        if (!response.ok) throw new Error(data.error || 'לא הצלחנו לטעון את היומן');
         setBookings(data.bookings || []);
       } catch (error) {
         console.error('CALENDAR: Fetch error:', error);
@@ -130,7 +132,7 @@ const MasterCalendar = () => {
 
     return (
       <div className="grid grid-cols-7 gap-1 p-2">
-        {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map((dayName) => (
+        {dayNames.map((dayName) => (
           <div key={dayName} className="py-2 text-center text-[10px] font-bold text-zinc-600">
             {dayName}
           </div>
@@ -165,27 +167,27 @@ const MasterCalendar = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#050508] p-4 pb-32 text-white" dir="rtl">
-      <header className="mb-6 flex items-center justify-between pt-4">
-        <div>
+    <div className="telegram-safe-page min-h-screen bg-[#050508] px-4 pb-32 text-white" dir="rtl">
+      <header className="mb-6 space-y-4">
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-4">
           <h1 className="text-2xl font-black">
             {appUser.role === 'admin' ? 'יומן המערכת' : 'יומן התורים'}
           </h1>
-          <p className="text-xs text-zinc-500">
-            עכשיו משך כל תור מוצג לפי הזמן האמיתי שלו.
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            כאן רואים את התורים לפי שעה אמיתית, כולל משך הטיפול שנבחר.
           </p>
         </div>
 
-        <div className="flex rounded-xl border border-white/5 bg-zinc-900/80 p-1">
+        <div className="grid grid-cols-2 rounded-2xl border border-white/10 bg-zinc-900/80 p-1">
           <button
             onClick={() => setViewMode('day')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${viewMode === 'day' ? 'bg-white text-black shadow-lg' : 'text-zinc-500'}`}
+            className={`min-h-11 rounded-xl px-4 py-2 text-sm font-black transition-all ${viewMode === 'day' ? 'bg-white text-black shadow-lg' : 'text-zinc-400'}`}
           >
             יום
           </button>
           <button
             onClick={() => setViewMode('month')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-white text-black shadow-lg' : 'text-zinc-500'}`}
+            className={`min-h-11 rounded-xl px-4 py-2 text-sm font-black transition-all ${viewMode === 'month' ? 'bg-white text-black shadow-lg' : 'text-zinc-400'}`}
           >
             חודש
           </button>
@@ -195,9 +197,13 @@ const MasterCalendar = () => {
       {viewMode === 'month' ? (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-premium overflow-hidden rounded-3xl border border-white/5">
           <div className="flex items-center justify-between border-b border-white/5 bg-white/5 p-4">
-            <button onClick={() => moveMonth(-1)}><ChevronRight size={20} /></button>
+            <button aria-label="החודש הקודם" onClick={() => moveMonth(-1)} className="flex h-11 w-11 items-center justify-center rounded-2xl bg-black/20">
+              <ChevronRight size={20} />
+            </button>
             <div className="font-bold">{selectedDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })}</div>
-            <button onClick={() => moveMonth(1)}><ChevronLeft size={20} /></button>
+            <button aria-label="החודש הבא" onClick={() => moveMonth(1)} className="flex h-11 w-11 items-center justify-center rounded-2xl bg-black/20">
+              <ChevronLeft size={20} />
+            </button>
           </div>
           {renderMonthGrid()}
         </motion.div>
@@ -255,10 +261,10 @@ const MasterCalendar = () => {
                       </div>
 
                       <div className="flex gap-1">
-                        <button onClick={() => handleReschedule(booking)} className="rounded-lg bg-white/5 p-1.5 text-zinc-400 hover:text-white">
+                        <button aria-label="הזזת תור" onClick={() => handleReschedule(booking)} className="rounded-lg bg-white/5 p-1.5 text-zinc-400 hover:text-white">
                           <Move size={12} />
                         </button>
-                        <button onClick={() => handleCancel(booking.id)} className="rounded-lg bg-red-500/10 p-1.5 text-red-500 hover:bg-red-500/20">
+                        <button aria-label="ביטול תור" onClick={() => handleCancel(booking.id)} className="rounded-lg bg-red-500/10 p-1.5 text-red-500 hover:bg-red-500/20">
                           <Trash2 size={12} />
                         </button>
                       </div>

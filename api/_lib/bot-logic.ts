@@ -139,8 +139,8 @@ export const registrationWizard = new Scenes.WizardScene<BotContext>(
   async (ctx) => {
     await ctx.reply('✨ ברוכים הבאים ל-BeautyOS AI v2! ✨\nבואו נגדיר את הפרופיל שלכם. מי אתם?', 
       Markup.inlineKeyboard([
-        [Markup.button.callback('💆‍♂️ אני מאסטר (Professional Master)', 'set_role_master')],
-        [Markup.button.callback('🛍️ אני לקוח (Private Client)', 'set_role_client')]
+        [Markup.button.callback('💆‍♂️ אני מאסטר / בעלת עסק', 'set_role_master')],
+        [Markup.button.callback('🛍️ אני לקוחה / לקוח', 'set_role_client')]
       ])
     );
     return ctx.wizard.next();
@@ -241,7 +241,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) { /* ignore */ }
 
-    const name = ctx.from?.first_name || 'Beauty Expert';
+    const name = ctx.from?.first_name || 'חברת BeautyOS';
     const payload = (ctx.message as any).text.split(' ')[1]; // Payload: /start <payload>
 
     const supabase = getSupabase();
@@ -249,7 +249,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     // MAGIC ADMIN BYPASS (Zero-Click Registration for Owner)
     if (payload === 'root' || payload === 'admin') {
       if (!isPrivilegedTelegramUser(ctx.from?.id)) {
-        return ctx.reply('Unauthorized admin bootstrap request.');
+        return ctx.reply('אין הרשאה לפתוח מצב מנהל מהחשבון הזה.');
       }
 
       if (supabase && ctx.from) {
@@ -315,18 +315,18 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   // Command handlers
   bot.command('register', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
   bot.command('id', async (ctx) => {
-    await ctx.reply(`Telegram ID שלך: ${ctx.from?.id || 'unknown'}\nRole change: אם זה חשבון מנהל, שלח /start admin אחרי שה-ID נוסף ל-BOT_ADMIN_TELEGRAM_IDS.`);
+    await ctx.reply(`מזהה Telegram שלך: ${ctx.from?.id || 'לא ידוע'}\nאם זה חשבון מנהל, צריך להוסיף את המזהה לרשימת המנהלים ואז לשלוח /start admin.`);
   });
   bot.hears('📝 הרשמה', (ctx) => ctx.scene.enter(REGISTRATION_SCENE_ID));
 
   bot.command('role', async (ctx) => {
     if (!isPrivilegedTelegramUser(ctx.from?.id)) {
-      return ctx.reply('Unauthorized role change request.');
+      return ctx.reply('אין הרשאה לשנות תפקיד מהחשבון הזה.');
     }
 
     const role = (ctx.message as any).text.split(' ')[1];
     if (!['master', 'client', 'admin'].includes(role)) {
-      return ctx.reply('❌ Use: /role <master|client|admin>');
+      return ctx.reply('כדי לשנות תפקיד כתבו: /role master או /role client או /role admin');
     }
 
     const supabase = getSupabase();
@@ -360,14 +360,14 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
   fastRoles.forEach(role => {
     bot.action(`set_fast_role_${role}`, async (ctx) => {
       if (role === 'admin' && !isPrivilegedTelegramUser(ctx.from?.id)) {
-        await ctx.answerCbQuery('Unauthorized role change request.');
+        await ctx.answerCbQuery('אין הרשאה לשנות תפקיד.');
         return;
       }
 
       const supabase = getSupabase();
       if (supabase && ctx.from) {
         await supabase.from('users').update({ role }).eq('telegram_id', ctx.from.id);
-        await ctx.answerCbQuery(`Role set to ${role}`);
+        await ctx.answerCbQuery('התפקיד עודכן');
         await ctx.reply(`✅ תפקידך שונה ל: **${role}**.\nפתח את ה-Studio מחדש.`);
       }
     });
@@ -388,11 +388,11 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
       if (readErr) throw readErr;
       if (Number(pendingBooking.master.telegram_id) !== Number(ctx.from?.id)) {
-        await ctx.answerCbQuery('Unauthorized booking action.');
+        await ctx.answerCbQuery('אין הרשאה לבצע פעולה על התור הזה.');
         return;
       }
       if (pendingBooking.status !== 'pending') {
-        await ctx.answerCbQuery('This booking is no longer pending.');
+        await ctx.answerCbQuery('התור הזה כבר לא ממתין לאישור.');
         return;
       }
       const overlaps = await hasBookingOverlap(
@@ -403,7 +403,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         pendingBooking.id
       );
       if (overlaps) {
-        await ctx.answerCbQuery('This time is no longer available.');
+        await ctx.answerCbQuery('השעה הזו כבר לא פנויה.');
         return;
       }
 
@@ -445,11 +445,11 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
       if (readErr) throw readErr;
       if (Number(pendingBooking.master.telegram_id) !== Number(ctx.from?.id)) {
-        await ctx.answerCbQuery('Unauthorized booking action.');
+        await ctx.answerCbQuery('אין הרשאה לבצע פעולה על התור הזה.');
         return;
       }
       if (pendingBooking.status !== 'pending') {
-        await ctx.answerCbQuery('This booking is no longer pending.');
+        await ctx.answerCbQuery('התור הזה כבר לא ממתין לאישור.');
         return;
       }
 
@@ -562,7 +562,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       await ctx.answerCbQuery('💎 לוגו הוסר.');
     } else {
       const supabase = getSupabase();
-      let logoText = 'Beauty Expert';
+      let logoText = 'BeautyOS';
       if (supabase) {
         const { data: user } = await supabase.from('users').select('business_name').eq('telegram_id', ctx.from.id).single();
         if (user?.business_name) logoText = user.business_name;
@@ -646,6 +646,58 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     return next();
   });
 
+  bot.on('text', async (ctx) => {
+    const supabase = getSupabase();
+    const webAppUrl = getWebAppUrl();
+    let userRole = 'client';
+
+    if (supabase && ctx.from?.id) {
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('role')
+        .eq('telegram_id', ctx.from.id)
+        .single();
+      if (dbUser?.role) userRole = dbUser.role;
+    }
+
+    const isManager = userRole === 'master' || userRole === 'admin';
+    const text = ctx.message.text.trim();
+    const lowerText = text.toLowerCase();
+    const wantsBooking = /תור|יומן|זמן|שעה|booking|calendar/.test(lowerText);
+    const wantsImage = /תמונה|פוסט|אינסטגרם|עיצוב|שיווק|image|post/.test(lowerText);
+
+    if (isManager) {
+      const hint = wantsImage
+        ? 'שלחו כאן תמונה, ואני אפתח לכם תהליך קצר לשיפור תמונה או הכנת פוסט.'
+        : wantsBooking
+          ? 'אפשר לנהל תורים ביומן, לאשר בקשות ולשנות שעות דרך הכפתורים למטה.'
+          : 'אפשר לנהל יומן, שירותים, הודעות ללקוחות וגם לשלוח כאן תמונה להכנת פוסט.';
+
+      await ctx.reply(
+        `אני כאן.\n\n${hint}\n\nבחרו פעולה:`,
+        Markup.inlineKeyboard([
+          [Markup.button.webApp('יומן וניהול תורים', `${webAppUrl}/calendar`)],
+          [Markup.button.webApp('שירותים והגדרות', `${webAppUrl}/settings`)],
+          [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
+        ])
+      );
+      return;
+    }
+
+    const hint = wantsBooking
+      ? 'כדי לקבוע תור, פתחו את רשימת המומחים ובחרו טיפול ושעה.'
+      : 'אפשר לקבוע תור, לראות את התורים שלך או לשלוח הודעה למאסטר מתוך המערכת.';
+
+    await ctx.reply(
+      `בשמחה.\n\n${hint}\n\nמה תרצו לעשות עכשיו?`,
+      Markup.inlineKeyboard([
+        [Markup.button.webApp('קביעת תור', `${webAppUrl}/discovery`)],
+        [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+        [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
+      ])
+    );
+  });
+
   // Photo handler
   bot.on('photo', async (ctx) => {
     const photo = ctx.message.photo.pop();
@@ -721,7 +773,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       .single();
 
     if (profileError || !profile) {
-      await ctx.answerCbQuery('Profile not found.');
+      await ctx.answerCbQuery('הפרופיל לא נמצא.');
       return;
     }
     
@@ -769,7 +821,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       .single();
 
     if (profileError || !profile) {
-      await ctx.answerCbQuery('Profile not found.');
+      await ctx.answerCbQuery('הפרופיל לא נמצא.');
       return;
     }
 
