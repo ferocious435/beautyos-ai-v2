@@ -56,6 +56,16 @@ test('keeps risky or ambiguous wording in the right mode', () => {
   );
 
   assert.deepEqual(
+    pick(classifyConversationIntent('תזיזי לי את התור למחר')),
+    { intent: 'appointment', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('אפשר להזיז את התור?')),
+    { intent: 'appointment', mode: 'inform' }
+  );
+
+  assert.deepEqual(
     pick(classifyConversationIntent('תשלח ברכה ללקוחה')),
     { intent: 'messages', mode: 'act' }
   );

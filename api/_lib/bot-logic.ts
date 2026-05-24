@@ -131,6 +131,27 @@ const isPrivilegedTelegramUser = (telegramId?: number) => {
 };
 
 const activeBookingStatuses = ['pending', 'confirmed'];
+const clientCancelTerms = ['בטל', 'לבטל', 'ביטול', 'למחוק את התור'];
+const clientRescheduleTerms = [
+  'הזז',
+  'להזיז',
+  'תזיז',
+  'תזיזי',
+  'העבר',
+  'להעביר',
+  'תעביר',
+  'לדחות',
+  'דחה',
+  'להקדים',
+  'הקדם',
+  'להחליף שעה',
+  'לשנות שעה',
+  'לשנות את התור',
+  'להזיז את התור',
+  'להעביר את התור',
+];
+
+const includesAnyPhrase = (text: string, phrases: string[]) => phrases.some((phrase) => text.includes(phrase));
 
 const getWebAppUrl = () => (process.env.WEBAPP_URL || '').replace(/\/$/, '');
 
@@ -1378,10 +1399,39 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
     switch (understood.intent) {
       case 'appointment':
-        await sendBookingStartFromChat(ctx, webAppUrl);
-        return;
       case 'calendar':
-        await sendClientBookingsStartFromChat(ctx, webAppUrl);
+        if (includesAnyPhrase(understood.normalizedText, clientCancelTerms)) {
+          await ctx.reply(
+            isActionRequest
+              ? 'הבנתי. כדי שלא יתבטל בטעות התור הלא נכון, אני פותח לך את התורים שלך ושם אפשר לבחור את התור הנכון ולאשר ביטול.'
+              : 'בטח. ביטול תור עושים מתוך רשימת התורים שלך, כדי לבחור בדיוק את התור הנכון. אני פותח לך את זה.',
+            quickKeyboard([
+              [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+              [Markup.button.webApp('קביעת תור חדש', `${webAppUrl}/discovery`)],
+            ])
+          );
+          return;
+        }
+
+        if (includesAnyPhrase(understood.normalizedText, clientRescheduleTerms)) {
+          await ctx.reply(
+            isActionRequest
+              ? 'בשמחה. כדי להזיז תור בלי לטעות בשעה או בתאריך, אני פותח לך את התורים שלך. משם אפשר לבחור את התור ולעדכן אותו.'
+              : 'כן, אפשר להזיז תור. הכי נוח לעשות את זה מתוך רשימת התורים שלך, ושם לבחור שעה או תאריך חדש.',
+            quickKeyboard([
+              [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+              [Markup.button.webApp('קביעת תור חדש', `${webAppUrl}/discovery`)],
+            ])
+          );
+          return;
+        }
+
+        if (understood.intent === 'calendar') {
+          await sendClientBookingsStartFromChat(ctx, webAppUrl);
+          return;
+        }
+
+        await sendBookingStartFromChat(ctx, webAppUrl);
         return;
       case 'messages':
         await ctx.reply(
@@ -1413,7 +1463,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         return;
       case 'smalltalk':
         await ctx.reply(
-          'היי, אני כאן. אפשר לכתוב רגיל: "אני רוצה לקבוע תור", "איפה התורים שלי?", או "כמה זה עולה?".',
+          'היי, אני כאן. אפשר לכתוב רגיל: "אני רוצה לקבוע תור", "איפה התורים שלי?", "כמה זה עולה?" או "אני רוצה להזיז תור".',
           quickKeyboard([
             [Markup.button.webApp('קביעת תור', `${webAppUrl}/discovery`)],
             [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
@@ -1422,7 +1472,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         return;
       default:
         await ctx.reply(
-          `${actionPrefix}\n\nאני יכול לעזור בקביעת תור חדש ובדיקת התורים שלך.\n\nכתבי למשל: "אני רוצה לקבוע תור" או "איפה התורים שלי?".`,
+          `${actionPrefix}\n\nאני יכול לעזור בקביעת תור חדש, בדיקת התורים שלך, והכוונה לביטול או שינוי תור.\n\nכתבי למשל: "אני רוצה לקבוע תור", "איפה התורים שלי?" או "אני רוצה להזיז תור".`,
           quickKeyboard([
             [Markup.button.callback('התחלת קביעת תור', 'chat_booking_start')],
             [Markup.button.callback('בדיקת התורים שלי', 'chat_calendar_start')],
