@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
-import { useAppStore } from './store/useAppStore';
+import { useAppStore, useEffectiveRole } from './store/useAppStore';
 import { telegramAuthHeaders } from './lib/telegramAuth';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -24,7 +24,8 @@ const PageLoader = () => (
 );
 
 function App() {
-  const userRole = useAppStore((state) => state.user.role);
+  const setPreviewRole = useAppStore((state) => state.setPreviewRole);
+  const effectiveRole = useEffectiveRole();
   const [bootstrapReady, setBootstrapReady] = useState(false);
 
   useEffect(() => {
@@ -65,6 +66,7 @@ function App() {
 
         const { profile } = await response.json();
         console.log('APP: Profile found:', profile.business_name || profile.full_name);
+        setPreviewRole(null);
         useAppStore.setState({
           user: {
             id: profile.id,
@@ -76,6 +78,7 @@ function App() {
         });
       } catch (err) {
         console.error('APP: Critical initialization error:', err);
+        setPreviewRole(null);
         useAppStore.setState({
           user: {
             id: '',
@@ -90,7 +93,7 @@ function App() {
     };
 
     fetchUser();
-  }, []);
+  }, [setPreviewRole]);
 
   if (!bootstrapReady) {
     return <PageLoader />;
@@ -103,13 +106,13 @@ function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Main Entry Points with conditional logic */}
-              <Route path="/" element={userRole === 'client' ? <ClientDashboard /> : <Dashboard />} />
+              <Route path="/" element={effectiveRole === 'client' ? <ClientDashboard /> : <Dashboard />} />
               <Route path="/booking" element={<Booking />} />
               
               {/* Explicit Admin/Unified Routes */}
               <Route path="/dashboard/master" element={<Dashboard />} />
               <Route path="/dashboard/client" element={<ClientDashboard />} />
-              <Route path="/calendar" element={userRole === 'client' ? <ClientDashboard /> : <MasterCalendar />} />
+              <Route path="/calendar" element={effectiveRole === 'client' ? <ClientDashboard /> : <MasterCalendar />} />
               <Route path="/order" element={<Booking />} />
 
               {/* Shared Routes */}

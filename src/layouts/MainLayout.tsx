@@ -1,19 +1,23 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useEffectiveRole } from '../store/useAppStore';
+import type { AppRole } from '../store/useAppStore';
 
-type NavRole = 'client' | 'master' | 'admin';
+type NavRole = AppRole;
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const user = useAppStore((state) => state.user);
-  const userRole = (user.role || 'client') as NavRole;
-  const isAdmin = userRole === 'admin';
+  const previewRole = useAppStore((state) => state.previewRole);
+  const setPreviewRole = useAppStore((state) => state.setPreviewRole);
+  const userRole = useEffectiveRole() as NavRole;
+  const actualRole = (user.role || 'client') as NavRole;
+  const isAdmin = actualRole === 'admin';
 
   const navItems = [
     {
-      path: isAdmin ? '/dashboard/master' : '/',
-      label: isAdmin ? 'סטודיו' : (userRole === 'client' ? 'התורים שלי' : 'סטודיו'),
+      path: userRole === 'client' ? '/' : '/dashboard/master',
+      label: userRole === 'client' ? 'התורים שלי' : 'סטודיו',
       roles: ['client', 'master', 'admin'] as NavRole[],
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -24,7 +28,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     },
     {
       path: '/calendar',
-      label: isAdmin ? 'יומן' : (userRole === 'client' ? 'היומן שלי' : 'תורים'),
+      label: userRole === 'client' ? 'היומן שלי' : 'תורים',
       roles: ['client', 'master', 'admin'] as NavRole[],
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -113,7 +117,43 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#050505] text-white" dir="rtl" data-testid="main-layout" data-role={userRole}>
-      <main className="w-full">{children}</main>
+      <main className={isAdmin ? 'pt-20' : ''}>{children}</main>
+
+      {isAdmin ? (
+        <div className="fixed left-3 right-3 top-3 z-[110]">
+          <div className="mx-auto flex max-w-xl items-center justify-between gap-3 rounded-3xl border border-yellow-500/20 bg-[#0b0b0d]/92 p-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+            <div className="min-w-0">
+              <div className="text-[10px] font-black uppercase tracking-[0.22em] text-yellow-500">View Mode</div>
+              <div className="truncate text-xs text-zinc-400">
+                {previewRole ? `תצוגה זמנית: ${previewRole}` : 'אתה כרגע בתצוגת אדמין מלאה'}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {([
+                { role: 'client', label: 'לקוח' },
+                { role: 'master', label: 'מאסטר' },
+                { role: 'admin', label: 'אדמין' },
+              ] as Array<{ role: NavRole; label: string }>).map((item) => {
+                const isActive = userRole === item.role;
+                const nextPreview = item.role === 'admin' ? null : item.role;
+
+                return (
+                  <button
+                    key={item.role}
+                    onClick={() => setPreviewRole(nextPreview)}
+                    className={`min-h-10 rounded-2xl px-3 py-2 text-xs font-black transition-all ${
+                      isActive ? 'bg-yellow-500 text-black' : 'bg-white/5 text-zinc-300'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <nav className="fixed bottom-0 left-0 right-0 z-[100] overflow-x-auto border-t border-white/5 bg-[#0c0c0e]/95 px-2 py-3 pb-7 backdrop-blur-3xl no-scrollbar">
         <div className="mx-auto flex min-w-max max-w-3xl items-center justify-around gap-2">

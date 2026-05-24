@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, Sparkles, User } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 import { telegramAuthHeaders } from '../lib/telegramAuth';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 
 interface ServiceItem {
   id: string;
@@ -31,6 +31,7 @@ const emptyDraft: ServiceDraft = {
 const Settings = () => {
   const { haptic } = useTelegram();
   const appUser = useAppStore((state) => state.user);
+  const effectiveRole = useEffectiveRole();
   const [businessName, setBusinessName] = useState('');
   const [address, setAddress] = useState('');
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -39,7 +40,7 @@ const Settings = () => {
   const [isSavingService, setIsSavingService] = useState(false);
   const [screenMessage, setScreenMessage] = useState('');
 
-  const isManager = appUser.role === 'master' || appUser.role === 'admin';
+  const isManager = effectiveRole === 'master' || effectiveRole === 'admin';
 
   const loadProfile = useCallback(async () => {
     const response = await fetch('/api/services?action=get-profile', {

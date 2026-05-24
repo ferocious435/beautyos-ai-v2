@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { telegramAuthHeaders } from '../lib/telegramAuth';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 import type { Booking } from '../types/database';
 
 const {
@@ -19,6 +19,7 @@ const dayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 const MasterCalendar = () => {
   const navigate = useNavigate();
   const appUser = useAppStore((state) => state.user);
+  const effectiveRole = useEffectiveRole();
   const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -41,7 +42,7 @@ const MasterCalendar = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
           body: JSON.stringify({
-            role: appUser.role === 'admin' ? 'admin' : 'master',
+            role: effectiveRole === 'admin' ? 'admin' : 'master',
             date: selectedDate.toISOString(),
             viewMode,
           }),
@@ -59,7 +60,7 @@ const MasterCalendar = () => {
     };
 
     fetchBookings();
-  }, [appUser.id, appUser.role, selectedDate, viewMode]);
+  }, [appUser.id, effectiveRole, selectedDate, viewMode]);
 
   const handleCancel = async (bookingId: string) => {
     if (!window.confirm('לבטל את התור הזה?')) return;
@@ -171,7 +172,7 @@ const MasterCalendar = () => {
       <header className="mb-6 space-y-4">
         <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-4">
           <h1 className="text-2xl font-black">
-            {appUser.role === 'admin' ? 'יומן המערכת' : 'יומן התורים'}
+            {effectiveRole === 'admin' ? 'יומן המערכת' : 'יומן התורים'}
           </h1>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
             כאן רואים את התורים לפי שעה אמיתית, כולל משך הטיפול שנבחר.
@@ -254,7 +255,7 @@ const MasterCalendar = () => {
                       <div>
                         <div className="truncate text-xs font-bold">{booking.client?.full_name || 'לקוחה'}</div>
                         <div className="text-[9px] text-zinc-500">
-                          {appUser.role === 'admin'
+                          {effectiveRole === 'admin'
                             ? `מאסטר: ${booking.master?.full_name || 'ללא שם'}`
                             : (booking.service?.name || 'טיפול אישי')}
                         </div>

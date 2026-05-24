@@ -13,7 +13,7 @@ const {
 } = Lucide as any;
 import { useTelegram } from '../hooks/useTelegram';
 import { telegramAuthHeaders } from '../lib/telegramAuth';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 
 const Dashboard = () => {
   const { tg, haptic, setMainButton, hideMainButton, user } = useTelegram();
@@ -35,6 +35,7 @@ const Dashboard = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   
   const appUser = useAppStore(state => state.user);
+  const effectiveRole = useEffectiveRole();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
@@ -60,7 +61,7 @@ const Dashboard = () => {
         const response = await fetch('/api/services?action=get-my-bookings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
-          body: JSON.stringify({ role: appUser.role === 'admin' ? 'admin' : 'master' }),
+          body: JSON.stringify({ role: effectiveRole === 'admin' ? 'admin' : 'master' }),
         });
 
         const data = await response.json();
@@ -86,7 +87,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [appUser.id, appUser.role]);
+  }, [appUser.id, effectiveRole]);
 
   useEffect(() => {
     const currentText = generatedResults ? (generatedResults[activeSocial.toLowerCase()] || generatedResults.instagram) : null;
