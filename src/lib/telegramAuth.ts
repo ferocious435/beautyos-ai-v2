@@ -10,3 +10,8 @@ export const getTelegramUserId = () => {
 export const telegramAuthHeaders = () => ({
   'x-telegram-init-data': getTelegramInitData(),
 });
+
+export const telegramAuthHeadersWithPreview = (previewRole?: string | null) => ({
+  ...telegramAuthHeaders(),
+  ...(previewRole ? { 'x-beautyos-preview-role': previewRole } : {}),
+});

@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getTelegramInitData, getTelegramUserId, telegramAuthHeaders } from '../lib/telegramAuth';
+import { getTelegramUserId, telegramAuthHeadersWithPreview } from '../lib/telegramAuth';
+import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 
 const defaultBookingError = 'לא הצלחנו להשלים את הפעולה. אפשר לנסות שוב בעוד רגע.';
 
 const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const previewRole = useAppStore((state) => state.previewRole);
+  const effectiveRole = useEffectiveRole();
+  const apiPreviewRole = previewRole || effectiveRole;
   const masterId = searchParams.get('masterId');
   const rescheduleId = searchParams.get('rescheduleId');
 
@@ -41,10 +45,11 @@ const Booking = () => {
       try {
         const response = await fetch('/api/services?action=get-master-details', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeadersWithPreview(apiPreviewRole) },
           body: JSON.stringify({
             masterTelegramId: Number(masterId),
             rescheduleId,
+            previewRole: apiPreviewRole,
           }),
         });
 
@@ -67,7 +72,7 @@ const Booking = () => {
     };
 
     loadMasterAndServices();
-  }, [masterId, rescheduleId]);
+  }, [apiPreviewRole, masterId, rescheduleId]);
 
   useEffect(() => {
     const loadSlots = async () => {
@@ -77,11 +82,12 @@ const Booking = () => {
       try {
         const response = await fetch('/api/services?action=get-available-slots', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeadersWithPreview(apiPreviewRole) },
           body: JSON.stringify({
             masterTelegramId: Number(masterId),
             date: selectedDate,
             serviceId: selectedService.id,
+            previewRole: apiPreviewRole,
           }),
         });
 
@@ -102,7 +108,7 @@ const Booking = () => {
     };
 
     loadSlots();
-  }, [masterId, selectedDate, selectedService]);
+  }, [apiPreviewRole, masterId, selectedDate, selectedService]);
 
   const handleBook = async (slotTime: string) => {
     const tgId = getTelegramUserId() || (import.meta.env.DEV ? 12345678 : null);
@@ -123,7 +129,7 @@ const Booking = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-telegram-init-data': getTelegramInitData(),
+          ...telegramAuthHeadersWithPreview(apiPreviewRole),
         },
         body: JSON.stringify({
           bookingId: rescheduleId,
@@ -131,6 +137,7 @@ const Booking = () => {
           clientTelegramId: tgId,
           serviceId: selectedService.id,
           startTime: slotTime,
+          previewRole: apiPreviewRole,
         }),
       });
 

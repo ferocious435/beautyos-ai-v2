@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { telegramAuthHeaders } from '../lib/telegramAuth';
+import { telegramAuthHeadersWithPreview } from '../lib/telegramAuth';
+import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 
 interface Master {
   id: string;
@@ -15,6 +16,8 @@ interface Master {
 
 const Discovery = () => {
   const navigate = useNavigate();
+  const previewRole = useAppStore((state) => state.previewRole);
+  const effectiveRole = useEffectiveRole();
   const [masters, setMasters] = useState<Master[]>([]);
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -46,8 +49,8 @@ const Discovery = () => {
       try {
         const response = await fetch('/api/services?action=list-masters', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
-          body: JSON.stringify({ location }),
+          headers: { 'Content-Type': 'application/json', ...telegramAuthHeadersWithPreview(previewRole || effectiveRole) },
+          body: JSON.stringify({ location, previewRole: previewRole || effectiveRole }),
         });
 
         const data = await response.json();
@@ -66,7 +69,7 @@ const Discovery = () => {
     };
 
     fetchMasters();
-  }, [location]);
+  }, [effectiveRole, location, previewRole]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const visibleMasters = masters.filter((master) => {

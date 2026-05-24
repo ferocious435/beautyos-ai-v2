@@ -72,6 +72,12 @@ const getPublicAppUrl = (req: VercelRequest) => {
 
 const activeBookingStatuses = ['pending', 'confirmed'];
 
+const getPreviewRole = (req: VercelRequest) => {
+  const value = req.headers['x-beautyos-preview-role'] || req.body?.previewRole;
+  const role = Array.isArray(value) ? value[0] : value;
+  return role === 'client' || role === 'master' || role === 'admin' ? role : null;
+};
+
 const hasBookingOverlap = async (
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
   masterId: string,
@@ -227,6 +233,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const masterTelegramId = getTelegramId(req.body?.masterTelegramId);
       if (!masterTelegramId) return res.status(400).json({ error: 'Missing valid masterTelegramId' });
+      const previewRole = getPreviewRole(req);
+      const requesterTelegramId = getTelegramId(authUser?.id);
 
       const { data: master, error: masterError } = await supabase
         .from('users')
@@ -234,7 +242,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('telegram_id', masterTelegramId)
         .single();
 
-      if (masterError || !master || master.role !== 'master') return res.status(404).json({ error: 'Master not found' });
+      const isAdminPreviewMaster =
+        master?.role === 'admin' &&
+        requesterTelegramId === getTelegramId(master.telegram_id) &&
+        (previewRole === 'client' || previewRole === 'master');
+
+      if (masterError || !master || (master.role !== 'master' && !isAdminPreviewMaster)) {
+        return res.status(404).json({ error: 'Master not found' });
+      }
 
       const { data: services, error: servicesError } = await supabase
         .from('services')
@@ -281,14 +296,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!masterTelegramId || !selectedDate || !serviceId) {
         return res.status(400).json({ error: 'Missing master, date or service' });
       }
+      const previewRole = getPreviewRole(req);
+      const requesterTelegramId = getTelegramId(authUser?.id);
 
       const { data: masterProfile } = await supabase
         .from('users')
-        .select('role')
+        .select('role, telegram_id')
         .eq('telegram_id', masterTelegramId)
         .single();
 
-      if (!masterProfile || masterProfile.role !== 'master') {
+      const isAdminPreviewMaster =
+        masterProfile?.role === 'admin' &&
+        requesterTelegramId === getTelegramId((masterProfile as any).telegram_id) &&
+        (previewRole === 'client' || previewRole === 'master');
+
+      if (!masterProfile || (masterProfile.role !== 'master' && !isAdminPreviewMaster)) {
         return res.status(404).json({ error: 'Master not found' });
       }
 
@@ -373,11 +395,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const userLocation = typeof location?.lat === 'number' && typeof location?.lng === 'number'
         ? { lat: location.lat, lng: location.lng }
         : undefined;
+      const previewRole = getPreviewRole(req);
+      const requesterTelegramId = getTelegramId(authUser?.id);
+      const { data: requesterProfile } = requesterTelegramId
+        ? await supabase
+          .from('users')
+          .select('id, role')
+          .eq('telegram_id', requesterTelegramId)
+          .single()
+        : { data: null };
+      const includeAdminPreviewMaster =
+        requesterProfile?.role === 'admin' && (previewRole === 'client' || previewRole === 'master');
 
       const { data: masters, error } = await supabase
         .from('users')
-        .select('id, telegram_id, full_name, business_name, latitude, longitude')
-        .eq('role', 'master')
+        .select('id, telegram_id, role, full_name, business_name, latitude, longitude')
+        .in('role', includeAdminPreviewMaster ? ['master', 'admin'] : ['master'])
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -409,7 +442,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       const result = (masters || [])
-        .filter((master: any) => enabledMasterIds.has(master.id))
+        .filter((master: any) => {
+          const isRegularMaster = master.role === 'master';
+          const isSelfPreviewMaster = includeAdminPreviewMaster && master.id === requesterProfile?.id;
+          return enabledMasterIds.has(master.id) && (isRegularMaster || isSelfPreviewMaster);
+        })
         .map((master: any) => ({
           ...master,
           dist_km: distanceKm(userLocation, { lat: master.latitude, lng: master.longitude }),
@@ -776,6 +813,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { masterTelegramId, clientTelegramId, serviceId, startTime, endTime } = req.body;
       const mId = Number(masterTelegramId);
       const cId = Number(clientTelegramId);
+      const previewRole = getPreviewRole(req);
       if (!mId || !cId) return res.status(400).send('Missing valid IDs');
 
       // Security Check: You can only book for yourself (or you are admin, but let's stick to strict validation)
@@ -788,7 +826,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: cUser } = await supabase.from('users').select('id, full_name, telegram_id').eq('telegram_id', cId).single();
         
         if (!mUser || !cUser) return res.status(404).json({ error: 'Master or Client not found in DB' });
-        if (mUser.role !== 'master') return res.status(400).json({ error: 'Selected provider is not available for booking' });
+        const isAdminPreviewMaster =
+          mUser.role === 'admin' &&
+          Number(authUser?.id) === Number(mUser.telegram_id) &&
+          mId === cId &&
+          (previewRole === 'client' || previewRole === 'master');
+        if (mUser.role !== 'master' && !isAdminPreviewMaster) {
+          return res.status(400).json({ error: 'Selected provider is not available for booking' });
+        }
 
         // Если передана услуга, получаем её цену и длительность
         let duration = 60;
