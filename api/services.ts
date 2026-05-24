@@ -763,6 +763,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             client_id: cUser.id,
             service_id: serviceId || null,
             total_price: price || null,
+            scheduled_at: startTime,
             start_time: startTime,
             end_time: finalEndTime,
             status: 'pending'
@@ -1004,7 +1005,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const { data: booking, error: bErr } = await supabase
           .from('bookings')
-          .update({ start_time: startTime, end_time: endTime, status: 'pending', notified_24h: false, notified_3h: false })
+          .update({ scheduled_at: startTime, start_time: startTime, end_time: endTime, status: 'pending', notified_24h: false, notified_3h: false })
           .eq('id', bookingId)
           .in('status', activeBookingStatuses)
           .select('*, master:master_id (telegram_id, business_name, full_name), client:client_id (telegram_id, full_name)')
