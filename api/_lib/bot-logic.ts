@@ -84,6 +84,228 @@ const scheduleBookingReminders = async (booking: any) => {
   }
 };
 
+const formatChatDateTime = (value: string) =>
+  new Intl.DateTimeFormat('he-IL', {
+    timeZone: 'Asia/Jerusalem',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+
+const getChatTemplateDraft = (templateType: string, businessName = 'BeautyOS') => {
+  const templates: Record<string, { title: string; text: string }> = {
+    birthday: {
+      title: 'ברכת יום הולדת',
+      text: `מזל טוב אהובה! מאחלת לך שנה מלאה ביופי, ביטחון ורגעים טובים. ${businessName} מחכה לפנק אותך בטיפול הבא.`,
+    },
+    reminder: {
+      title: 'תזכורת עדינה לתור',
+      text: `היי, מזכירה בעדינות שהתור שלך מתקרב. אם צריך שינוי קטן בשעה, כתבי לי כאן ואעזור בשמחה. ${businessName}`,
+    },
+    promo: {
+      title: 'הודעת מבצע שקטה',
+      text: `חשבתי עלייך. השבוע יש לי חלון קטן למבצע מיוחד ללקוחות חוזרות. רוצה שאשמור לך מקום? ${businessName}`,
+    },
+    aftercare: {
+      title: 'הודעה אחרי טיפול',
+      text: `תודה שבאת היום. היה לי כיף לטפל בך. אם אהבת את התוצאה, אשמח שתשלחי תמונה או המלצה קטנה. ${businessName}`,
+    },
+  };
+
+  return templates[templateType] || templates.reminder!;
+};
+
+const getRoleProfile = async (
+  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  telegramId?: number
+) => {
+  if (!telegramId) return null;
+  const { data } = await supabase
+    .from('users')
+    .select('id, telegram_id, role, full_name, business_name')
+    .eq('telegram_id', telegramId)
+    .single();
+  return data || null;
+};
+
+const sendBookingStartFromChat = async (ctx: BotContext, webAppUrl: string) => {
+  const supabase = getSupabase();
+  if (!supabase) {
+    await ctx.reply(
+      'אפשר להתחיל קביעת תור דרך רשימת המומחים.',
+      Markup.inlineKeyboard([[Markup.button.webApp('חיפוש מומחה וקביעת תור', `${webAppUrl}/discovery`)]])
+    );
+    return;
+  }
+
+  const { data: masters } = await supabase
+    .from('users')
+    .select('id, telegram_id, full_name, business_name')
+    .in('role', ['master', 'admin'])
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  const masterIds = (masters || []).map((master: any) => master.id);
+  const { data: activeServices } = masterIds.length
+    ? await supabase
+      .from('services')
+      .select('master_id')
+      .in('master_id', masterIds)
+      .eq('is_active', true)
+    : { data: [] };
+
+  const enabledMasterIds = new Set((activeServices || []).map((service: any) => service.master_id));
+  const bookableMasters = (masters || [])
+    .filter((master: any) => enabledMasterIds.has(master.id) && master.telegram_id)
+    .slice(0, 5);
+
+  if (!bookableMasters.length) {
+    await ctx.reply(
+      'כרגע לא מצאתי מומחים עם שירותים פעילים. אפשר לפתוח את החיפוש ולבדוק שוב.',
+      Markup.inlineKeyboard([[Markup.button.webApp('חיפוש מומחה', `${webAppUrl}/discovery`)]])
+    );
+    return;
+  }
+
+  await ctx.reply(
+    'אפשר להתחיל מכאן. בחרי מומחה, ואז ייפתח מסך בחירת טיפול ושעה פנויה.',
+    Markup.inlineKeyboard([
+      ...bookableMasters.map((master: any) => [
+        Markup.button.webApp(
+          master.business_name || master.full_name || 'בחירת מומחה',
+          `${webAppUrl}/booking?masterId=${master.telegram_id}`
+        ),
+      ]),
+      [Markup.button.webApp('לכל המומחים', `${webAppUrl}/discovery`)],
+    ])
+  );
+};
+
+const sendManagerCalendarStartFromChat = async (ctx: BotContext, webAppUrl: string) => {
+  const supabase = getSupabase();
+  const fallback = Markup.inlineKeyboard([[Markup.button.webApp('פתחי יומן', `${webAppUrl}/calendar`)]]);
+  if (!supabase) {
+    await ctx.reply('פתחתי לך כיוון ליומן. שם אפשר לראות, לאשר ולשנות תורים.', fallback);
+    return;
+  }
+
+  const profile = await getRoleProfile(supabase, ctx.from?.id);
+  if (!profile) {
+    await ctx.reply('לא מצאתי פרופיל מחובר, אז עדיף לפתוח את היומן מהכפתור.', fallback);
+    return;
+  }
+
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  const { data: bookings } = await supabase
+    .from('bookings')
+    .select('id, status, start_time, client:client_id(full_name)')
+    .eq('master_id', profile.id)
+    .in('status', activeBookingStatuses)
+    .gte('start_time', start.toISOString())
+    .lte('start_time', end.toISOString())
+    .order('start_time', { ascending: true });
+
+  const pending = (bookings || []).filter((booking: any) => booking.status === 'pending').length;
+  const confirmed = (bookings || []).filter((booking: any) => booking.status === 'confirmed').length;
+  const nextItems = (bookings || [])
+    .slice(0, 3)
+    .map((booking: any) => `• ${formatChatDateTime(booking.start_time)} - ${booking.client?.full_name || 'לקוחה'}`)
+    .join('\n');
+
+  await ctx.reply(
+    `תקציר להיום:\n${confirmed} תורים מאושרים, ${pending} ממתינים לאישור.\n\n${nextItems || 'אין תורים להמשך היום.'}`,
+    fallback
+  );
+};
+
+const sendManagerServicesStartFromChat = async (ctx: BotContext, webAppUrl: string) => {
+  const supabase = getSupabase();
+  const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('עריכת שירותים ומחירים', `${webAppUrl}/settings`)]]);
+  if (!supabase) {
+    await ctx.reply('אפשר לערוך שירותים, מחירים ומשך טיפול דרך ההגדרות.', keyboard);
+    return;
+  }
+
+  const profile = await getRoleProfile(supabase, ctx.from?.id);
+  if (!profile) {
+    await ctx.reply('לא מצאתי פרופיל מחובר. פתחי את ההגדרות כדי לבדוק את השירותים.', keyboard);
+    return;
+  }
+
+  const { data: services } = await supabase
+    .from('services')
+    .select('name, price, duration_mins, is_active')
+    .eq('master_id', profile.id)
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  const lines = (services || [])
+    .map((service: any) => `• ${service.name} - ${service.price}₪, ${service.duration_mins} דק׳${service.is_active ? '' : ' (כבוי)'}`)
+    .join('\n');
+
+  await ctx.reply(
+    lines
+      ? `אלה השירותים שמצאתי:\n${lines}\n\nכדי לשנות מחיר, שם או משך טיפול - פתחי הגדרות.`
+      : 'עדיין לא מצאתי שירותים פעילים. כדאי להוסיף לפחות שירות אחד כדי שלקוחות יוכלו לקבוע תור.',
+    keyboard
+  );
+};
+
+const sendTemplateMenuFromChat = async (ctx: BotContext, webAppUrl: string) => {
+  await ctx.reply(
+    'איזו הודעה להכין? אני אייצר טיוטה כאן בצ׳אט, ולא אשלח אותה לאף לקוחה בלי אישור שלך.',
+    Markup.inlineKeyboard([
+      [Markup.button.callback('ברכת יום הולדת', 'chat_template_birthday')],
+      [Markup.button.callback('תזכורת לתור', 'chat_template_reminder')],
+      [Markup.button.callback('מבצע ללקוחות', 'chat_template_promo')],
+      [Markup.button.callback('אחרי טיפול', 'chat_template_aftercare')],
+      [Markup.button.webApp('מרכז הודעות מלא', `${webAppUrl}/messages`)],
+    ])
+  );
+};
+
+const sendClientBookingsStartFromChat = async (ctx: BotContext, webAppUrl: string) => {
+  const supabase = getSupabase();
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+    [Markup.button.webApp('קביעת תור חדש', `${webAppUrl}/discovery`)],
+  ]);
+
+  if (!supabase) {
+    await ctx.reply('אפשר לראות את התורים שלך במסך התורים.', keyboard);
+    return;
+  }
+
+  const profile = await getRoleProfile(supabase, ctx.from?.id);
+  if (!profile) {
+    await ctx.reply('לא מצאתי פרופיל מחובר. אפשר לפתוח את מסך התורים ולבדוק משם.', keyboard);
+    return;
+  }
+
+  const { data: bookings } = await supabase
+    .from('bookings')
+    .select('id, status, start_time, master:master_id(full_name, business_name)')
+    .eq('client_id', profile.id)
+    .in('status', activeBookingStatuses)
+    .gte('start_time', new Date().toISOString())
+    .order('start_time', { ascending: true })
+    .limit(3);
+
+  const lines = (bookings || [])
+    .map((booking: any) => `• ${formatChatDateTime(booking.start_time)} - ${booking.master?.business_name || booking.master?.full_name || 'מומחה'} (${booking.status === 'pending' ? 'ממתין' : 'מאושר'})`)
+    .join('\n');
+
+  await ctx.reply(
+    lines ? `התורים הקרובים שלך:\n${lines}` : 'לא מצאתי תורים קרובים. אפשר לקבוע תור חדש מכאן.',
+    keyboard
+  );
+};
+
 // --- Session Middleware (Supabase Stateless) ---
 export async function supabaseSessionMiddleware(ctx: any, next: () => Promise<void>) {
   const supabase = getSupabase();
@@ -483,6 +705,47 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     ctx.reply('💄 **BeautyOS AI v2**\nכל הזכויות שמורות. מופעל באמצעות בינה מלאכותית מתקדמת.');
   });
 
+  bot.action('chat_booking_start', async (ctx) => {
+    await ctx.answerCbQuery('פותח אפשרויות לקביעת תור');
+    await sendBookingStartFromChat(ctx, getWebAppUrl());
+  });
+
+  bot.action('chat_calendar_start', async (ctx) => {
+    await ctx.answerCbQuery('בודק יומן');
+    const supabase = getSupabase();
+    const profile = supabase ? await getRoleProfile(supabase, ctx.from?.id) : null;
+    if (profile?.role === 'master' || profile?.role === 'admin') {
+      await sendManagerCalendarStartFromChat(ctx, getWebAppUrl());
+      return;
+    }
+    await sendClientBookingsStartFromChat(ctx, getWebAppUrl());
+  });
+
+  bot.action('chat_services_start', async (ctx) => {
+    await ctx.answerCbQuery('בודק שירותים');
+    await sendManagerServicesStartFromChat(ctx, getWebAppUrl());
+  });
+
+  bot.action('chat_template_menu', async (ctx) => {
+    await ctx.answerCbQuery('פותח הודעות');
+    await sendTemplateMenuFromChat(ctx, getWebAppUrl());
+  });
+
+  bot.action(/^chat_template_(birthday|reminder|promo|aftercare)$/, async (ctx) => {
+    await ctx.answerCbQuery('מכין טיוטה');
+    const supabase = getSupabase();
+    const profile = supabase ? await getRoleProfile(supabase, ctx.from?.id) : null;
+    const draft = getChatTemplateDraft(ctx.match[1], profile?.business_name || profile?.full_name || 'BeautyOS');
+
+    await ctx.reply(
+      `${draft.title}\n\n${draft.text}\n\nזאת טיוטה בלבד. אפשר להעתיק, לערוך, או לפתוח את מרכז ההודעות להמשך.`,
+      Markup.inlineKeyboard([
+        [Markup.button.webApp('מרכז הודעות וברכות', `${getWebAppUrl()}/messages`)],
+        [Markup.button.callback('טיוטה אחרת', 'chat_template_menu')],
+      ])
+    );
+  });
+
   // --- INTERACTIVE DESIGN HANDLERS (v34) ---
 
   const designMenu = (ctx: any, fileId: string) => {
@@ -681,32 +944,14 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       switch (understood.intent) {
         case 'appointment':
         case 'calendar':
-          await ctx.reply(
-            `${actionPrefix}\n\nביומן אפשר לראות תורים, לאשר בקשות, לשנות זמנים ולנהל עומסים.\n\nאם רצית רק לבדוק מצב - פתחי יומן. אם רצית לשנות תור, עדיף לעשות את זה שם כדי שלא תהיה טעות.`,
-            quickKeyboard([
-              [Markup.button.webApp('פתחי יומן', `${webAppUrl}/calendar`)],
-              [Markup.button.webApp('שירותים וזמני טיפול', `${webAppUrl}/settings`)],
-            ])
-          );
+          await sendManagerCalendarStartFromChat(ctx, webAppUrl);
           return;
         case 'services':
         case 'settings':
-          await ctx.reply(
-            `${actionPrefix}\n\nשם מנהלים את פרטי העסק, שירותים, מחירים ומשך כל טיפול.\n\nשינוי מחיר או משך טיפול משפיע על מה שלקוחות רואים ועל שעות פנויות ביומן.`,
-            quickKeyboard([
-              [Markup.button.webApp('פתחי הגדרות ושירותים', `${webAppUrl}/settings`)],
-              [Markup.button.webApp('פתחי מחירון', `${webAppUrl}/pricing`)],
-            ])
-          );
+          await sendManagerServicesStartFromChat(ctx, webAppUrl);
           return;
         case 'messages':
-          await ctx.reply(
-            `${actionPrefix}\n\nאפשר להכין ברכות, הודעות ללקוחות ותזכורות. הודעה לא תישלח אוטומטית מתוך שיחה רגילה בלי שתאשרי אותה.`,
-            quickKeyboard([
-              [Markup.button.webApp('פתחי הודעות וברכות', `${webAppUrl}/messages`)],
-              [Markup.button.webApp('פתחי יומן לקוחות', `${webAppUrl}/calendar`)],
-            ])
-          );
+          await sendTemplateMenuFromChat(ctx, webAppUrl);
           return;
         case 'image_post':
           await ctx.reply(
@@ -759,7 +1004,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
             quickKeyboard([
               [Markup.button.webApp('יומן וניהול תורים', `${webAppUrl}/calendar`)],
               [Markup.button.webApp('שירותים והגדרות', `${webAppUrl}/settings`)],
-              [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
+              [Markup.button.callback('הכנת הודעה בצ׳אט', 'chat_template_menu')],
             ])
           );
           return;
@@ -768,22 +1013,10 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
     switch (understood.intent) {
       case 'appointment':
-        await ctx.reply(
-          `${actionPrefix}\n\nכדי לקבוע תור בלי בלבול, פותחים את רשימת המומחים, בוחרים טיפול ואז שעה פנויה.\n\nאם רק שאלת איך זה עובד: זה כל התהליך.`,
-          quickKeyboard([
-            [Markup.button.webApp('קביעת תור', `${webAppUrl}/discovery`)],
-            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
-          ])
-        );
+        await sendBookingStartFromChat(ctx, webAppUrl);
         return;
       case 'calendar':
-        await ctx.reply(
-          `${actionPrefix}\n\nכאן אפשר לראות את התורים שלך ולעקוב אחרי מצב ההזמנות.`,
-          quickKeyboard([
-            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
-            [Markup.button.webApp('קביעת תור חדש', `${webAppUrl}/discovery`)],
-          ])
-        );
+        await sendClientBookingsStartFromChat(ctx, webAppUrl);
         return;
       case 'messages':
         await ctx.reply(
@@ -826,8 +1059,8 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
         await ctx.reply(
           `${actionPrefix}\n\nאני יכול לעזור בקביעת תור, בדיקת התורים שלך, מחירון והודעות.\n\nכתבי למשל: "אני רוצה לקבוע תור" או "איפה התורים שלי?".`,
           quickKeyboard([
-            [Markup.button.webApp('קביעת תור', `${webAppUrl}/discovery`)],
-            [Markup.button.webApp('התורים שלי', `${webAppUrl}/calendar`)],
+            [Markup.button.callback('התחלת קביעת תור', 'chat_booking_start')],
+            [Markup.button.callback('בדיקת התורים שלי', 'chat_calendar_start')],
             [Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`)],
           ])
         );

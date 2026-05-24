@@ -44,6 +44,33 @@ test('detects core mini app areas from normal language', () => {
   );
 });
 
+test('keeps risky or ambiguous wording in the right mode', () => {
+  assert.deepEqual(
+    pick(classifyConversationIntent('בטל את התור שלי')),
+    { intent: 'appointment', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('אפשר לבטל תור?')),
+    { intent: 'appointment', mode: 'inform' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('תשלח ברכה ללקוחה')),
+    { intent: 'messages', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('פתח תיק עבודות')),
+    { intent: 'portfolio', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('האם הבוט עובד?')),
+    { intent: 'status', mode: 'inform' }
+  );
+});
+
 const pick = (result: ReturnType<typeof classifyConversationIntent>) => ({
   intent: result.intent,
   mode: result.mode,
