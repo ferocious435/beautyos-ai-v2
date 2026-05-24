@@ -22,15 +22,15 @@ type BotRole = 'client' | 'master' | 'admin';
 export const REGISTRATION_SCENE_ID = 'REGISTRATION_SCENE';
 
 const roleTitles: Record<BotRole, string> = {
-  client: 'לקוח',
-  master: 'מאסטר',
-  admin: 'אדמין',
+  client: '\u05dc\u05e7\u05d5\u05d7',
+  master: '\u05de\u05d0\u05e1\u05d8\u05e8',
+  admin: '\u05d0\u05d3\u05de\u05d9\u05df',
 };
 
 const roleHints: Record<BotRole, string> = {
-  client: 'מקבל שירות',
-  master: 'נותן שירות',
-  admin: 'ניהול מלא',
+  client: '\u05de\u05e7\u05d1\u05dc \u05e9\u05d9\u05e8\u05d5\u05ea',
+  master: '\u05e0\u05d5\u05ea\u05df \u05e9\u05d9\u05e8\u05d5\u05ea',
+  admin: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05de\u05dc\u05d0',
 };
 
 const normalizeBotRole = (role?: string | null): BotRole => {
@@ -56,13 +56,13 @@ const getEffectiveBotRole = (actualRole?: string | null, previewRole?: string | 
 const buildAdminVisibleMenuInlineKeyboard = (webAppUrl: string) =>
   Markup.inlineKeyboard([
     [
-      Markup.button.callback('בדיקה כלקוח', 'preview_role_client'),
-      Markup.button.callback('בדיקה כמאסטר', 'preview_role_master'),
-      Markup.button.callback('חזרה לאדמין', 'preview_role_admin'),
+      Markup.button.callback('\u05d1\u05d3\u05d9\u05e7\u05d4 \u05db\u05dc\u05e7\u05d5\u05d7', 'preview_role_client'),
+      Markup.button.callback('\u05d1\u05d3\u05d9\u05e7\u05d4 \u05db\u05de\u05d0\u05e1\u05d8\u05e8', 'preview_role_master'),
+      Markup.button.callback('\u05d7\u05d6\u05e8\u05d4 \u05dc\u05d0\u05d3\u05de\u05d9\u05df', 'preview_role_admin'),
     ],
     [
-      Markup.button.webApp('פתיחת המערכת', `${webAppUrl}/`),
-      Markup.button.callback('תמונת מצב', 'chat_admin_overview'),
+      Markup.button.webApp('\u05e4\u05ea\u05d9\u05d7\u05ea \u05d4\u05de\u05e2\u05e8\u05db\u05ea', `${webAppUrl}/`),
+      Markup.button.callback('\u05ea\u05de\u05d5\u05e0\u05ea \u05de\u05e6\u05d1', 'chat_admin_overview'),
     ],
   ]);
 
@@ -119,7 +119,7 @@ const sendRoleAwareMainMenu = async (
 
   if (actualRole === 'admin') {
     await ctx.reply(
-      `מצב צפייה נוכחי: ${roleTitles[effectiveRole]} - ${roleHints[effectiveRole]}\nבחר כאן איך לראות את המערכת:`,
+      `\u05de\u05e6\u05d1 \u05e6\u05e4\u05d9\u05d9\u05d4 \u05e0\u05d5\u05db\u05d7\u05d9: ${roleTitles[effectiveRole]} - ${roleHints[effectiveRole]}\n\u05d1\u05d7\u05e8 \u05db\u05d0\u05df \u05d0\u05d9\u05da \u05dc\u05e8\u05d0\u05d5\u05ea \u05d0\u05ea \u05d4\u05de\u05e2\u05e8\u05db\u05ea:`,
       buildAdminVisibleMenuInlineKeyboard(webAppUrl)
     );
   }
