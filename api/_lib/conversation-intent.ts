@@ -67,6 +67,11 @@ const ACTION_TERMS = [
   'להקדים',
   'נהל',
   'תנהל',
+  'אני רוצה',
+  'רוצה ל',
+  'בא לי',
+  'צריך ל',
+  'צריכה ל',
 ];
 
 const INFO_TERMS = [
@@ -89,6 +94,30 @@ const INFO_TERMS = [
   'רק שואל',
   'רק בודקת',
   'רק בודק',
+];
+
+const BEAUTY_SERVICE_TERMS = [
+  'איפור',
+  'עיסוי',
+  'מסאז',
+  'מסאז׳',
+  'שיער',
+  'תספורת',
+  'צבע',
+  'החלקה',
+  'גבות',
+  'ריסים',
+  'לק',
+  'ציפורניים',
+  'מניקור',
+  'פדיקור',
+  'פנים',
+  'קוסמטיקה',
+  'שעווה',
+  'הסרת שיער',
+  'לייזר',
+  'טיפוח',
+  'אסתטיקה',
 ];
 
 const INTENT_TERMS: Record<Exclude<ConversationIntent, 'smalltalk' | 'unknown'>, string[]> = {
@@ -135,6 +164,10 @@ export const classifyConversationIntent = (text: string): ConversationIntentResu
       intent = candidate;
       break;
     }
+  }
+
+  if (intent === 'unknown' && includesAny(normalizedText, BEAUTY_SERVICE_TERMS)) {
+    intent = 'services';
   }
 
   if (intent === 'unknown' && includesAny(normalizedText, SMALLTALK_TERMS)) {

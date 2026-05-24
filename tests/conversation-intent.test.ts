@@ -87,6 +87,23 @@ test('detects whether booking request is for self or for a client', () => {
   assert.equal(detectBookingRequestTarget('צריך לקבוע תור'), 'unclear');
 });
 
+test('understands broad beauty service requests beyond nails', () => {
+  assert.deepEqual(
+    pick(classifyConversationIntent('אני רוצה עיסוי')),
+    { intent: 'services', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('אני רוצה לעשות גבות')),
+    { intent: 'services', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('כמה עולה איפור ערב?')),
+    { intent: 'pricing', mode: 'inform' }
+  );
+});
+
 const pick = (result: ReturnType<typeof classifyConversationIntent>) => ({
   intent: result.intent,
   mode: result.mode,
