@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { classifyConversationIntent } from '../api/_lib/conversation-intent.ts';
+import { classifyConversationIntent, detectBookingRequestTarget } from '../api/_lib/conversation-intent.ts';
 
 test('detects appointment action versus appointment question', () => {
   assert.deepEqual(
@@ -69,6 +69,12 @@ test('keeps risky or ambiguous wording in the right mode', () => {
     pick(classifyConversationIntent('האם הבוט עובד?')),
     { intent: 'status', mode: 'inform' }
   );
+});
+
+test('detects whether booking request is for self or for a client', () => {
+  assert.equal(detectBookingRequestTarget('אני רוצה לקבוע תור'), 'self');
+  assert.equal(detectBookingRequestTarget('תקבעי תור ללקוחה'), 'client');
+  assert.equal(detectBookingRequestTarget('צריך לקבוע תור'), 'unclear');
 });
 
 const pick = (result: ReturnType<typeof classifyConversationIntent>) => ({

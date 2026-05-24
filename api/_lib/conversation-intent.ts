@@ -12,6 +12,7 @@ export type ConversationIntent =
   | 'unknown';
 
 export type ConversationMode = 'act' | 'inform' | 'clarify';
+export type BookingRequestTarget = 'self' | 'client' | 'unclear';
 
 export interface ConversationIntentResult {
   intent: ConversationIntent;
@@ -90,6 +91,8 @@ const INTENT_TERMS: Record<Exclude<ConversationIntent, 'smalltalk' | 'unknown'>,
 };
 
 const SMALLTALK_TERMS = ['היי', 'שלום', 'בוקר טוב', 'ערב טוב', 'תודה', 'מה נשמע', 'hi', 'hello'];
+const SELF_BOOKING_TERMS = ['אני', 'לעצמי', 'בשבילי', 'עבורי', 'לי', 'אני רוצה'];
+const CLIENT_BOOKING_TERMS = ['לקוחה', 'לקוח', 'ללקוחה', 'ללקוח', 'בשבילה', 'בשבילו', 'עבורה', 'עבורו', 'למישהי', 'למישהו'];
 
 const intentPriority: ConversationIntent[] = [
   'image_post',
@@ -127,4 +130,14 @@ export const classifyConversationIntent = (text: string): ConversationIntentResu
 
   const mode: ConversationMode = hasActionSignal && !hasInfoSignal ? 'act' : hasInfoSignal ? 'inform' : 'clarify';
   return { intent, mode, normalizedText };
+};
+
+export const detectBookingRequestTarget = (text: string): BookingRequestTarget => {
+  const normalizedText = normalizeConversationText(text);
+  const wantsSelfBooking = includesAny(normalizedText, SELF_BOOKING_TERMS);
+  const wantsClientBooking = includesAny(normalizedText, CLIENT_BOOKING_TERMS);
+
+  if (wantsSelfBooking && !wantsClientBooking) return 'self';
+  if (wantsClientBooking && !wantsSelfBooking) return 'client';
+  return 'unclear';
 };

@@ -7,7 +7,7 @@ import { analyzeAndGenerate, enhanceImage } from './content-engine.js';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { enqueueAiProcessing, scheduleNotification } from './qstash.js';
 import { CONFIG } from './config.js';
-import { classifyConversationIntent } from './conversation-intent.js';
+import { classifyConversationIntent, detectBookingRequestTarget } from './conversation-intent.js';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import axios from 'axios';
 
@@ -218,8 +218,42 @@ const sendManagerCalendarStartFromChat = async (ctx: BotContext, webAppUrl: stri
     .join('\n');
 
   await ctx.reply(
-    `תקציר להיום:\n${confirmed} תורים מאושרים, ${pending} ממתינים לאישור.\n\n${nextItems || 'אין תורים להמשך היום.'}`,
-    fallback
+    nextItems
+      ? `בדקתי את היומן שלך להיום. יש ${confirmed} תורים מאושרים ו-${pending} שממתינים לאישור.\n\nהבאים בתור:\n${nextItems}`
+      : 'בדקתי את היומן שלך. כרגע אין תורים להמשך היום.',
+    Markup.inlineKeyboard([
+      [Markup.button.webApp('פתחי יומן', `${webAppUrl}/calendar`)],
+      [Markup.button.webApp('קביעת תור כמטופלת', `${webAppUrl}/discovery`)],
+    ])
+  );
+};
+
+const sendManagerAppointmentReply = async (ctx: BotContext, webAppUrl: string, text: string) => {
+  const bookingTarget = detectBookingRequestTarget(text);
+
+  if (bookingTarget === 'self') {
+    await ctx.reply('בשמחה. אם את רוצה לקבוע תור לעצמך, נתחיל מבחירת מומחה ואז תבחרי טיפול ושעה.');
+    await sendBookingStartFromChat(ctx, webAppUrl);
+    return;
+  }
+
+  if (bookingTarget === 'client') {
+    await ctx.reply(
+      'ברור. אם זה תור ללקוחה, הכי נכון לפתוח את היומן כדי לראות שעה פנויה ולעדכן הכל במקום אחד.',
+      Markup.inlineKeyboard([
+        [Markup.button.webApp('פתחי יומן', `${webAppUrl}/calendar`)],
+        [Markup.button.webApp('אם התכוונת לעצמך', `${webAppUrl}/discovery`)],
+      ])
+    );
+    return;
+  }
+
+  await ctx.reply(
+    'בשמחה. רק כדי לא לקחת אותך למסך הלא נכון: את רוצה לקבוע תור לעצמך או לנהל תור של לקוחה?',
+    Markup.inlineKeyboard([
+      [Markup.button.webApp('תור לעצמי', `${webAppUrl}/discovery`)],
+      [Markup.button.webApp('תור ללקוחה', `${webAppUrl}/calendar`)],
+    ])
   );
 };
 
@@ -943,6 +977,8 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     if (isManager) {
       switch (understood.intent) {
         case 'appointment':
+          await sendManagerAppointmentReply(ctx, webAppUrl, text);
+          return;
         case 'calendar':
           await sendManagerCalendarStartFromChat(ctx, webAppUrl);
           return;
