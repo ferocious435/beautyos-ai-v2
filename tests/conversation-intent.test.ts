@@ -87,6 +87,23 @@ test('detects whether booking request is for self or for a client', () => {
   assert.equal(detectBookingRequestTarget('צריך לקבוע תור'), 'unclear');
 });
 
+test('keeps natural master and client phrases on the right product path', () => {
+  assert.equal(
+    detectBookingRequestTarget('\u05d0\u05e0\u05d9 \u05e8\u05d5\u05e6\u05d4 \u05dc\u05e7\u05d1\u05d5\u05e2 \u05ea\u05d5\u05e8 \u05dc\u05dc\u05e7\u05d5\u05d7\u05d4'),
+    'client'
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('\u05ea\u05db\u05d9\u05df \u05d4\u05d5\u05d3\u05e2\u05ea \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea')),
+    { intent: 'messages', mode: 'act' }
+  );
+
+  assert.deepEqual(
+    pick(classifyConversationIntent('\u05db\u05de\u05d4 \u05e2\u05d5\u05dc\u05d4 \u05d8\u05d9\u05e4\u05d5\u05dc \u05e4\u05e0\u05d9\u05dd')),
+    { intent: 'pricing', mode: 'inform' }
+  );
+});
+
 test('understands broad beauty service requests beyond nails', () => {
   assert.deepEqual(
     pick(classifyConversationIntent('אני רוצה עיסוי')),

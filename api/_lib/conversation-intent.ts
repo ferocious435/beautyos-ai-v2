@@ -136,6 +136,19 @@ const SMALLTALK_TERMS = ['היי', 'שלום', 'בוקר טוב', 'ערב טוב
 const SELF_BOOKING_TERMS = ['אני', 'לעצמי', 'בשבילי', 'עבורי', 'לי', 'אני רוצה'];
 const CLIENT_BOOKING_TERMS = ['לקוחה', 'לקוח', 'ללקוחה', 'ללקוח', 'בשבילה', 'בשבילו', 'עבורה', 'עבורו', 'למישהי', 'למישהו'];
 
+const EXTRA_MESSAGE_TERMS = [
+  '\u05d4\u05d5\u05d3\u05e2\u05ea',
+  '\u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea',
+  '\u05de\u05d6\u05dc \u05d8\u05d5\u05d1',
+];
+const EXPLICIT_SELF_BOOKING_TERMS = ['\u05dc\u05e2\u05e6\u05de\u05d9', '\u05d1\u05e9\u05d1\u05d9\u05dc\u05d9', '\u05e2\u05d1\u05d5\u05e8\u05d9'];
+const EXTRA_CLIENT_BOOKING_TERMS = [
+  '\u05dc\u05e7\u05d5\u05d7\u05d4',
+  '\u05dc\u05dc\u05e7\u05d5\u05d7\u05d4',
+  '\u05dc\u05e7\u05d5\u05d7',
+  '\u05dc\u05dc\u05e7\u05d5\u05d7',
+];
+
 const intentPriority: ConversationIntent[] = [
   'image_post',
   'appointment',
@@ -158,12 +171,17 @@ export const classifyConversationIntent = (text: string): ConversationIntentResu
   const hasActionSignal = includesAny(normalizedText, ACTION_TERMS);
   const hasInfoSignal = includesAny(normalizedText, INFO_TERMS);
 
-  let intent: ConversationIntent = 'unknown';
+  let intent: ConversationIntent = includesAny(normalizedText, INTENT_TERMS.pricing) ? 'pricing' : 'unknown';
   for (const candidate of intentPriority) {
+    if (intent !== 'unknown') break;
     if (candidate !== 'smalltalk' && candidate !== 'unknown' && includesAny(normalizedText, INTENT_TERMS[candidate])) {
       intent = candidate;
       break;
     }
+  }
+
+  if (intent === 'unknown' && includesAny(normalizedText, EXTRA_MESSAGE_TERMS)) {
+    intent = 'messages';
   }
 
   if (intent === 'unknown' && includesAny(normalizedText, BEAUTY_SERVICE_TERMS)) {
@@ -181,9 +199,11 @@ export const classifyConversationIntent = (text: string): ConversationIntentResu
 export const detectBookingRequestTarget = (text: string): BookingRequestTarget => {
   const normalizedText = normalizeConversationText(text);
   const wantsSelfBooking = includesAny(normalizedText, SELF_BOOKING_TERMS);
-  const wantsClientBooking = includesAny(normalizedText, CLIENT_BOOKING_TERMS);
+  const wantsExplicitSelfBooking = includesAny(normalizedText, EXPLICIT_SELF_BOOKING_TERMS);
+  const wantsClientBooking = includesAny(normalizedText, CLIENT_BOOKING_TERMS) || includesAny(normalizedText, EXTRA_CLIENT_BOOKING_TERMS);
 
+  if (wantsClientBooking && !wantsExplicitSelfBooking) return 'client';
+  if (wantsExplicitSelfBooking && !wantsClientBooking) return 'self';
   if (wantsSelfBooking && !wantsClientBooking) return 'self';
-  if (wantsClientBooking && !wantsSelfBooking) return 'client';
   return 'unclear';
 };
