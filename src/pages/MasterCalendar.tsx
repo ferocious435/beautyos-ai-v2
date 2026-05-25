@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as Lucide from 'lucide-react';
+import { DayManager } from '../components/DayManager';
 import { telegramAuthHeaders } from '../lib/telegramAuth';
 import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 import type { Booking } from '../types/database';
@@ -27,6 +28,7 @@ const MasterCalendar = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
+  const [showDayManager, setShowDayManager] = useState(false);
 
   const hours = Array.from({ length: 15 }, (_, index) => index + 8);
 
@@ -97,6 +99,13 @@ const MasterCalendar = () => {
   };
 
   const isSelected = (date: Date) => date.toDateString() === selectedDate.toDateString();
+
+  const selectedDateKey = () => {
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const getMinuteOffset = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -197,6 +206,15 @@ const MasterCalendar = () => {
             חודש
           </button>
         </div>
+
+        {effectiveRole === 'master' ? (
+          <button
+            onClick={() => setShowDayManager(true)}
+            className="min-h-12 w-full rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-black text-emerald-100 transition active:scale-[0.98]"
+          >
+            הגדרת שעות עבודה ליום הזה
+          </button>
+        ) : null}
       </header>
 
       {viewMode === 'month' ? (
@@ -300,6 +318,14 @@ const MasterCalendar = () => {
         <div className="glass-premium mt-10 rounded-[40px] border border-dashed border-zinc-800 py-20 text-center">
           <h3 className="font-bold text-zinc-500">אין תורים רשומים ביום הזה</h3>
         </div>
+      ) : null}
+
+      {showDayManager ? (
+        <DayManager
+          date={selectedDateKey()}
+          onClose={() => setShowDayManager(false)}
+          onUpdate={() => setNow(Date.now())}
+        />
       ) : null}
     </div>
   );

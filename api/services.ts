@@ -78,6 +78,20 @@ const getPreviewRole = (req: VercelRequest) => {
   return role === 'client' || role === 'master' || role === 'admin' ? role : null;
 };
 
+const parseIsoDateOnly = (value: unknown) => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isFinite(date.getTime()) ? date : null;
+};
+
+const validTimeValue = (value: unknown) =>
+  typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+
+const timeToMinutes = (value: string) => {
+  const [hours, minutes] = value.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
 const safeTelegramSend = async (label: string, send: () => Promise<unknown>) => {
   try {
     await send();
@@ -159,9 +173,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'get-my-bookings',
     'get-portfolio',
     'get-my-services',
+    'get-day-schedule',
     'list-masters',
     'save-profile',
     'save-service',
+    'save-day-schedule',
     'save-portfolio',
     'delete-service',
     'create-payment',
@@ -175,6 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sensitiveSecureActions = [
     'save-profile',
     'save-service',
+    'save-day-schedule',
     'save-portfolio',
     'delete-service',
     'create-payment',
@@ -510,6 +527,95 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (error) return res.status(500).json({ error: getErrorMessage(error) });
       return res.status(200).json({ profile });
+    }
+
+    case 'get-day-schedule': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const selectedDate = parseIsoDateOnly(req.body?.date);
+      if (!selectedDate) return res.status(400).json({ error: 'Valid date is required' });
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (profileError || !profile) return res.status(404).json({ error: 'Profile not found' });
+      if (!['master', 'admin'].includes(profile.role)) {
+        return res.status(403).json({ error: 'Only masters can manage schedules' });
+      }
+
+      const dayOfWeek = selectedDate.getDay();
+      const { data: schedule, error } = await supabase
+        .from('master_schedules')
+        .select('day_of_week, start_time, end_time, is_working')
+        .eq('master_id', profile.id)
+        .eq('day_of_week', dayOfWeek)
+        .maybeSingle();
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+
+      return res.status(200).json({
+        schedule: schedule || {
+          day_of_week: dayOfWeek,
+          start_time: '09:00',
+          end_time: '19:00',
+          is_working: true,
+        },
+      });
+    }
+
+    case 'save-day-schedule': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const selectedDate = parseIsoDateOnly(req.body?.date);
+      const isWorking = typeof req.body?.isWorking === 'boolean' ? req.body.isWorking : true;
+      const startTime = typeof req.body?.startTime === 'string' ? req.body.startTime : '09:00';
+      const endTime = typeof req.body?.endTime === 'string' ? req.body.endTime : '19:00';
+
+      if (!selectedDate) return res.status(400).json({ error: 'Valid date is required' });
+      if (!validTimeValue(startTime) || !validTimeValue(endTime)) {
+        return res.status(400).json({ error: 'Valid start and end times are required' });
+      }
+      if (isWorking && timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+        return res.status(400).json({ error: 'End time must be after start time' });
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      if (profileError || !profile) return res.status(404).json({ error: 'Profile not found' });
+      if (!['master', 'admin'].includes(profile.role)) {
+        return res.status(403).json({ error: 'Only masters can manage schedules' });
+      }
+
+      const dayOfWeek = selectedDate.getDay();
+      const { data: schedule, error } = await supabase
+        .from('master_schedules')
+        .upsert({
+          master_id: profile.id,
+          day_of_week: dayOfWeek,
+          start_time: startTime,
+          end_time: endTime,
+          is_working: isWorking,
+        }, {
+          onConflict: 'master_id,day_of_week',
+        })
+        .select('day_of_week, start_time, end_time, is_working')
+        .single();
+
+      if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ schedule });
     }
 
     case 'get-my-services': {
