@@ -228,6 +228,16 @@ const formatChatDateTime = (value: string) =>
     minute: '2-digit',
   }).format(new Date(value));
 
+const getCleanBrandName = (businessName?: string | null, fullName?: string | null, fallback = 'BeautyOS Studio') => {
+  const cleanBusinessName = businessName?.trim();
+  if (cleanBusinessName && !/core admin/i.test(cleanBusinessName)) return cleanBusinessName;
+
+  const cleanFullName = fullName?.trim();
+  if (cleanFullName) return `${cleanFullName} Studio`;
+
+  return fallback;
+};
+
 const getChatTemplateDraft = (templateType: string, businessName = 'BeautyOS') => {
   const templates: Record<string, { title: string; text: string }> = {
     birthday: {
@@ -1178,8 +1188,8 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
       const supabase = getSupabase();
       let logoText = 'BeautyOS';
       if (supabase) {
-        const { data: user } = await supabase.from('users').select('business_name').eq('telegram_id', ctx.from.id).single();
-        if (user?.business_name) logoText = user.business_name;
+        const { data: user } = await supabase.from('users').select('business_name, full_name').eq('telegram_id', ctx.from.id).single();
+        logoText = getCleanBrandName(user?.business_name, (user as any)?.full_name, logoText);
       }
       
       ctx.session.lastOverlay.push({

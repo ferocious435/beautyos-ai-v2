@@ -14,6 +14,7 @@ const [
   dashboardSource,
   messagesSource,
   portfolioSource,
+  graphicEngineSource,
 ] = await Promise.all([
   read('src/App.tsx'),
   read('src/layouts/MainLayout.tsx'),
@@ -24,6 +25,7 @@ const [
   read('src/pages/Dashboard.tsx'),
   read('src/pages/Messages.tsx'),
   read('src/pages/Portfolio.tsx'),
+  read('api/_lib/graphic-engine.ts'),
 ]);
 
 test('MVP separates client, master and admin surfaces', () => {
@@ -78,4 +80,12 @@ test('MVP keeps Telegram-first conversation actions connected to real screens', 
   assert.match(botSource, /sendTemplateMenuFromChat/);
   assert.match(botSource, /bot\.on\('photo'/);
   assert.match(botSource, /enqueueAiProcessing/);
+});
+
+test('MVP renders marketing text in a dedicated editorial panel instead of random body overlap', () => {
+  assert.match(graphicEngineSource, /renderEditorialPanel/);
+  assert.match(graphicEngineSource, /panelHeight = targetHeight \*/);
+  assert.match(graphicEngineSource, /roundedRectPath/);
+  assert.match(graphicEngineSource, /getVisualBidiText/);
+  assert.match(botSource, /getCleanBrandName/);
 });

@@ -10,6 +10,16 @@ export const config = {
   },
 };
 
+const sanitizeBrandName = (businessName?: string | null, fullName?: string | null, fallback = 'Beauty Expert') => {
+  const cleanBusinessName = businessName?.trim();
+  if (cleanBusinessName && !/core admin/i.test(cleanBusinessName)) return cleanBusinessName;
+
+  const cleanFullName = fullName?.trim();
+  if (cleanFullName) return `${cleanFullName} Studio`;
+
+  return fallback;
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
@@ -82,10 +92,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 🏢 DYNAMIC BRANDING
     const { data: userData } = await supabase.from('users')
-      .select('business_name')
+      .select('business_name, full_name')
       .eq('telegram_id', Number(chatId))
       .single();
-    const realBusinessName = userData?.business_name || 'Beauty Expert';
+    const realBusinessName = sanitizeBrandName(userData?.business_name, (userData as any)?.full_name);
 
     // 🚀 STACKING v61: PRO COMPOSITION ENGINE (Dynamic & Collision-Free)
     const rawOverlays = session_data.lastOverlay || [];
@@ -128,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         xPosition: x,
         yPosition: y,
         textAlign: align,
-        rotation: (line.type === 'PRICE' ? -2 : (line.type === 'PROMO' ? 1.5 : (Math.random() * 1.6 - 0.8)))
+        rotation: 0
       };
     });
 
