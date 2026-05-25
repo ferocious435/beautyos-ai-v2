@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { telegramAuthHeaders } from '../lib/telegramAuth';
 import { useAppStore } from '../store/useAppStore';
+import { displayProviderName } from '../lib/displayNames';
 import * as Lucide from 'lucide-react';
 
 const { 
@@ -19,6 +20,7 @@ const activeStatuses = ['confirmed', 'pending'];
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const appUser = useAppStore(state => state.user);
+  const previewRole = useAppStore(state => state.previewRole);
   const setUser = useAppStore(state => state.setUser);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,7 @@ const ClientDashboard = () => {
   const upcoming = bookings.filter(isActiveFutureBooking)[0];
   const otherActiveBookings = bookings.filter(b => b.id !== upcoming?.id && isActiveFutureBooking(b));
   const others = bookings.filter(b => b.id !== upcoming?.id && !isActiveFutureBooking(b));
+  const showBusinessInvite = appUser.role === 'client' && !previewRole;
 
   const getDirections = (lat: number, lng: number) => {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
@@ -133,6 +136,7 @@ const ClientDashboard = () => {
         <p className="text-zinc-500">הנה התורים שלך ב-BeautyOS</p>
       </header>
 
+      {showBusinessInvite ? (
       <section className="mb-6 rounded-[28px] border border-emerald-500/20 bg-emerald-500/10 p-5">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 text-slate-950">
@@ -158,6 +162,7 @@ const ClientDashboard = () => {
           </div>
         </div>
       </section>
+      ) : null}
 
       {loading ? (
         <div className="space-y-4">
@@ -174,7 +179,7 @@ const ClientDashboard = () => {
           >
             <div className="flex justify-between items-start mb-6">
               <div className="space-y-1">
-                <h2 className="text-2xl font-black">{upcoming.master.business_name || upcoming.master.full_name}</h2>
+                <h2 className="text-2xl font-black">{displayProviderName(upcoming.master)}</h2>
                 <div className="flex items-center gap-2 text-zinc-400 text-sm">
                   <MapPin size={14} />
                   <span>{upcoming.master.address || 'לא צוינה כתובת'}</span>
@@ -261,7 +266,7 @@ const ClientDashboard = () => {
                       <Clock size={20} />
                     </div>
                     <div className="min-w-0">
-                      <div className="font-bold text-sm">{booking.master.business_name || booking.master.full_name}</div>
+                      <div className="font-bold text-sm">{displayProviderName(booking.master)}</div>
                       <div className="text-xs text-zinc-500">
                         {new Date(booking.start_time).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} • {new Date(booking.start_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                       </div>
@@ -305,7 +310,7 @@ const ClientDashboard = () => {
                     <Clock size={20} />
                   </div>
                   <div>
-                    <div className="font-bold text-sm">{booking.master.business_name || booking.master.full_name}</div>
+                    <div className="font-bold text-sm">{displayProviderName(booking.master)}</div>
                     <div className="text-xs text-zinc-500">
                       {new Date(booking.start_time).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} • {new Date(booking.start_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                     </div>

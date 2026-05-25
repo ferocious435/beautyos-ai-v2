@@ -108,6 +108,14 @@ const safeTelegramBatch = async (items: Array<[string, () => Promise<unknown>]>)
 const canActAsBookableProvider = (role?: string | null) =>
   role === 'master' || role === 'admin';
 
+const getProviderDisplayName = (provider?: { business_name?: string | null; full_name?: string | null }) => {
+  const businessName = provider?.business_name?.trim();
+  const fullName = provider?.full_name?.trim();
+  if (businessName && !/core admin/i.test(businessName)) return businessName;
+  if (fullName) return `${fullName} Studio`;
+  return 'BeautyOS Studio';
+};
+
 const hasBookingOverlap = async (
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
   masterId: string,
@@ -943,7 +951,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const timeStr = new Date(booking.start_time).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
       const pre = type === '24h' ? '📢 תזכורת: מחר' : '⏰ תזכורת: בעוד 3 שעות';
       
-      const clientMsg = `${pre} יש לך תור ב-${booking.master.business_name || booking.master.full_name}!\n🕓 שעה: ${timeStr}\nמחכים לך! ✨`;
+      const clientMsg = `${pre} יש לך תור ב-${getProviderDisplayName(booking.master)}!\n🕓 שעה: ${timeStr}\nמחכים לך! ✨`;
       const masterMsg = `${pre} מגיע/ה אליך ${booking.client.full_name || 'לקוח/ה'}.\n🕓 שעה: ${timeStr}\nהכן/י את מקום העבודה! 💇‍♀️`;
       
       try {
@@ -1052,7 +1060,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const timeStr = new Date(startTime).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
         
         const masterMsg = `🔔 **בקשת תור חדשה!**\n👤 לקוח: ${cUser.full_name}\n🕓 שעה: ${timeStr}\n\nהנה האפשרויות שלך:`;
-        const clientMsg = `⏳ **בקשתך נשלחה!**\n📍 עסק: ${mUser.business_name || mUser.full_name}\n🕓 שעה: ${timeStr}\n\nאנחנו מחכים לאישור המאסטר. נעדכן אותך מיד כשיתקבל אישור! 🙏`;
+        const clientMsg = `⏳ **בקשתך נשלחה!**\n📍 עסק: ${getProviderDisplayName(mUser)}\n🕓 שעה: ${timeStr}\n\nאנחנו מחכים לאישור המאסטר. נעדכן אותך מיד כשיתקבל אישור! 🙏`;
 
         await safeTelegramBatch([
           ['create-booking-master', () => bot.telegram.sendMessage(masterTelegramId, masterMsg, { 
@@ -1126,7 +1134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
         const timeStr = new Date(booking.start_time).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
         
-        const clientMsg = `✅ **יש! התור שלך אושר!**\n📍 עסק: ${booking.master.business_name || booking.master.full_name}\n🕓 שעה: ${timeStr}\n\nנתראה בקרוב! ✨`;
+        const clientMsg = `✅ **יש! התור שלך אושר!**\n📍 עסק: ${getProviderDisplayName(booking.master)}\n🕓 שעה: ${timeStr}\n\nנתראה בקרוב! ✨`;
         await safeTelegramSend('approve-booking-client', () =>
           bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' })
         );
@@ -1183,7 +1191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
         const timeStr = new Date(booking.start_time).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
         
-        const clientMsg = `😔 **מצטערים, התור לא אושר...**\n📍 עסק: ${booking.master.business_name || booking.master.full_name}\n🕓 שעה: ${timeStr}\n\nהמאסטר לא פנוי במועד זה. נשמח אם תבחרי מועד אחר ביומן! ✨`;
+        const clientMsg = `😔 **מצטערים, התור לא אושר...**\n📍 עסק: ${getProviderDisplayName(booking.master)}\n🕓 שעה: ${timeStr}\n\nהמאסטר לא פנוי במועד זה. נשמח אם תבחרי מועד אחר ביומן! ✨`;
         await safeTelegramSend('reject-booking-client', () =>
           bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' })
         );
@@ -1241,7 +1249,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         if (role === 'master') {
           // Notify Client
-          const msg = `😔 **מצטערים, חל שינוי בלוח הזמנים...**\n\nהתור שלך ב-${booking.master.business_name || booking.master.full_name} ב-**${timeStr}** בוטל על ידי המאסטר.\n\nנשמח אם תקבעי תור למועד חדש! ✨`;
+          const msg = `😔 **מצטערים, חל שינוי בלוח הזמנים...**\n\nהתור שלך ב-${getProviderDisplayName(booking.master)} ב-**${timeStr}** בוטל על ידי המאסטר.\n\nנשמח אם תקבעי תור למועד חדש! ✨`;
           await safeTelegramSend('cancel-booking-client', () =>
             bot.telegram.sendMessage(booking.client.telegram_id, msg, { parse_mode: 'Markdown' })
           );
@@ -1306,7 +1314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const timeStr = new Date(startTime).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
         
         const masterMsg = `🔄 **התור הוזז!**\n👤 לקוח: ${booking.client.full_name}\n🕓 שעה חדשה: ${timeStr}\n\nהשינוי עודכן ביומן. ✨`;
-        const clientMsg = `🔄 **עדכון: התור שלך הוזז**\n📍 עסק: ${booking.master.business_name || booking.master.full_name}\n🕓 שעה חדשה: ${timeStr}\n\nהשינוי מחכה לאישור סופי או מעודכן במערכת. 🙏`;
+        const clientMsg = `🔄 **עדכון: התור שלך הוזז**\n📍 עסק: ${getProviderDisplayName(booking.master)}\n🕓 שעה חדשה: ${timeStr}\n\nהשינוי מחכה לאישור סופי או מעודכן במערכת. 🙏`;
 
         await safeTelegramBatch([
           ['update-booking-master', () => bot.telegram.sendMessage(booking.master.telegram_id, masterMsg, { parse_mode: 'Markdown' })],

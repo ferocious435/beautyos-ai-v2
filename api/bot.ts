@@ -7,6 +7,22 @@ const botToken = process.env.TELEGRAM_BOT_TOKEN;
 if (!botToken) throw new Error('TELEGRAM_BOT_TOKEN is missing');
 
 const bot = new Telegraf<BotContext>(botToken);
+let commandsReady = false;
+
+const ensureBotCommands = async () => {
+  if (commandsReady) return;
+
+  await bot.telegram.setMyCommands([
+    { command: 'start', description: 'פתיחת BeautyOS והמיני אפ' },
+    { command: 'id', description: 'הצגת מזהה Telegram' },
+    { command: 'mode', description: 'בחירת מצב בדיקה' },
+    { command: 'role', description: 'שינוי תפקיד לבדיקה' },
+    { command: 'status', description: 'בדיקת מצב הבוט' },
+    { command: 'register', description: 'הרשמה למערכת' },
+  ]);
+
+  commandsReady = true;
+};
 
 // 1. Persistence & Session Middleware (Supabase Stateless)
 bot.use(supabaseSessionMiddleware);
@@ -33,11 +49,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).send('Webhook secret is not configured');
       }
 
+      await ensureBotCommands();
+
       // Telegram Webhook Handler
       await bot.handleUpdate(req.body);
       console.log(`[Bot] HandleUpdate SUCCESS`);
       res.status(200).send('OK');
     } else {
+      await ensureBotCommands();
+
       // Quick Status Check
       const status = `BeautyOS AI Bot v41: Listening\nToken: ${botToken ? 'OK' : 'MISSING'}\nURL: ${process.env.WEBAPP_URL}`;
       console.log(`[Bot] Status Check (Force Refresh)`);

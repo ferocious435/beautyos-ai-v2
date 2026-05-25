@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTelegramUserId, telegramAuthHeadersWithPreview } from '../lib/telegramAuth';
 import { useAppStore, useEffectiveRole } from '../store/useAppStore';
+import { displayProviderName } from '../lib/displayNames';
 
 const defaultBookingError = 'לא הצלחנו להשלים את הפעולה. אפשר לנסות שוב בעוד רגע.';
 
@@ -25,6 +26,7 @@ const Booking = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [bookingErrorMessage, setBookingErrorMessage] = useState(defaultBookingError);
+  const [selectedSlotTime, setSelectedSlotTime] = useState<string | null>(null);
 
   useEffect(() => {
     if (!masterId) {
@@ -164,6 +166,16 @@ const Booking = () => {
     }
   };
 
+  const selectedSlotLabel = selectedSlotTime
+    ? new Date(selectedSlotTime).toLocaleString('he-IL', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    : '';
+
   if (!masterId) {
     return (
       <div className="telegram-safe-page flex min-h-screen flex-col items-center justify-center space-y-6 p-8 text-center">
@@ -207,7 +219,7 @@ const Booking = () => {
       <div className="space-y-2">
         <h1 className="text-2xl font-black">{rescheduleId ? 'שינוי מועד תור' : 'קביעת תור'}</h1>
         <p className="text-zinc-400">
-          מומחה: <span className="font-medium text-white">{master.business_name || master.full_name}</span>
+          מומחה: <span className="font-medium text-white">{displayProviderName(master)}</span>
         </p>
       </div>
 
@@ -295,7 +307,7 @@ const Booking = () => {
                     return (
                       <button
                         key={slot.slot_time}
-                        onClick={() => handleBook(slot.slot_time)}
+                        onClick={() => setSelectedSlotTime(slot.slot_time)}
                         disabled={bookingStatus === 'loading'}
                         className="rounded-xl border border-zinc-800 bg-zinc-900 py-3 font-medium text-white active:scale-95 disabled:opacity-50"
                       >
@@ -315,6 +327,39 @@ const Booking = () => {
       )}
 
       <AnimatePresence>
+        {selectedSlotTime && bookingStatus !== 'success' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.94, y: 18 }} animate={{ scale: 1, y: 0 }} className="max-w-md space-y-5 rounded-3xl border border-zinc-800 bg-zinc-900 p-7 text-right">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black text-white">{rescheduleId ? 'לאשר שינוי תור?' : 'לאשר בקשת תור?'}</h2>
+                <p className="text-sm leading-6 text-zinc-400">
+                  נשלח בקשה ל-{displayProviderName(master)} עבור {selectedService?.name} בתאריך {selectedSlotLabel}.
+                  אחרי האישור של המאסטר תקבל/י הודעה בטלגרם.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-100">
+                זו עדיין לא התחייבות סופית. עד שהמאסטר מאשר, התור יופיע אצלך כממתין לאישור.
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => selectedSlotTime && handleBook(selectedSlotTime)}
+                  disabled={bookingStatus === 'loading'}
+                  className="rounded-2xl bg-white px-5 py-4 font-black text-black active:scale-95 disabled:opacity-50"
+                >
+                  {bookingStatus === 'loading' ? 'שולחים...' : rescheduleId ? 'אישור שינוי' : 'אישור בקשה'}
+                </button>
+                <button
+                  onClick={() => setSelectedSlotTime(null)}
+                  disabled={bookingStatus === 'loading'}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black text-white active:scale-95 disabled:opacity-50"
+                >
+                  בחירת שעה אחרת
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         {bookingStatus === 'success' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6 backdrop-blur-md">
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="max-w-md space-y-5 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 text-center">

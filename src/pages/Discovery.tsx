@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { telegramAuthHeadersWithPreview } from '../lib/telegramAuth';
 import { useAppStore, useEffectiveRole } from '../store/useAppStore';
+import { displayProviderName } from '../lib/displayNames';
 
 interface Master {
   id: string;
@@ -148,7 +149,7 @@ const Discovery = () => {
                     <div className="flex items-end justify-between gap-4 p-5">
                       <div className="space-y-2">
                         <h2 className="text-lg font-black text-white">
-                          {master.business_name || master.full_name}
+                          {displayProviderName(master)}
                         </h2>
                         <div className="text-sm text-zinc-400">
                           {master.dist_km !== null
