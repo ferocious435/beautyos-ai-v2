@@ -175,6 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'get-my-services',
     'get-day-schedule',
     'list-masters',
+    'activate-master',
     'save-profile',
     'save-service',
     'save-day-schedule',
@@ -190,6 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const sensitiveSecureActions = [
     'save-profile',
+    'activate-master',
     'save-service',
     'save-day-schedule',
     'save-portfolio',
@@ -526,6 +528,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
 
       if (error) return res.status(500).json({ error: getErrorMessage(error) });
+      return res.status(200).json({ profile });
+    }
+
+    case 'activate-master': {
+      if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+      const telegramId = getTelegramId(authUser?.id);
+      if (!telegramId) return res.status(401).json({ error: 'Unauthorized: User data missing' });
+
+      const { data: existingProfile } = await supabase
+        .from('users')
+        .select('role, business_name, full_name')
+        .eq('telegram_id', telegramId)
+        .single();
+
+      const nextRole = existingProfile?.role === 'admin' ? 'admin' : 'master';
+      const fallbackBusinessName =
+        existingProfile?.business_name ||
+        (existingProfile?.full_name ? `${existingProfile.full_name} Studio` : 'Beauty Studio');
+
+      const { data: profile, error } = await supabase
+        .from('users')
+        .update({
+          role: nextRole,
+          business_name: fallbackBusinessName,
+        })
+        .eq('telegram_id', telegramId)
+        .select()
+        .single();
+
+      if (error || !profile) return res.status(500).json({ error: 'Master activation failed' });
       return res.status(200).json({ profile });
     }
 

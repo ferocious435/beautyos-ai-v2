@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
- 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -8,6 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import * as Lucide from 'lucide-react';
 
 const { 
+  BriefcaseBusiness,
   Calendar, 
   MapPin, 
   Bell, 
@@ -20,9 +19,12 @@ const activeStatuses = ['confirmed', 'pending'];
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const appUser = useAppStore(state => state.user);
+  const setUser = useAppStore(state => state.setUser);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
+  const [activatingMaster, setActivatingMaster] = useState(false);
+  const [activationMessage, setActivationMessage] = useState('');
 
   useEffect(() => {
     const fetchMyBookings = async () => {
@@ -94,12 +96,68 @@ const ClientDashboard = () => {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
   };
 
+  const handleActivateMaster = async () => {
+    if (!window.confirm('לעבור למצב בעל/ת עסק? אפשר יהיה להגדיר שירותים, מחירים ושעות עבודה.')) return;
+
+    setActivatingMaster(true);
+    setActivationMessage('');
+
+    try {
+      const response = await fetch('/api/services?action=activate-master', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...telegramAuthHeaders() },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'master_activation_failed');
+
+      setUser({
+        id: data.profile.id,
+        name: data.profile.full_name || appUser.name,
+        role: data.profile.role || 'master',
+        subscriptionTier: data.profile.subscription_tier || appUser.subscriptionTier || 'free',
+        avatar: data.profile.avatar_url,
+      });
+      navigate('/settings');
+    } catch (err) {
+      console.error('CLIENT DASHBOARD: Master activation error:', err);
+      setActivationMessage('לא הצלחנו לפתוח מצב עסק כרגע. אפשר לנסות שוב בעוד רגע.');
+    } finally {
+      setActivatingMaster(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#050508] text-white p-4 pb-24 RTL" style={{ direction: 'rtl' }}>
       <header className="py-8 text-right">
         <h1 className="text-3xl font-black mb-1">היי, <span className="gold-text">{appUser.name.split(' ')[0]}</span></h1>
         <p className="text-zinc-500">הנה התורים שלך ב-BeautyOS</p>
       </header>
+
+      <section className="mb-6 rounded-[28px] border border-emerald-500/20 bg-emerald-500/10 p-5">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 text-slate-950">
+            <BriefcaseBusiness size={24} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-black">יש לך עסק יופי או טיפוח?</h2>
+            <p className="mt-1 text-sm leading-6 text-emerald-50/80">
+              אפשר לפתוח מצב מאסטר ולהגדיר שירותים, מחירים, שעות עבודה וקבלת תורים.
+            </p>
+            {activationMessage ? (
+              <div className="mt-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100">
+                {activationMessage}
+              </div>
+            ) : null}
+            <button
+              onClick={handleActivateMaster}
+              disabled={activatingMaster}
+              className="mt-4 min-h-11 rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition active:scale-95 disabled:opacity-60"
+            >
+              {activatingMaster ? 'פותח מצב עסק...' : 'אני בעל/ת עסק - להתחיל'}
+            </button>
+          </div>
+        </div>
+      </section>
 
       {loading ? (
         <div className="space-y-4">
