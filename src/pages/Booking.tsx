@@ -166,6 +166,23 @@ const Booking = () => {
     }
   };
 
+  const handleBack = () => {
+    setBookingStatus('idle');
+    setBookingErrorMessage(defaultBookingError);
+
+    if (selectedSlotTime) {
+      setSelectedSlotTime(null);
+      return;
+    }
+
+    if (selectedService && !rescheduleId) {
+      setSelectedService(null);
+      return;
+    }
+
+    navigate(rescheduleId ? '/calendar' : '/discovery');
+  };
+
   const selectedSlotLabel = selectedSlotTime
     ? new Date(selectedSlotTime).toLocaleString('he-IL', {
       day: '2-digit',
@@ -216,6 +233,14 @@ const Booking = () => {
 
   return (
     <div className="telegram-safe-page space-y-8 px-4 pb-24 text-white" dir="rtl">
+      <button
+        type="button"
+        onClick={handleBack}
+        className="inline-flex min-h-11 items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-zinc-200 transition active:scale-95"
+      >
+        חזרה
+      </button>
+
       <div className="space-y-2">
         <h1 className="text-2xl font-black">{rescheduleId ? 'שינוי מועד תור' : 'קביעת תור'}</h1>
         <p className="text-zinc-400">

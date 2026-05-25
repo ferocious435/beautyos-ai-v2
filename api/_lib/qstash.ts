@@ -3,15 +3,33 @@
 import axios from 'axios';
 import { Telegraf } from 'telegraf';
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const QSTASH_URL = process.env.QSTASH_URL || '';
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const QSTASH_TOKEN = process.env.QSTASH_TOKEN || '';
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const APP_URL = process.env.WEBAPP_URL || '';
-
 export const buildPublishUrl = (qUrl: string, destinationUrl: string) =>
   `${qUrl}/v2/publish/${encodeURIComponent(destinationUrl)}`;
+
+export const normalizePublicUrl = (...candidates: Array<string | undefined>) => {
+  const raw = candidates.find((candidate) => candidate && candidate.trim());
+  if (!raw) return '';
+
+  const withoutQuotes = raw.trim().replace(/^['"]|['"]$/g, '');
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(withoutQuotes) && !/^https?:\/\//i.test(withoutQuotes)) {
+    return '';
+  }
+
+  const withScheme = /^https?:\/\//i.test(withoutQuotes) ? withoutQuotes : `https://${withoutQuotes}`;
+  const normalized = withScheme.replace(/\/+$/, '');
+
+  try {
+    const parsed = new URL(normalized);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? normalized : '';
+  } catch {
+    return '';
+  }
+};
+
+const getPublicAppUrl = () =>
+  normalizePublicUrl(process.env.WEBAPP_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_URL);
+
+const getQstashUrl = () => normalizePublicUrl(process.env.QSTASH_URL, 'https://qstash.upstash.io');
 
 /**
  * Планирует уведомление через QStash (будильник)
@@ -20,8 +38,8 @@ export const buildPublishUrl = (qUrl: string, destinationUrl: string) =>
  */
 export async function scheduleNotification(delaySeconds: number, type: '24h' | '3h', bookingId: string) {
   const token = (process.env.QSTASH_TOKEN || '').trim();
-  const appUrl = (process.env.WEBAPP_URL || '').trim();
-  const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
+  const appUrl = getPublicAppUrl();
+  const qUrl = getQstashUrl();
 
   if (!token || !appUrl) {
     console.warn('QSTASH_TOKEN or WEBAPP_URL not set. Skipping notification scheduling.');
@@ -55,13 +73,13 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
   const telegraf = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
   
   const token = (process.env.QSTASH_TOKEN || '').trim();
-  const appUrl = (process.env.WEBAPP_URL || '').trim();
-  const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
+  const appUrl = getPublicAppUrl();
+  const qUrl = getQstashUrl();
   
   await telegraf.telegram.editMessageText(chatId, messageId, undefined, `⏳ מכין את המערכת... ✨`);
 
-  if (!token || !appUrl) {
-    throw new Error(`Missing env: TOKEN=${!!token}, APPURL=${!!appUrl}`);
+  if (!token || !appUrl || !qUrl) {
+    throw new Error(`Missing env: TOKEN=${!!token}, APPURL=${!!appUrl}, QSTASH=${!!qUrl}`);
   }
 
   // GPS-Sync: Automatic URL detection to prevent "Stuck" status
@@ -96,10 +114,10 @@ export async function enqueueAiProcessing(chatId: number, messageId: number, fil
  */
 export async function enqueueRenderProcessing(chatId: number, formatType: string) {
   const token = (process.env.QSTASH_TOKEN || '').trim();
-  const appUrl = (process.env.WEBAPP_URL || '').trim();
-  const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
+  const appUrl = getPublicAppUrl();
+  const qUrl = getQstashUrl();
 
-  if (!token || !appUrl) return;
+  if (!token || !appUrl || !qUrl) return;
 
   const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/render-worker`;
   
@@ -125,10 +143,10 @@ export async function enqueueRenderProcessing(chatId: number, formatType: string
  */
 export async function enqueueRetouchProcessing(chatId: number, fileUrl: string, fileId: string) {
   const token = (process.env.QSTASH_TOKEN || '').trim();
-  const appUrl = (process.env.WEBAPP_URL || '').trim();
-  const qUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').trim();
+  const appUrl = getPublicAppUrl();
+  const qUrl = getQstashUrl();
 
-  if (!token || !appUrl) return;
+  if (!token || !appUrl || !qUrl) return;
 
   const destinationUrl = `${appUrl.replace(/\/$/, '')}/api/retouch-worker`;
   

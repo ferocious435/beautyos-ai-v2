@@ -26,6 +26,13 @@ test('client booking asks for confirmation before sending the request', () => {
   assert.doesNotMatch(bookingSource, /onClick=\{\(\) => handleBook\(slot\.slot_time\)\}/);
 });
 
+test('client booking has a clear way to go back from each step', () => {
+  assert.match(bookingSource, /const handleBack = \(\) =>/);
+  assert.match(bookingSource, /setSelectedSlotTime\(null\)/);
+  assert.match(bookingSource, /setSelectedService\(null\)/);
+  assert.match(bookingSource, /navigate\(rescheduleId \? '\/calendar' : '\/discovery'\)/);
+});
+
 test('client preview is not mixed with business-owner onboarding', () => {
   assert.match(clientDashboardSource, /showBusinessInvite/);
   assert.match(clientDashboardSource, /appUser\.role === 'client' && !previewRole/);
