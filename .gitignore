@@ -41,3 +41,11 @@ brain/
 # Assets
 api/_assets/fonts/*.ttf
 api/_assets/fonts/*.otf
+
+# Local diagnostics and generated verification artifacts
+.codex-tmp/
+output/
+test-results/
+tmp/
+scratch/
+test-*.js
