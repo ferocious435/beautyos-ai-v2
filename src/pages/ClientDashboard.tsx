@@ -204,6 +204,12 @@ const ClientDashboard = () => {
               </div>
             </div>
 
+            {upcoming.status === 'pending' ? (
+              <div className="mb-6 rounded-2xl border border-yellow-500/25 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-100">
+                הבקשה נשלחה למאסטר ומחכה לאישור. ברגע שהתור יאושר תקבל/י הודעה בטלגרם, ועד אז אפשר להזיז או לבטל מכאן.
+              </div>
+            ) : null}
+
             <div className="flex gap-2 mt-6">
               <button 
                 onClick={() => upcoming.status === 'confirmed' && getDirections(upcoming.master.latitude, upcoming.master.longitude)}

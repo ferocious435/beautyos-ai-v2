@@ -143,7 +143,6 @@ const Booking = () => {
 
       if (response.ok) {
         setBookingStatus('success');
-        setTimeout(() => navigate('/calendar'), 2500);
         return;
       }
 
@@ -318,10 +317,34 @@ const Booking = () => {
       <AnimatePresence>
         {bookingStatus === 'success' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6 backdrop-blur-md">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="space-y-4 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 text-center">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="max-w-md space-y-5 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 text-center">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-500/20 text-4xl text-green-400">✓</div>
               <h2 className="text-2xl font-bold text-white">{rescheduleId ? 'התור הוזז בהצלחה' : 'בקשת התור נשלחה'}</h2>
-              <p className="text-zinc-400">נשלחה הודעה למאסטר. נעדכן אותך כשהתור יאושר.</p>
+              <p className="text-zinc-400">
+                {rescheduleId
+                  ? 'השינוי נשלח למאסטר לאישור מחדש. עד האישור הסופי התור יסומן כממתין.'
+                  : 'הבקשה נשלחה למאסטר. עד שהמאסטר יאשר, התור יופיע אצלך כממתין לאישור.'}
+              </p>
+              <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-right text-sm leading-6 text-yellow-100">
+                <div className="mb-2 font-black">מה קורה עכשיו?</div>
+                <div>1. המאסטר מקבל הודעה עם פרטי הבקשה.</div>
+                <div>2. אחרי אישור תקבל/י הודעה בטלגרם.</div>
+                <div>3. תמיד אפשר לבדוק, להזיז או לבטל מתוך “התורים שלי”.</div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => navigate('/calendar')}
+                  className="rounded-2xl bg-white px-5 py-4 font-black text-black active:scale-95"
+                >
+                  התורים שלי
+                </button>
+                <button
+                  onClick={() => navigate('/discovery')}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black text-white active:scale-95"
+                >
+                  קביעת תור נוסף
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
