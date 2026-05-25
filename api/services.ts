@@ -78,6 +78,19 @@ const getPreviewRole = (req: VercelRequest) => {
   return role === 'client' || role === 'master' || role === 'admin' ? role : null;
 };
 
+const safeTelegramSend = async (label: string, send: () => Promise<unknown>) => {
+  try {
+    await send();
+    return true;
+  } catch (err) {
+    console.warn(`TELEGRAM_NOTIFY_FAILED:${label}`, getErrorMessage(err));
+    return false;
+  }
+};
+
+const safeTelegramBatch = async (items: Array<[string, () => Promise<unknown>]>) =>
+  Promise.all(items.map(([label, send]) => safeTelegramSend(label, send)));
+
 const hasBookingOverlap = async (
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
   masterId: string,
@@ -777,9 +790,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const masterMsg = `${pre} מגיע/ה אליך ${booking.client.full_name || 'לקוח/ה'}.\n🕓 שעה: ${timeStr}\nהכן/י את מקום העבודה! 💇‍♀️`;
       
       try {
-        await Promise.all([
-          bot.telegram.sendMessage(booking.master.telegram_id, masterMsg),
-          bot.telegram.sendMessage(booking.client.telegram_id, clientMsg)
+        await safeTelegramBatch([
+          ['reminder-master', () => bot.telegram.sendMessage(booking.master.telegram_id, masterMsg)],
+          ['reminder-client', () => bot.telegram.sendMessage(booking.client.telegram_id, clientMsg)],
         ]);
         const updateField = type === '24h' ? { notified_24h: true } : { notified_3h: true };
         await supabase.from('bookings').update(updateField).eq('id', bookingId);
@@ -884,8 +897,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const masterMsg = `🔔 **בקשת תור חדשה!**\n👤 לקוח: ${cUser.full_name}\n🕓 שעה: ${timeStr}\n\nהנה האפשרויות שלך:`;
         const clientMsg = `⏳ **בקשתך נשלחה!**\n📍 עסק: ${mUser.business_name || mUser.full_name}\n🕓 שעה: ${timeStr}\n\nאנחנו מחכים לאישור המאסטר. נעדכן אותך מיד כשיתקבל אישור! 🙏`;
 
-        await Promise.all([
-          bot.telegram.sendMessage(masterTelegramId, masterMsg, { 
+        await safeTelegramBatch([
+          ['create-booking-master', () => bot.telegram.sendMessage(masterTelegramId, masterMsg, { 
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
@@ -898,8 +911,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ]
               ]
             }
-          }),
-          bot.telegram.sendMessage(clientTelegramId, clientMsg, { parse_mode: 'Markdown' })
+          })],
+          ['create-booking-client', () => bot.telegram.sendMessage(clientTelegramId, clientMsg, { parse_mode: 'Markdown' })],
         ]);
 
         return res.status(200).json({ success: true, bookingId: booking.id });
@@ -957,7 +970,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const timeStr = new Date(booking.start_time).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
         
         const clientMsg = `✅ **יש! התור שלך אושר!**\n📍 עסק: ${booking.master.business_name || booking.master.full_name}\n🕓 שעה: ${timeStr}\n\nנתראה בקרוב! ✨`;
-        await bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' });
+        await safeTelegramSend('approve-booking-client', () =>
+          bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' })
+        );
 
         // Schedule QStash Reminders
         const now = new Date().getTime();
@@ -1012,7 +1027,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const timeStr = new Date(booking.start_time).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
         
         const clientMsg = `😔 **מצטערים, התור לא אושר...**\n📍 עסק: ${booking.master.business_name || booking.master.full_name}\n🕓 שעה: ${timeStr}\n\nהמאסטר לא פנוי במועד זה. נשמח אם תבחרי מועד אחר ביומן! ✨`;
-        await bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' });
+        await safeTelegramSend('reject-booking-client', () =>
+          bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' })
+        );
 
         return res.status(200).json({ success: true });
       } catch (err: any) {
@@ -1068,11 +1085,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (role === 'master') {
           // Notify Client
           const msg = `😔 **מצטערים, חל שינוי בלוח הזמנים...**\n\nהתור שלך ב-${booking.master.business_name || booking.master.full_name} ב-**${timeStr}** בוטל על ידי המאסטר.\n\nנשמח אם תקבעי תור למועד חדש! ✨`;
-          await bot.telegram.sendMessage(booking.client.telegram_id, msg, { parse_mode: 'Markdown' });
+          await safeTelegramSend('cancel-booking-client', () =>
+            bot.telegram.sendMessage(booking.client.telegram_id, msg, { parse_mode: 'Markdown' })
+          );
         } else {
           // Notify Master
           const msg = `📢 **עדכון: ביטול תור**\n\nהלקוח/ה ${booking.client.full_name} ביטל/ה את התור שנקבע ל-**${timeStr}**.\n\nהמועד הזה התפנה כעת ביומן שלך. 💇‍♀️`;
-          await bot.telegram.sendMessage(booking.master.telegram_id, msg, { parse_mode: 'Markdown' });
+          await safeTelegramSend('cancel-booking-master', () =>
+            bot.telegram.sendMessage(booking.master.telegram_id, msg, { parse_mode: 'Markdown' })
+          );
         }
 
         return res.status(200).json({ success: true });
@@ -1130,9 +1151,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const masterMsg = `🔄 **התור הוזז!**\n👤 לקוח: ${booking.client.full_name}\n🕓 שעה חדשה: ${timeStr}\n\nהשינוי עודכן ביומן. ✨`;
         const clientMsg = `🔄 **עדכון: התור שלך הוזז**\n📍 עסק: ${booking.master.business_name || booking.master.full_name}\n🕓 שעה חדשה: ${timeStr}\n\nהשינוי מחכה לאישור סופי או מעודכן במערכת. 🙏`;
 
-        await Promise.all([
-          bot.telegram.sendMessage(booking.master.telegram_id, masterMsg, { parse_mode: 'Markdown' }),
-          bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' })
+        await safeTelegramBatch([
+          ['update-booking-master', () => bot.telegram.sendMessage(booking.master.telegram_id, masterMsg, { parse_mode: 'Markdown' })],
+          ['update-booking-client', () => bot.telegram.sendMessage(booking.client.telegram_id, clientMsg, { parse_mode: 'Markdown' })],
         ]);
 
         return res.status(200).json({ success: true });

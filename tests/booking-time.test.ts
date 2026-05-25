@@ -31,3 +31,11 @@ test('keeps only future slots for the customer', () => {
     { slot_time: '2026-05-24T12:30:00.000Z' },
   ]);
 });
+
+test('booking source keeps Telegram notification failures non-blocking', async () => {
+  const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../api/services.ts', import.meta.url), 'utf8'));
+
+  assert.match(source, /safeTelegramSend/);
+  assert.match(source, /safeTelegramBatch/);
+  assert.doesNotMatch(source, /await Promise\.all\(\[\s*bot\.telegram\.sendMessage/);
+});
