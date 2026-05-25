@@ -2,16 +2,41 @@
  
 import 'dotenv/config';
 
+const LEGACY_TEXT_MODEL_ALIASES: Record<string, string> = {
+  'models/gemini-3.1-flash-live-preview': 'models/gemini-2.5-flash',
+};
+
+const LEGACY_IMAGE_MODEL_ALIASES: Record<string, string> = {
+  'models/imagen-4.0-generate-001': 'models/gemini-2.5-flash-image',
+  'models/gemini-3.1-flash-live-preview': 'models/gemini-2.5-flash-image',
+};
+
+const normalizeModel = (
+  configured: string | undefined,
+  fallback: string,
+  aliases: Record<string, string>,
+) => {
+  const raw = (configured || '').trim();
+  const resolved = aliases[raw] || raw || fallback;
+
+  if (raw && raw !== resolved) {
+    console.warn(`[CONFIG] Remapped unsupported model "${raw}" -> "${resolved}"`);
+  }
+
+  return resolved;
+};
+
 export const CONFIG = {
   GEMINI_API_KEY: process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
-  // --- AI Model Versions (Verified via API 2026-04-14) ---
+  // --- AI Model Versions (Verified via API 2026-05-25) ---
   MODELS: {
-    ANALYSIS: process.env.MODEL_ANALYSIS || 'models/gemini-3.1-flash-live-preview',       
-    CONTENT: process.env.MODEL_CONTENT || 'models/gemini-3.1-flash-live-preview',       
-    ENHANCEMENT: process.env.MODEL_ENHANCEMENT || 'models/imagen-4.0-generate-001', // NANO BANANA POWER
+    ANALYSIS: normalizeModel(process.env.MODEL_ANALYSIS, 'models/gemini-2.5-flash', LEGACY_TEXT_MODEL_ALIASES),
+    CONTENT: normalizeModel(process.env.MODEL_CONTENT, 'models/gemini-2.5-flash', LEGACY_TEXT_MODEL_ALIASES),
+    ENHANCEMENT: normalizeModel(process.env.MODEL_ENHANCEMENT, 'models/gemini-2.5-flash-image', LEGACY_IMAGE_MODEL_ALIASES),
+    IMAGE: normalizeModel(process.env.MODEL_IMAGE, 'models/gemini-2.5-flash-image', LEGACY_IMAGE_MODEL_ALIASES),
     VIDEO: 'models/veo-3.1-generate-preview',
     EMBEDDING: 'models/text-embedding-004',
-    FALLBACK: 'models/gemini-2.5-flash-native-audio-latest',
+    FALLBACK: 'models/gemini-2.5-flash',
   },
 
   // --- Style DNA & Master prompts ---
