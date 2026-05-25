@@ -98,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const realBusinessName = sanitizeBrandName(userData?.business_name, (userData as any)?.full_name);
 
     // 🚀 STACKING v61: PRO COMPOSITION ENGINE (Dynamic & Collision-Free)
-    const rawOverlays = session_data.lastOverlay || [];
+    const rawOverlays = (session_data.lastOverlay || []).filter((line: any) => line.type === 'LOGO');
     const groupedMap = new Map<string, any>();
     rawOverlays.forEach((line: any) => {
       const cleanText = (line.text || '').replace(/[✨*]/g, '').trim();

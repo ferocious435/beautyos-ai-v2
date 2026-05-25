@@ -49,7 +49,7 @@ export async function analyzeAndGenerate(
   
   const systemPrompt = `
     ${CONFIG.PROMPTS.UNIVERSAL_BEAUTY_DNA}
-    Task: Analyze this photo and design a viral Instagram/FB post.
+    Task: Analyze this photo and prepare a clean beauty retouch plus social caption.
     Goal: ${serviceGoal}.
     CRITICAL: Always return valid JSON.
   `;
@@ -58,9 +58,9 @@ export async function analyzeAndGenerate(
     Analyze the uploaded beauty photo as a Senior Marketing Art-Director.
     1. Identify Focal Point: (service result, hair, skin, face, hands, brows, lashes, makeup).
     2. Composition Strategy:
-       - Subject Protection: No text on the focal point.
-       - Asymmetry: Prefer top-corners, side-backgrounds, or balanced bottom.
-       - Multi-line: suggest 2 lines if the text is dramatic (e.g. "Special Promo \n Book Now").
+       - No marketing text should be placed on the image.
+       - The final image may include only subtle brand/logo placement.
+       - Social network resizing should be handled by the renderer, not by adding frames.
     3. Aesthetic Diversity (LUXURY DNA):
        - Don't just pick Gold! Choose Pearl White, Platinum Silver, Rose Gold, or Sleek Black based on photo colors.
     
@@ -136,8 +136,8 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
       const enhancePrompt = `
         PRO-LEVEL BEAUTY RETOUCH & STUDIO EXPANSION (v65.0 Art-Director Edition).
         1. MASTER POLISH: Identify the focal point (service result, skin, face, hair, hands, brows, lashes, makeup). Perform high-end retouching, remove imperfections, even out tones, and add professional highlights.
-        2. SEAMLESS EXPANSION: The input image contains a sharp subject inside a "Blurred Frame" context. Use this context (colors and textures) as a guide to EXPAND the scene into a full, seamless luxury beauty studio. 
-        3. ZERO ARTIFACTS: Focus on the transition zones. There must be NO visible seams, mismatched lighting, or unnatural borders between the original subject and the expanded background.
+        2. NATURAL FULL-PHOTO ENHANCEMENT: Use the original photo as the source. Do not add frames, borders, side bars, black bars, posters, labels, written text, or graphic overlays.
+        3. ZERO ARTIFACTS: There must be NO visible seams, mismatched lighting, text artifacts, or unnatural borders.
         4. LUXURY AESTHETIC: Finish the background with professional studio elements (marble surfaces, elegant bokeh, soft diffusion lighting).
         Style: High-end Commercial Photography, Cinematic Studio Lighting.
         Context: ${prompt}.

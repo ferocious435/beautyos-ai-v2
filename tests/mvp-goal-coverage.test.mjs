@@ -15,6 +15,7 @@ const [
   messagesSource,
   portfolioSource,
   graphicEngineSource,
+  renderWorkerSource,
 ] = await Promise.all([
   read('src/App.tsx'),
   read('src/layouts/MainLayout.tsx'),
@@ -26,6 +27,7 @@ const [
   read('src/pages/Messages.tsx'),
   read('src/pages/Portfolio.tsx'),
   read('api/_lib/graphic-engine.ts'),
+  read('api/render-worker.ts'),
 ]);
 
 test('MVP separates client, master and admin surfaces', () => {
@@ -82,11 +84,13 @@ test('MVP keeps Telegram-first conversation actions connected to real screens', 
   assert.match(botSource, /enqueueAiProcessing/);
 });
 
-test('MVP renders marketing text as a live social post without a heavy fixed panel', () => {
+test('MVP keeps generated social images focused on photo retouching and logo-only branding', () => {
   assert.match(graphicEngineSource, /renderLiveMarketingOverlay/);
-  assert.match(graphicEngineSource, /pickCalmRegion/);
-  assert.match(graphicEngineSource, /getImageDetailScore/);
-  assert.match(graphicEngineSource, /strokeText/);
+  assert.match(graphicEngineSource, /line\.type === 'LOGO'/);
+  assert.match(renderWorkerSource, /filter\(\(line: any\) => line\.type === 'LOGO'\)/);
+  assert.doesNotMatch(botSource, /design_PRICE/);
+  assert.doesNotMatch(botSource, /design_TITLE/);
+  assert.doesNotMatch(botSource, /design_PROMO/);
   assert.doesNotMatch(graphicEngineSource, /renderEditorialPanel/);
   assert.match(botSource, /getCleanBrandName/);
 });

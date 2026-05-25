@@ -3,7 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { OverlayLine } from './content-engine.js';
-import { wrapText } from './graphic-utils.js';
 
 export type SocialFormat = 'INSTAGRAM_POST' | 'STORY_9_16' | 'SQUARE_1_1' | 'ORIGINAL' | 'AI_SEED';
 
@@ -28,10 +27,8 @@ export interface RenderOptions {
   style?: StyleOptions;
 }
 
-const SANS_STACK = 'Assistant, "Noto Color Emoji", sans-serif';
 const SERIF_STACK = 'Assistant, "Playfair Display", "Noto Color Emoji", serif';
 const RTL_CHAR = /[\u0590-\u05FF\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-type TextAlign = 'left' | 'right' | 'center';
 
 let fontsRegistered = false;
 
@@ -62,144 +59,8 @@ function ensureFonts() {
   fontsRegistered = true;
 }
 
-function fitTextLines(ctx: any, text: string, maxWidth: number, startingSize: number, fontFamily: string, minSize = 24) {
-  let fontSize = startingSize;
-  ctx.font = `${fontSize}px ${fontFamily}`;
-  let lines = wrapText(ctx, text, maxWidth);
-
-  while (fontSize > minSize) {
-    const widestLine = Math.max(...lines.map((line) => ctx.measureText(line).width), 0);
-    if (widestLine <= maxWidth) break;
-
-    fontSize -= 4;
-    ctx.font = `${fontSize}px ${fontFamily}`;
-    lines = wrapText(ctx, text, maxWidth);
-  }
-
-  return { fontSize, lines };
-}
-
 function isRtlText(text: string) {
   return RTL_CHAR.test(text);
-}
-
-function drawSmartText(
-  ctx: any,
-  text: string,
-  x: number,
-  y: number,
-  options: {
-    maxWidth: number;
-    fontSize: number;
-    minSize?: number;
-    color: string;
-    align?: TextAlign;
-    fontFamily?: string;
-    maxLines?: number;
-    lineHeight?: number;
-    shadow?: boolean;
-  },
-) {
-  if (!text.trim()) return { width: 0, height: 0, lines: [] as string[] };
-
-  const fontFamily = options.fontFamily || SANS_STACK;
-  const fit = fitTextLines(ctx, text, options.maxWidth, options.fontSize, fontFamily, options.minSize || 22);
-  const lines = fit.lines.slice(0, options.maxLines || 2);
-  const lineHeight = options.lineHeight || fit.fontSize * 1.15;
-  const blockHeight = Math.max(lineHeight, lines.length * lineHeight);
-
-  ctx.save();
-  ctx.font = `700 ${fit.fontSize}px ${fontFamily}`;
-  ctx.fillStyle = options.color;
-  ctx.textAlign = options.align || (isRtlText(text) ? 'right' : 'left');
-  ctx.textBaseline = 'top';
-  ctx.direction = isRtlText(text) ? 'rtl' : 'ltr';
-
-  if (options.shadow !== false) {
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-    ctx.shadowBlur = 18;
-    ctx.shadowOffsetY = 3;
-  }
-
-  lines.forEach((line, index) => {
-    ctx.lineWidth = Math.max(4, fit.fontSize * 0.08);
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.38)';
-    ctx.strokeText(line, x, y + index * lineHeight);
-    ctx.fillText(line, x, y + index * lineHeight);
-  });
-  ctx.restore();
-
-  return { width: options.maxWidth, height: blockHeight, lines };
-}
-
-function getImageDetailScore(ctx: any, x: number, y: number, width: number, height: number) {
-  const sampleWidth = Math.max(8, Math.min(42, Math.floor(width / 18)));
-  const sampleHeight = Math.max(8, Math.min(42, Math.floor(height / 18)));
-  const imageData = ctx.getImageData(x, y, width, height).data;
-  const stepX = Math.max(1, Math.floor(width / sampleWidth));
-  const stepY = Math.max(1, Math.floor(height / sampleHeight));
-  let previous = 0;
-  let totalDiff = 0;
-  let samples = 0;
-
-  for (let py = 0; py < height; py += stepY) {
-    for (let px = 0; px < width; px += stepX) {
-      const idx = (py * width + px) * 4;
-      const luminance = imageData[idx] * 0.2126 + imageData[idx + 1] * 0.7152 + imageData[idx + 2] * 0.0722;
-      if (samples > 0) totalDiff += Math.abs(luminance - previous);
-      previous = luminance;
-      samples++;
-    }
-  }
-
-  return samples ? totalDiff / samples : 0;
-}
-
-function pickCalmRegion(
-  ctx: any,
-  targetWidth: number,
-  targetHeight: number,
-  variant: 'headline' | 'price' | 'brand',
-  occupied: Array<{ x: number; y: number; boxWidth: number; boxHeight: number }> = [],
-) {
-  const margin = targetWidth * 0.06;
-  const boxWidth = targetWidth * (variant === 'headline' ? 0.38 : 0.24);
-  const boxHeight = targetHeight * (variant === 'headline' ? 0.18 : 0.11);
-  const candidates = [
-    { x: margin, y: targetHeight * 0.08, align: 'left' as TextAlign },
-    { x: targetWidth - margin - boxWidth, y: targetHeight * 0.08, align: 'right' as TextAlign },
-    { x: margin, y: targetHeight * 0.68, align: 'left' as TextAlign },
-    { x: targetWidth - margin - boxWidth, y: targetHeight * 0.68, align: 'right' as TextAlign },
-    { x: margin, y: targetHeight * 0.42, align: 'left' as TextAlign },
-    { x: targetWidth - margin - boxWidth, y: targetHeight * 0.42, align: 'right' as TextAlign },
-  ];
-
-  const centerX = targetWidth / 2;
-  const centerY = targetHeight / 2;
-  const scored = candidates.map((candidate) => {
-    const detail = getImageDetailScore(
-      ctx,
-      Math.max(0, Math.floor(candidate.x)),
-      Math.max(0, Math.floor(candidate.y)),
-      Math.min(Math.floor(boxWidth), targetWidth - Math.floor(candidate.x)),
-      Math.min(Math.floor(boxHeight), targetHeight - Math.floor(candidate.y)),
-    );
-    const cx = candidate.x + boxWidth / 2;
-    const cy = candidate.y + boxHeight / 2;
-    const centerPenalty =
-      Math.max(0, 1 - Math.abs(cx - centerX) / (targetWidth * 0.34)) * 16 +
-      Math.max(0, 1 - Math.abs(cy - centerY) / (targetHeight * 0.3)) * 10;
-    const bottomPenalty = variant === 'headline' && candidate.y > targetHeight * 0.55 ? 12 : 0;
-    const overlapPenalty = occupied.some((area) => {
-      const overlapX = candidate.x < area.x + area.boxWidth && candidate.x + boxWidth > area.x;
-      const overlapY = candidate.y < area.y + area.boxHeight && candidate.y + boxHeight > area.y;
-      return overlapX && overlapY;
-    }) ? 40 : 0;
-    return { ...candidate, boxWidth, boxHeight, score: detail + centerPenalty + bottomPenalty + overlapPenalty };
-  });
-
-  scored.sort((a, b) => a.score - b.score);
-  return scored[0];
 }
 
 function renderLiveMarketingOverlay(
@@ -209,56 +70,11 @@ function renderLiveMarketingOverlay(
   options: RenderOptions & { safeZone?: any },
 ) {
   const { overlay = [], safeZone } = options;
-  const overlayByType = new Map<string, OverlayLine>();
-
-  for (const line of overlay) {
-    const type = line.type || 'TEXT';
-    const cleanText = (line.text || '').trim();
-    if (!cleanText) continue;
-    overlayByType.set(type, { ...line, text: cleanText });
-  }
-
-  const title = overlayByType.get('TITLE')?.text || '';
-  const promo = overlayByType.get('PROMO')?.text || '';
-  const price = overlayByType.get('PRICE')?.text || '';
-  const logo = overlayByType.get('LOGO')?.text || '';
-
-  if (!title && !promo && !price && !logo) return;
-
-  const headlineText = [title, promo].filter(Boolean).join('\n');
-  const headlineRegion = pickCalmRegion(ctx, targetWidth, targetHeight, 'headline');
-  const headlineX = headlineRegion.align === 'right'
-    ? headlineRegion.x + headlineRegion.boxWidth
-    : headlineRegion.x;
-
-  if (headlineText) {
-    drawSmartText(ctx, headlineText, headlineX, headlineRegion.y, {
-      maxWidth: headlineRegion.boxWidth,
-      fontSize: targetHeight > 1500 ? 62 : 48,
-      minSize: 30,
-      color: '#FFF9EA',
-      align: headlineRegion.align,
-      maxLines: 3,
-      lineHeight: targetHeight > 1500 ? 68 : 54,
-    });
-  }
-
-  if (price) {
-    const priceRegion = pickCalmRegion(ctx, targetWidth, targetHeight, 'price', [headlineRegion]);
-    const priceX = priceRegion.align === 'right'
-      ? priceRegion.x + priceRegion.boxWidth
-      : priceRegion.x;
-
-    drawSmartText(ctx, price, priceX, priceRegion.y, {
-      maxWidth: priceRegion.boxWidth,
-      fontSize: targetHeight > 1500 ? 60 : 44,
-      minSize: 28,
-      color: '#FFE08A',
-      align: priceRegion.align,
-      maxLines: 2,
-      lineHeight: targetHeight > 1500 ? 64 : 48,
-    });
-  }
+  const logo = overlay.find((line) => line.type === 'LOGO')?.text?.trim() || '';
+  const logoZone = safeZone || {
+    left: targetWidth * 0.05,
+    right: targetWidth * 0.95,
+  };
 
   if (logo || safeZone) {
     const brandText = logo || 'BeautyOS';
@@ -270,7 +86,7 @@ function renderLiveMarketingOverlay(
     ctx.direction = isRtlText(brandText) ? 'rtl' : 'ltr';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
     ctx.shadowBlur = 12;
-    const brandX = isRtlText(brandText) ? safeZone.right - 12 : safeZone.left + 12;
+    const brandX = isRtlText(brandText) ? logoZone.right - 12 : logoZone.left + 12;
     ctx.fillText(brandText, brandX, targetHeight - targetHeight * 0.045);
     ctx.restore();
   }
@@ -369,15 +185,15 @@ export async function generateSocialPost(imageBuffer: Buffer, options: RenderOpt
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 30;
   } else if (imageAspect > canvasAspect) {
-    dw = targetWidth;
-    dh = targetWidth / imageAspect;
-    dx = 0;
-    dy = (targetHeight - dh) / 2;
-  } else {
     dh = targetHeight;
     dw = targetHeight * imageAspect;
     dx = (targetWidth - dw) / 2;
     dy = 0;
+  } else {
+    dw = targetWidth;
+    dh = targetWidth / imageAspect;
+    dx = 0;
+    dy = (targetHeight - dh) / 2;
   }
 
   ctx.drawImage(image, dx, dy, dw, dh);

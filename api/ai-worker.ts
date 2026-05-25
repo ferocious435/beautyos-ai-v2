@@ -73,12 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const menu = {
       inline_keyboard: [
         [
-          { text: '💰 הוסף מחיר', callback_data: `design_PRICE_#_${fId.slice(-6)}` },
-          { text: '🖌 הוסף כותרת', callback_data: `design_TITLE_#_${fId.slice(-6)}` }
-        ],
-        [
-          { text: '💎 לוגו: ❌', callback_data: `design_LOGO_#_${fId.slice(-6)}` },
-          { text: '🎁 מבצע', callback_data: `design_PROMO_#_${fId.slice(-6)}` }
+          { text: '💎 לוגו: ❌', callback_data: `design_LOGO_#_${fId.slice(-6)}` }
         ],
         [
           { text: '🚀 אישור והמשך לעיבוד', callback_data: `design_DONE_#_${fId.slice(-6)}` }
@@ -87,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     await bot.telegram.sendPhoto(chatId, { source: imageData }, {
-      caption: `🎨 **סטודיו BeautyOS פתוח!**\n\nהתמונה התקבלה. לחץ על הכפתורים למטה כדי להזין טקסט, מחיר או להוסיף לוגו.\nבסיום, לחץ על **אישור והמשך** כדי לבחור רשת חברתית ולהתחיל את המהפך! ✨`,
+      caption: `🎨 **סטודיו BeautyOS פתוח!**\n\nהתמונה התקבלה. אפשר להוסיף לוגו, או להמשיך ישר לבחירת פורמט וריטוש.\nלא יתווסף טקסט שיווקי על התמונה.`,
       parse_mode: 'Markdown',
       reply_markup: menu
     });

@@ -1,7 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from './_lib/supabase.js';
 import { analyzeAndGenerate, enhanceImage } from './_lib/content-engine.js';
-import { generateSocialPost } from './_lib/graphic-engine.js';
 
 // Vercel Config: Disable Body Parser for Raw Body Security Verification
 export const config = {
@@ -66,24 +65,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     }
 
-    // Step 2: AI Seed + Enhancement (with graceful fallback)
+    // Step 2: Enhancement (with graceful fallback)
     let finalMasterBuffer: Buffer = originalBuffer; // Default fallback = original
     let enhancementSucceeded = false;
 
     try {
-      console.log(`[Retouch-Worker] Step 2: Creating AI Seed (Framed)...`);
-      const aiSeed = await generateSocialPost(originalBuffer, {
-        format: 'AI_SEED',
-        skipOverlay: true,
-        theme: 'ORIGINAL_CLEAN'
-      });
-
-      console.log(`[Retouch-Worker] Step 3: Gemini Enhancement & Expansion...`);
-      finalMasterBuffer = await enhanceImage(aiSeed, aiResult.imagenPrompt);
+      console.log(`[Retouch-Worker] Step 2: Gemini Enhancement from original photo...`);
+      finalMasterBuffer = await enhanceImage(originalBuffer, aiResult.imagenPrompt);
       enhancementSucceeded = true;
-      console.log(`[Retouch-Worker] Step 3 ✅ Enhancement complete!`);
+      console.log(`[Retouch-Worker] Step 2 ✅ Enhancement complete!`);
     } catch (err: any) {
-      console.error(`[Retouch-Worker] Step 2-3 ❌ Enhancement failed: ${err.message}. Using original image.`);
+      console.error(`[Retouch-Worker] Step 2 ❌ Enhancement failed: ${err.message}. Using original image.`);
       // finalMasterBuffer stays as originalBuffer — user still gets a design, just without AI enhancement
     }
 
