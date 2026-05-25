@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { OverlayLine } from './content-engine.js';
-import { getVisualBidiText, wrapText } from './graphic-utils.js';
+import { wrapText } from './graphic-utils.js';
 
 export type SocialFormat = 'INSTAGRAM_POST' | 'STORY_9_16' | 'SQUARE_1_1' | 'ORIGINAL' | 'AI_SEED';
 
@@ -31,6 +31,7 @@ export interface RenderOptions {
 const SANS_STACK = 'Assistant, "Noto Color Emoji", sans-serif';
 const SERIF_STACK = 'Assistant, "Playfair Display", "Noto Color Emoji", serif';
 const RTL_CHAR = /[\u0590-\u05FF\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+type TextAlign = 'left' | 'right' | 'center';
 
 let fontsRegistered = false;
 
@@ -61,21 +62,6 @@ function ensureFonts() {
   fontsRegistered = true;
 }
 
-function roundedRectPath(ctx: any, x: number, y: number, width: number, height: number, radius: number) {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + safeRadius, y);
-  ctx.lineTo(x + width - safeRadius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
-  ctx.lineTo(x + width, y + height - safeRadius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
-  ctx.lineTo(x + safeRadius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
-  ctx.lineTo(x, y + safeRadius);
-  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
-  ctx.closePath();
-}
-
 function fitTextLines(ctx: any, text: string, maxWidth: number, startingSize: number, fontFamily: string, minSize = 24) {
   let fontSize = startingSize;
   ctx.font = `${fontSize}px ${fontFamily}`;
@@ -93,13 +79,136 @@ function fitTextLines(ctx: any, text: string, maxWidth: number, startingSize: nu
   return { fontSize, lines };
 }
 
-function renderEditorialPanel(
+function isRtlText(text: string) {
+  return RTL_CHAR.test(text);
+}
+
+function drawSmartText(
+  ctx: any,
+  text: string,
+  x: number,
+  y: number,
+  options: {
+    maxWidth: number;
+    fontSize: number;
+    minSize?: number;
+    color: string;
+    align?: TextAlign;
+    fontFamily?: string;
+    maxLines?: number;
+    lineHeight?: number;
+    shadow?: boolean;
+  },
+) {
+  if (!text.trim()) return { width: 0, height: 0, lines: [] as string[] };
+
+  const fontFamily = options.fontFamily || SANS_STACK;
+  const fit = fitTextLines(ctx, text, options.maxWidth, options.fontSize, fontFamily, options.minSize || 22);
+  const lines = fit.lines.slice(0, options.maxLines || 2);
+  const lineHeight = options.lineHeight || fit.fontSize * 1.15;
+  const blockHeight = Math.max(lineHeight, lines.length * lineHeight);
+
+  ctx.save();
+  ctx.font = `700 ${fit.fontSize}px ${fontFamily}`;
+  ctx.fillStyle = options.color;
+  ctx.textAlign = options.align || (isRtlText(text) ? 'right' : 'left');
+  ctx.textBaseline = 'top';
+  ctx.direction = isRtlText(text) ? 'rtl' : 'ltr';
+
+  if (options.shadow !== false) {
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 3;
+  }
+
+  lines.forEach((line, index) => {
+    ctx.lineWidth = Math.max(4, fit.fontSize * 0.08);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.38)';
+    ctx.strokeText(line, x, y + index * lineHeight);
+    ctx.fillText(line, x, y + index * lineHeight);
+  });
+  ctx.restore();
+
+  return { width: options.maxWidth, height: blockHeight, lines };
+}
+
+function getImageDetailScore(ctx: any, x: number, y: number, width: number, height: number) {
+  const sampleWidth = Math.max(8, Math.min(42, Math.floor(width / 18)));
+  const sampleHeight = Math.max(8, Math.min(42, Math.floor(height / 18)));
+  const imageData = ctx.getImageData(x, y, width, height).data;
+  const stepX = Math.max(1, Math.floor(width / sampleWidth));
+  const stepY = Math.max(1, Math.floor(height / sampleHeight));
+  let previous = 0;
+  let totalDiff = 0;
+  let samples = 0;
+
+  for (let py = 0; py < height; py += stepY) {
+    for (let px = 0; px < width; px += stepX) {
+      const idx = (py * width + px) * 4;
+      const luminance = imageData[idx] * 0.2126 + imageData[idx + 1] * 0.7152 + imageData[idx + 2] * 0.0722;
+      if (samples > 0) totalDiff += Math.abs(luminance - previous);
+      previous = luminance;
+      samples++;
+    }
+  }
+
+  return samples ? totalDiff / samples : 0;
+}
+
+function pickCalmRegion(
+  ctx: any,
+  targetWidth: number,
+  targetHeight: number,
+  variant: 'headline' | 'price' | 'brand',
+  occupied: Array<{ x: number; y: number; boxWidth: number; boxHeight: number }> = [],
+) {
+  const margin = targetWidth * 0.06;
+  const boxWidth = targetWidth * (variant === 'headline' ? 0.38 : 0.24);
+  const boxHeight = targetHeight * (variant === 'headline' ? 0.18 : 0.11);
+  const candidates = [
+    { x: margin, y: targetHeight * 0.08, align: 'left' as TextAlign },
+    { x: targetWidth - margin - boxWidth, y: targetHeight * 0.08, align: 'right' as TextAlign },
+    { x: margin, y: targetHeight * 0.68, align: 'left' as TextAlign },
+    { x: targetWidth - margin - boxWidth, y: targetHeight * 0.68, align: 'right' as TextAlign },
+    { x: margin, y: targetHeight * 0.42, align: 'left' as TextAlign },
+    { x: targetWidth - margin - boxWidth, y: targetHeight * 0.42, align: 'right' as TextAlign },
+  ];
+
+  const centerX = targetWidth / 2;
+  const centerY = targetHeight / 2;
+  const scored = candidates.map((candidate) => {
+    const detail = getImageDetailScore(
+      ctx,
+      Math.max(0, Math.floor(candidate.x)),
+      Math.max(0, Math.floor(candidate.y)),
+      Math.min(Math.floor(boxWidth), targetWidth - Math.floor(candidate.x)),
+      Math.min(Math.floor(boxHeight), targetHeight - Math.floor(candidate.y)),
+    );
+    const cx = candidate.x + boxWidth / 2;
+    const cy = candidate.y + boxHeight / 2;
+    const centerPenalty =
+      Math.max(0, 1 - Math.abs(cx - centerX) / (targetWidth * 0.34)) * 16 +
+      Math.max(0, 1 - Math.abs(cy - centerY) / (targetHeight * 0.3)) * 10;
+    const bottomPenalty = variant === 'headline' && candidate.y > targetHeight * 0.55 ? 12 : 0;
+    const overlapPenalty = occupied.some((area) => {
+      const overlapX = candidate.x < area.x + area.boxWidth && candidate.x + boxWidth > area.x;
+      const overlapY = candidate.y < area.y + area.boxHeight && candidate.y + boxHeight > area.y;
+      return overlapX && overlapY;
+    }) ? 40 : 0;
+    return { ...candidate, boxWidth, boxHeight, score: detail + centerPenalty + bottomPenalty + overlapPenalty };
+  });
+
+  scored.sort((a, b) => a.score - b.score);
+  return scored[0];
+}
+
+function renderLiveMarketingOverlay(
   ctx: any,
   targetWidth: number,
   targetHeight: number,
   options: RenderOptions & { safeZone?: any },
 ) {
-  const { overlay = [], format, safeZone } = options;
+  const { overlay = [], safeZone } = options;
   const overlayByType = new Map<string, OverlayLine>();
 
   for (const line of overlay) {
@@ -116,136 +225,53 @@ function renderEditorialPanel(
 
   if (!title && !promo && !price && !logo) return;
 
-  const fadeHeight = targetHeight * (format === 'STORY_9_16' ? 0.34 : 0.28);
-  const fade = ctx.createLinearGradient(0, targetHeight - fadeHeight, 0, targetHeight);
-  fade.addColorStop(0, 'rgba(10, 10, 12, 0)');
-  fade.addColorStop(1, 'rgba(10, 10, 12, 0.72)');
-  ctx.fillStyle = fade;
-  ctx.fillRect(0, targetHeight - fadeHeight, targetWidth, fadeHeight);
+  const headlineText = [title, promo].filter(Boolean).join('\n');
+  const headlineRegion = pickCalmRegion(ctx, targetWidth, targetHeight, 'headline');
+  const headlineX = headlineRegion.align === 'right'
+    ? headlineRegion.x + headlineRegion.boxWidth
+    : headlineRegion.x;
 
-  const panelInset = targetWidth * 0.05;
-  const panelWidth = targetWidth - panelInset * 2;
-  const panelHeight = targetHeight * (format === 'STORY_9_16' ? 0.2 : 0.18);
-  const panelY = targetHeight - panelHeight - targetHeight * 0.045;
-
-  ctx.save();
-  roundedRectPath(ctx, panelInset, panelY, panelWidth, panelHeight, 34);
-  const panelFill = ctx.createLinearGradient(panelInset, panelY, panelInset, panelY + panelHeight);
-  panelFill.addColorStop(0, 'rgba(18, 18, 22, 0.88)');
-  panelFill.addColorStop(1, 'rgba(10, 10, 12, 0.94)');
-  ctx.fillStyle = panelFill;
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(212, 175, 55, 0.22)';
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.save();
-  roundedRectPath(ctx, panelInset + 26, panelY + 18, panelWidth * 0.16, 6, 6);
-  ctx.fillStyle = 'rgba(212, 175, 55, 0.92)';
-  ctx.fill();
-  ctx.restore();
-
-  const leftColumnWidth = panelWidth * 0.28;
-  const rightColumnX = panelInset + leftColumnWidth + 38;
-  const rightColumnWidth = panelWidth - leftColumnWidth - 70;
-
-  if (title) {
-    ctx.save();
-    ctx.font = `56px ${SANS_STACK}`;
-    const titleFit = fitTextLines(ctx, title, rightColumnWidth, 56, SANS_STACK, 34);
-    ctx.font = `700 ${titleFit.fontSize}px ${SANS_STACK}`;
-    ctx.fillStyle = '#F8F6F1';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.34)';
-    ctx.shadowBlur = 10;
-    const lineHeight = titleFit.fontSize * 1.18;
-
-    titleFit.lines.slice(0, 2).forEach((line, index) => {
-      ctx.fillText(getVisualBidiText(line), panelInset + panelWidth - 28, panelY + 48 + index * lineHeight);
+  if (headlineText) {
+    drawSmartText(ctx, headlineText, headlineX, headlineRegion.y, {
+      maxWidth: headlineRegion.boxWidth,
+      fontSize: targetHeight > 1500 ? 62 : 48,
+      minSize: 30,
+      color: '#FFF9EA',
+      align: headlineRegion.align,
+      maxLines: 3,
+      lineHeight: targetHeight > 1500 ? 68 : 54,
     });
-    ctx.restore();
-  }
-
-  if (promo) {
-    const promoBoxWidth = rightColumnWidth;
-    const promoBoxHeight = panelHeight * 0.34;
-    const promoY = panelY + panelHeight - promoBoxHeight - 22;
-
-    ctx.save();
-    roundedRectPath(ctx, rightColumnX, promoY, promoBoxWidth, promoBoxHeight, 22);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.font = `52px ${SANS_STACK}`;
-    const promoFit = fitTextLines(ctx, promo, promoBoxWidth - 44, 52, SANS_STACK, 28);
-    ctx.font = `700 ${promoFit.fontSize}px ${SANS_STACK}`;
-    ctx.fillStyle = '#F3D37A';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    const lineHeight = promoFit.fontSize * 1.14;
-    const visibleLines = promoFit.lines.slice(0, 2);
-
-    visibleLines.forEach((line, index) => {
-      const centeredYOffset = (index - (visibleLines.length - 1) / 2) * lineHeight;
-      ctx.fillText(getVisualBidiText(line), rightColumnX + promoBoxWidth - 22, promoY + promoBoxHeight / 2 + centeredYOffset);
-    });
-    ctx.restore();
   }
 
   if (price) {
-    const priceBoxX = panelInset + 24;
-    const priceBoxY = panelY + 24;
-    const priceBoxWidth = leftColumnWidth - 14;
-    const priceBoxHeight = panelHeight * 0.38;
+    const priceRegion = pickCalmRegion(ctx, targetWidth, targetHeight, 'price', [headlineRegion]);
+    const priceX = priceRegion.align === 'right'
+      ? priceRegion.x + priceRegion.boxWidth
+      : priceRegion.x;
 
-    ctx.save();
-    roundedRectPath(ctx, priceBoxX, priceBoxY, priceBoxWidth, priceBoxHeight, 26);
-    const priceFill = ctx.createLinearGradient(priceBoxX, priceBoxY, priceBoxX + priceBoxWidth, priceBoxY + priceBoxHeight);
-    priceFill.addColorStop(0, 'rgba(255, 248, 231, 0.96)');
-    priceFill.addColorStop(1, 'rgba(232, 204, 124, 0.96)');
-    ctx.fillStyle = priceFill;
-    ctx.fill();
-    ctx.restore();
-
-    ctx.save();
-    ctx.font = `44px ${SANS_STACK}`;
-    const priceFit = fitTextLines(ctx, price, priceBoxWidth - 28, 44, SANS_STACK, 24);
-    ctx.font = `700 ${priceFit.fontSize}px ${SANS_STACK}`;
-    ctx.fillStyle = '#1B1711';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const visibleLines = priceFit.lines.slice(0, 2);
-    const lineHeight = priceFit.fontSize * 1.08;
-
-    visibleLines.forEach((line, index) => {
-      const centeredYOffset = (index - (visibleLines.length - 1) / 2) * lineHeight;
-      ctx.fillText(getVisualBidiText(line), priceBoxX + priceBoxWidth / 2, priceBoxY + priceBoxHeight / 2 + centeredYOffset);
+    drawSmartText(ctx, price, priceX, priceRegion.y, {
+      maxWidth: priceRegion.boxWidth,
+      fontSize: targetHeight > 1500 ? 60 : 44,
+      minSize: 28,
+      color: '#FFE08A',
+      align: priceRegion.align,
+      maxLines: 2,
+      lineHeight: targetHeight > 1500 ? 64 : 48,
     });
-    ctx.restore();
   }
 
-  if (logo) {
+  if (logo || safeZone) {
+    const brandText = logo || 'BeautyOS';
     ctx.save();
-    ctx.font = `italic 30px ${SERIF_STACK}`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-    ctx.textAlign = 'left';
+    ctx.font = `italic ${targetHeight > 1500 ? 34 : 28}px ${SERIF_STACK}`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+    ctx.textAlign = isRtlText(brandText) ? 'right' : 'left';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(getVisualBidiText(logo), panelInset + 30, panelY + panelHeight - 22);
-    ctx.restore();
-  } else if (safeZone) {
-    ctx.save();
-    ctx.font = `italic 24px ${SERIF_STACK}`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText('BeautyOS', safeZone.left + 12, panelY + panelHeight - 22);
+    ctx.direction = isRtlText(brandText) ? 'rtl' : 'ltr';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur = 12;
+    const brandX = isRtlText(brandText) ? safeZone.right - 12 : safeZone.left + 12;
+    ctx.fillText(brandText, brandX, targetHeight - targetHeight * 0.045);
     ctx.restore();
   }
 }
@@ -269,7 +295,7 @@ export async function generateSocialPost(imageBuffer: Buffer, options: RenderOpt
     const originalCanvas = createCanvas(image.width, image.height);
     const originalContext = originalCanvas.getContext('2d');
     originalContext.drawImage(image, 0, 0);
-    renderEditorialPanel(originalContext, image.width, image.height, options);
+    renderLiveMarketingOverlay(originalContext, image.width, image.height, options);
     return Buffer.from(originalCanvas.toBuffer('image/jpeg'));
   }
 
@@ -358,7 +384,7 @@ export async function generateSocialPost(imageBuffer: Buffer, options: RenderOpt
   ctx.restore();
 
   if (format !== 'AI_SEED' && !options.skipOverlay) {
-    renderEditorialPanel(ctx, targetWidth, targetHeight, { ...options, safeZone });
+    renderLiveMarketingOverlay(ctx, targetWidth, targetHeight, { ...options, safeZone });
   }
 
   if (businessName && format !== 'AI_SEED' && !options.skipWatermark) {
@@ -369,7 +395,7 @@ export async function generateSocialPost(imageBuffer: Buffer, options: RenderOpt
     ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
     ctx.shadowBlur = 8;
     ctx.direction = RTL_CHAR.test(businessName) ? 'rtl' : 'ltr';
-    ctx.fillText(getVisualBidiText(businessName), targetWidth / 2, targetHeight - 38);
+    ctx.fillText(businessName, targetWidth / 2, targetHeight - 38);
     ctx.restore();
   }
 

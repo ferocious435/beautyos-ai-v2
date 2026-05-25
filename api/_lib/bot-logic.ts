@@ -1513,7 +1513,7 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
     if (!photo) return;
 
     const caption = (ctx.message as any).caption; 
-    const msg = await ctx.reply('⏳ **מנתח את התמונה ויוצר קסם... (תהליך זה מתבצע ברקע ויושלם בקרוב)** ✨');
+    const msg = await ctx.reply('⏳ קיבלתי את התמונה. מכין אותה לסטודיו BeautyOS...');
 
     try {
       // 🕵️ ZERO STALE STATE FIX (v64.2)

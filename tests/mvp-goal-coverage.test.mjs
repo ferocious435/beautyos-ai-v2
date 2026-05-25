@@ -82,10 +82,11 @@ test('MVP keeps Telegram-first conversation actions connected to real screens', 
   assert.match(botSource, /enqueueAiProcessing/);
 });
 
-test('MVP renders marketing text in a dedicated editorial panel instead of random body overlap', () => {
-  assert.match(graphicEngineSource, /renderEditorialPanel/);
-  assert.match(graphicEngineSource, /panelHeight = targetHeight \*/);
-  assert.match(graphicEngineSource, /roundedRectPath/);
-  assert.match(graphicEngineSource, /getVisualBidiText/);
+test('MVP renders marketing text as a live social post without a heavy fixed panel', () => {
+  assert.match(graphicEngineSource, /renderLiveMarketingOverlay/);
+  assert.match(graphicEngineSource, /pickCalmRegion/);
+  assert.match(graphicEngineSource, /getImageDetailScore/);
+  assert.match(graphicEngineSource, /strokeText/);
+  assert.doesNotMatch(graphicEngineSource, /renderEditorialPanel/);
   assert.match(botSource, /getCleanBrandName/);
 });

@@ -71,7 +71,7 @@ export async function enqueueAiProcessing(
   const appUrl = getPublicAppUrl();
   const client = getQstashClient();
 
-  await telegraf.telegram.editMessageText(chatId, messageId, undefined, `ג³ ׳׳›׳™׳ ׳׳× ׳”׳׳¢׳¨׳›׳×... ג¨`);
+  await telegraf.telegram.editMessageText(chatId, messageId, undefined, '⏳ מכין את התמונה לעיבוד...');
 
   if (!client || !appUrl) {
     throw new Error(`Missing env: QSTASH=${!!client}, APPURL=${!!appUrl}`);
@@ -79,10 +79,8 @@ export async function enqueueAiProcessing(
 
   const destinationUrl = buildDestinationUrl(appUrl, '/api/ai-worker');
 
-  await telegraf.telegram.editMessageText(chatId, messageId, undefined, `ג³ ׳”׳׳¢׳¨׳›׳× ׳׳–׳”׳” ׳׳× ׳”׳©׳¨׳×... ג¨`);
-
   try {
-    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `נ“¡ ׳©׳•׳׳— ׳₪׳§׳•׳“׳” ׳׳¢׳™׳‘׳•׳“ ׳¢׳ ׳...`);
+    await telegraf.telegram.editMessageText(chatId, messageId, undefined, '📡 שולח את התמונה לסטודיו BeautyOS...');
 
     await client.publishJSON({
       url: destinationUrl,
@@ -90,10 +88,20 @@ export async function enqueueAiProcessing(
       timeout: 30,
     });
 
-    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `ג… ׳”׳×׳׳•׳ ׳” ׳‘׳×׳•׳¨ ׳׳¢׳™׳‘׳•׳“! ׳׳ ׳ ׳”׳׳×׳... נ¨`);
+    await telegraf.telegram.editMessageText(
+      chatId,
+      messageId,
+      undefined,
+      '✅ התמונה נכנסה לעיבוד. עוד רגע נפתח לך את סטודיו BeautyOS.',
+    );
   } catch (error: any) {
     const errorMsg = error?.message || 'Unknown QStash error';
-    await telegraf.telegram.editMessageText(chatId, messageId, undefined, `ג ׳×׳§׳׳” ׳‘׳×׳§׳©׳•׳¨׳×: ${errorMsg}`);
+    await telegraf.telegram.editMessageText(
+      chatId,
+      messageId,
+      undefined,
+      `❌ לא הצלחתי לשלוח את התמונה לעיבוד: ${errorMsg}`,
+    );
     throw new Error(`QStash Error: ${errorMsg}`);
   }
 }
