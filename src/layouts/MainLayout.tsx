@@ -109,7 +109,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     },
     {
       path: '/pricing',
-      label: 'מחירון',
+      label: 'מנוי',
       roles: ['master', 'admin'] as NavRole[],
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -144,7 +144,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     },
     {
       path: '/settings',
-      label: 'הגדרות',
+      label: 'שירותים',
       roles: ['master', 'admin'] as NavRole[],
       icon: (active: boolean) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

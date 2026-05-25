@@ -81,10 +81,16 @@ const Pricing = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl font-black bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent"
           >
-            בחרי את המינוי שלך
+            מינוי BeautyOS
           </motion.h1>
-          <p className="text-zinc-500">כלים שנועדו להזניק את העסק שלך קדימה</p>
+          <p className="text-zinc-500">
+            כאן בוחרים את חבילת השימוש במערכת. מחירי הטיפולים שלך מנוהלים במסך שירותים ומחירים.
+          </p>
         </header>
+
+        <div className="rounded-3xl border border-yellow-500/25 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-100">
+          זה לא המחירון שהלקוחות רואים. כדי לשנות מחיר של טיפול כמו איפור, עיסוי, שיער או ציפורניים, עברי למסך שירותים ומחירים.
+        </div>
 
         {checkoutState === 'success' && (
           <div className="rounded-2xl border border-green-500/40 bg-green-500/10 p-4 text-sm text-green-100">
@@ -156,7 +162,7 @@ const Pricing = () => {
         </div>
 
         <footer className="text-center text-zinc-600 text-xs py-8">
-          כל התשלומים מאובטחים על ידי Stripe. ניתן לבטל את המינוי בכל עת.
+          כל התשלומים עבור המינוי מאובטחים על ידי Stripe. ניתן לבטל את המינוי בכל עת.
         </footer>
       </div>
     </div>

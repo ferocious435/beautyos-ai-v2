@@ -196,9 +196,9 @@ const Settings = () => {
     <div className="min-h-screen bg-[#050508] px-5 pt-8 pb-28 text-white" dir="rtl">
       <div className="mx-auto max-w-4xl space-y-6">
         <header className="rounded-[30px] border border-white/10 bg-gradient-to-br from-yellow-500/12 via-white/5 to-transparent p-6">
-          <h1 className="text-3xl font-black">הגדרות הסטודיו</h1>
+          <h1 className="text-3xl font-black">שירותים ומחירים</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            כאן מעדכנים את פרטי העסק ואת רשימת השירותים שהלקוחות יראו לפני קביעת תור.
+            כאן מעדכנים את רשימת הטיפולים, המחירים, משך הזמן ופרטי העסק שהלקוחות יראו לפני קביעת תור.
           </p>
         </header>
 
@@ -270,7 +270,7 @@ const Settings = () => {
           <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-5">
-                <h2 className="text-xl font-black">הוספה או עריכה של שירות</h2>
+                <h2 className="text-xl font-black">הוספה או עריכה של שירות ומחיר</h2>
                 <p className="mt-1 text-sm text-zinc-500">
                   זה מה שהלקוח בוחר לפני שהוא רואה שעות פנויות.
                 </p>

@@ -92,11 +92,11 @@ const buildRoleAwareReplyKeyboard = (webAppUrl: string, effectiveRole: BotRole, 
   ]);
   rows.push([
     Markup.button.webApp('ניהול יומן', `${webAppUrl}/calendar`),
-    Markup.button.webApp('מחירון', `${webAppUrl}/pricing`),
+    Markup.button.webApp('מינוי BeautyOS', `${webAppUrl}/pricing`),
   ]);
   rows.push([
     Markup.button.webApp('הודעות וברכות', `${webAppUrl}/messages`),
-    Markup.button.webApp('הגדרות', `${webAppUrl}/settings`),
+    Markup.button.webApp('שירותים ומחירים', `${webAppUrl}/settings`),
   ]);
 
   return Markup.keyboard(rows).resize();
@@ -427,7 +427,7 @@ const sendAdminSystemOverviewFromChat = async (ctx: BotContext, webAppUrl: strin
     `מצב אדמין פעיל.\n\nתמונה קצרה של המערכת:\nלקוחות: ${clients}\nמאסטרים: ${masters}\nאדמינים: ${admins}\nשירותים פעילים: ${activeServices}\nהיום: ${confirmedToday} מאושרים, ${pendingToday} ממתינים.\n\n${nextLines ? `התורים הקרובים:\n${nextLines}` : 'אין תורים קרובים להצגה כרגע.'}`,
     Markup.inlineKeyboard([
       [Markup.button.webApp('פתיחת המערכת', `${webAppUrl}/`)],
-      [Markup.button.webApp('יומן המערכת', `${webAppUrl}/calendar`), Markup.button.webApp('מחירון', `${webAppUrl}/pricing`)],
+      [Markup.button.webApp('יומן המערכת', `${webAppUrl}/calendar`), Markup.button.webApp('מינוי BeautyOS', `${webAppUrl}/pricing`)],
       [Markup.button.callback('בדיקה כלקוח', 'preview_role_client'), Markup.button.callback('בדיקה כמאסטר', 'preview_role_master')],
     ])
   );
@@ -1317,9 +1317,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
           return;
         case 'pricing':
           await ctx.reply(
-            `${actionPrefix}\n\nאפשר לפתוח את המחירון כמו שמשתמש רואה אותו, או לעבור למצב מאסטר כדי לערוך שירותים ומחירים.`,
+            `${actionPrefix}\n\nיש כאן שני דברים שונים: מינוי BeautyOS הוא התשלום על המערכת, ושירותים ומחירים הם המחירים שהלקוחות רואים לפני קביעת תור.`,
             quickKeyboard([
-              [Markup.button.webApp('פתיחת מחירון', `${webAppUrl}/pricing`)],
+              [Markup.button.webApp('פתיחת מינוי BeautyOS', `${webAppUrl}/pricing`)],
               [Markup.button.callback('בדיקה כמאסטר', 'preview_role_master')],
             ])
           );
@@ -1366,9 +1366,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
           return;
         case 'pricing':
           await ctx.reply(
-            `${actionPrefix}\n\nבמחירון אפשר לראות חבילות ומסלולים. מחירי טיפולים עצמם מנוהלים בהגדרות השירותים.`,
+            `${actionPrefix}\n\nבמינוי BeautyOS אפשר לראות חבילות ומסלולים של המערכת. מחירי טיפולים עצמם מנוהלים במסך שירותים ומחירים.`,
             quickKeyboard([
-              [Markup.button.webApp('פתחי מחירון', `${webAppUrl}/pricing`)],
+              [Markup.button.webApp('פתיחת מינוי BeautyOS', `${webAppUrl}/pricing`)],
               [Markup.button.webApp('עריכת שירותים ומחירים', `${webAppUrl}/settings`)],
             ])
           );
