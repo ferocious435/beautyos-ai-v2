@@ -27,7 +27,7 @@ const normalizeModel = (
 };
 
 export const CONFIG = {
-  GEMINI_API_KEY: process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+  GEMINI_API_KEY: (process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim(),
   // --- AI Model Versions (Verified via API 2026-05-25) ---
   MODELS: {
     ANALYSIS: normalizeModel(process.env.MODEL_ANALYSIS, 'models/gemini-2.5-flash', LEGACY_TEXT_MODEL_ALIASES),

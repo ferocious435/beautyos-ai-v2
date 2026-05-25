@@ -67,7 +67,7 @@ const subscriptionPlans = {
 const getPublicAppUrl = (req: VercelRequest) => {
   const configuredUrl = process.env.WEBAPP_URL || process.env.VITE_APP_URL;
   const origin = req.headers.origin;
-  return String(configuredUrl || origin || 'http://127.0.0.1:5173').replace(/\/$/, '');
+  return String(configuredUrl || origin || 'http://127.0.0.1:5173').trim().replace(/\/$/, '');
 };
 
 const activeBookingStatuses = ['pending', 'confirmed'];
@@ -104,6 +104,9 @@ const safeTelegramSend = async (label: string, send: () => Promise<unknown>) => 
 
 const safeTelegramBatch = async (items: Array<[string, () => Promise<unknown>]>) =>
   Promise.all(items.map(([label, send]) => safeTelegramSend(label, send)));
+
+const canActAsBookableProvider = (role?: string | null) =>
+  role === 'master' || role === 'admin';
 
 const hasBookingOverlap = async (
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
@@ -295,7 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         requesterTelegramId === getTelegramId(master.telegram_id) &&
         (previewRole === 'client' || previewRole === 'master');
 
-      if (masterError || !master || (master.role !== 'master' && !isAdminPreviewMaster)) {
+      if (masterError || !master || (!canActAsBookableProvider(master.role) && !isAdminPreviewMaster)) {
         return res.status(404).json({ error: 'Master not found' });
       }
 
@@ -358,7 +361,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         requesterTelegramId === getTelegramId((masterProfile as any).telegram_id) &&
         (previewRole === 'client' || previewRole === 'master');
 
-      if (!masterProfile || (masterProfile.role !== 'master' && !isAdminPreviewMaster)) {
+      if (!masterProfile || (!canActAsBookableProvider(masterProfile.role) && !isAdminPreviewMaster)) {
         return res.status(404).json({ error: 'Master not found' });
       }
 
@@ -458,7 +461,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data: masters, error } = await supabase
         .from('users')
         .select('id, telegram_id, role, full_name, business_name, latitude, longitude')
-        .in('role', includeAdminPreviewMaster ? ['master', 'admin'] : ['master'])
+        .in('role', ['master', 'admin'])
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -491,9 +494,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const result = (masters || [])
         .filter((master: any) => {
-          const isRegularMaster = master.role === 'master';
           const isSelfPreviewMaster = includeAdminPreviewMaster && master.id === requesterProfile?.id;
-          return enabledMasterIds.has(master.id) && (isRegularMaster || isSelfPreviewMaster);
+          return enabledMasterIds.has(master.id) && (canActAsBookableProvider(master.role) || isSelfPreviewMaster);
         })
         .map((master: any) => ({
           ...master,
@@ -999,7 +1001,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           Number(authUser?.id) === Number(mUser.telegram_id) &&
           mId === cId &&
           (previewRole === 'client' || previewRole === 'master');
-        if (mUser.role !== 'master' && !isAdminPreviewMaster) {
+        if (!canActAsBookableProvider(mUser.role) && !isAdminPreviewMaster) {
           return res.status(400).json({ error: 'Selected provider is not available for booking' });
         }
 

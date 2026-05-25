@@ -153,7 +153,7 @@ const clientRescheduleTerms = [
 
 const includesAnyPhrase = (text: string, phrases: string[]) => phrases.some((phrase) => text.includes(phrase));
 
-const getWebAppUrl = () => (process.env.WEBAPP_URL || '').replace(/\/$/, '');
+const getWebAppUrl = () => (process.env.WEBAPP_URL || '').trim().replace(/\/$/, '');
 
 const setPersistentMenuButton = async (ctx: BotContext, path = '/') => {
   const webAppUrl = getWebAppUrl();
@@ -277,7 +277,7 @@ const sendBookingStartFromChat = async (ctx: BotContext, webAppUrl: string) => {
   const { data: masters } = await supabase
     .from('users')
     .select('id, telegram_id, full_name, business_name')
-    .eq('role', 'master')
+    .in('role', ['master', 'admin'])
     .order('created_at', { ascending: false })
     .limit(20);
 

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 const isConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('https://'));
 
@@ -47,5 +47,3 @@ const silentProxy = new Proxy({}, {
 export const supabase = isConfigured 
     ? createClient(supabaseUrl, supabaseAnonKey)
     : silentProxy;
-
-console.log(`SUPABASE: 2026 Resilient Engine Initialized (Configured: ${isConfigured})`);

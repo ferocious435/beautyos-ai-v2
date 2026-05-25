@@ -2,9 +2,12 @@
  
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const readEnv = (...values: Array<string | undefined>) =>
+  values.find((value) => typeof value === 'string' && value.trim())?.trim() || '';
+
+const supabaseUrl = readEnv(process.env.SUPABASE_URL, process.env.VITE_SUPABASE_URL);
+const supabaseServiceRoleKey = readEnv(process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabaseAnonKey = readEnv(process.env.SUPABASE_ANON_KEY, process.env.VITE_SUPABASE_ANON_KEY);
 const isProduction = process.env.NODE_ENV === 'production';
 
 let _client: SupabaseClient | null = null;
