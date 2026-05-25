@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
- 
 import { useState, useEffect, useRef } from 'react';
 import * as Lucide from 'lucide-react';
 
@@ -17,10 +15,10 @@ import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 
 const Dashboard = () => {
   const { tg, haptic, setMainButton, hideMainButton, user } = useTelegram();
-  const safeUser = user || { first_name: 'Beauty Master', id: 'unknown' };
+  const safeUser = user || { first_name: 'מאסטר/ית', id: 'unknown' };
 
   const [activeSocial, setActiveSocial] = useState('Instagram');
-  const [businessName] = useState(safeUser.first_name || 'Beauty Master');
+  const [businessName] = useState(safeUser.first_name || 'מאסטר/ית');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -356,7 +354,7 @@ const Dashboard = () => {
 
         <section style={{ marginBottom: '50px' }}>
           <div style={{ marginBottom: '20px' }}>
-             <h3 className="font-luxury" style={{ fontSize: '20px', fontWeight: '700' }}>AI Design Studio</h3>
+             <h3 className="font-luxury" style={{ fontSize: '20px', fontWeight: '700' }}>סטודיו AI לתוכן ותמונות</h3>
           </div>
           <div className="glass-premium" style={{ width: '100%', aspectRatio: currentRatio, borderRadius: '40px', overflow: 'hidden', position: 'relative' }}>
             {imagePreview ? (

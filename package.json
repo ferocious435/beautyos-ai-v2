@@ -8,7 +8,7 @@
     "build": "node scripts/setup-assets.js && npx rimraf dist && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:smoke": "node --import tsx --test tests/qstash-url.test.ts && node --import tsx --test tests/conversation-intent.test.ts && node --import tsx --test tests/booking-time.test.ts && node --import tsx --test tests/telegram-auth.test.ts && node --test tests/booking-followup-copy.test.mjs && node --test tests/master-onboarding.test.mjs && node --test tests/pricing-copy.test.mjs && node --test tests/schedule-actions.test.mjs && node --test tests/vercel-rewrites.test.mjs && node --test tests/smart-slots-migration.test.mjs"
+    "test:smoke": "node --import tsx --test tests/qstash-url.test.ts && node --import tsx --test tests/conversation-intent.test.ts && node --import tsx --test tests/booking-time.test.ts && node --import tsx --test tests/telegram-auth.test.ts && node --test tests/booking-followup-copy.test.mjs && node --test tests/master-onboarding.test.mjs && node --test tests/pricing-copy.test.mjs && node --test tests/schedule-actions.test.mjs && node --test tests/mvp-goal-coverage.test.mjs && node --test tests/vercel-rewrites.test.mjs && node --test tests/smart-slots-migration.test.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

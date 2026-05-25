@@ -41,7 +41,7 @@ const Portfolio = () => {
     return (
       <div className="min-h-screen bg-[#050508] flex flex-col items-center justify-center font-luxury">
         <LoaderCircle className="w-8 h-8 text-yellow-500 animate-spin mb-4" />
-        <span className="text-yellow-500 tracking-[0.3em] font-light text-xs uppercase">BeautyOS Gallery</span>
+        <span className="text-yellow-500 tracking-[0.3em] font-light text-xs uppercase">גלריית BeautyOS</span>
       </div>
     );
   }
@@ -50,14 +50,14 @@ const Portfolio = () => {
     <div className="p-6 bg-[#050508] min-h-screen text-white text-right pb-24" style={{ direction: 'rtl' }}>
       <header className="mb-10 pt-4">
         <h1 className="text-4xl font-black mb-2 tracking-tight">הגלריה שלי</h1>
-        <p className="text-zinc-500 font-light">כל היצירות שנולדו ב-AI Creative</p>
+        <p className="text-zinc-500 font-light">כל היצירות שנולדו בסטודיו החכם של BeautyOS</p>
       </header>
 
       {images.length > 0 ? (
         <div className="grid grid-cols-2 gap-4">
           {images.map((img, idx) => (
             <div key={img.id || idx} className="aspect-square bg-white/5 rounded-3xl overflow-hidden border border-white/5 shadow-2xl transition-transform active:scale-95">
-              <img src={img.image_url} alt="Portfolio" className="w-full h-full object-cover" />
+              <img src={img.image_url} alt="עבודה בגלריה" className="w-full h-full object-cover" />
             </div>
           ))}
         </div>
