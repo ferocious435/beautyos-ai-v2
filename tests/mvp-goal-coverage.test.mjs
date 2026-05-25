@@ -86,6 +86,11 @@ test('MVP keeps Telegram-first conversation actions connected to real screens', 
 
 test('MVP keeps generated social images focused on photo retouching and logo-only branding', () => {
   assert.match(graphicEngineSource, /renderLiveMarketingOverlay/);
+  assert.match(graphicEngineSource, /fitMode\?: 'stretch' \| 'contain' \| 'cover'/);
+  assert.match(graphicEngineSource, /fitMode = 'stretch'/);
+  assert.match(renderWorkerSource, /fitMode: 'stretch'/);
+  assert.doesNotMatch(renderWorkerSource, /enhanceImage/);
+  assert.doesNotMatch(graphicEngineSource, /blur\(50px\)/);
   assert.match(graphicEngineSource, /line\.type === 'LOGO'/);
   assert.match(renderWorkerSource, /filter\(\(line: any\) => line\.type === 'LOGO'\)/);
   assert.doesNotMatch(botSource, /design_PRICE/);

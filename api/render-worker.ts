@@ -147,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       businessName: realBusinessName,
       overlay: overlays,
       skipWatermark: overlays.some((line: any) => line.type === 'LOGO'),
+      fitMode: 'stretch',
       style: session_data.lastStyle || { preset: 'GLASSMorphism', primaryColor: '#FFFFFF' },
       theme: 'ORIGINAL_CLEAN'
     });

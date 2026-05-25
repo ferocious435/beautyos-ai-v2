@@ -24,6 +24,7 @@ export interface RenderOptions {
   isEnhanced?: boolean;
   skipOverlay?: boolean;
   skipWatermark?: boolean;
+  fitMode?: 'stretch' | 'contain' | 'cover';
   style?: StyleOptions;
 }
 
@@ -95,7 +96,7 @@ function renderLiveMarketingOverlay(
 export async function generateSocialPost(imageBuffer: Buffer, options: RenderOptions): Promise<Buffer> {
   ensureFonts();
 
-  const { format, businessName = 'Beauty Expert' } = options;
+  const { format, businessName = 'Beauty Expert', fitMode = 'stretch' } = options;
 
   const targetWidth = 1080;
   let targetHeight = 1080;
@@ -114,41 +115,6 @@ export async function generateSocialPost(imageBuffer: Buffer, options: RenderOpt
     renderLiveMarketingOverlay(originalContext, image.width, image.height, options);
     return Buffer.from(originalCanvas.toBuffer('image/jpeg'));
   }
-
-  const bgAspect = image.width / image.height;
-  const bgCanvasAspect = targetWidth / targetHeight;
-  let bgW: number;
-  let bgH: number;
-  let bgX: number;
-  let bgY: number;
-
-  if (bgAspect > bgCanvasAspect) {
-    bgH = targetHeight;
-    bgW = targetHeight * bgAspect;
-    bgX = (targetWidth - bgW) / 2;
-    bgY = 0;
-  } else {
-    bgW = targetWidth;
-    bgH = targetWidth / bgAspect;
-    bgX = 0;
-    bgY = (targetHeight - bgH) / 2;
-  }
-
-  ctx.save();
-  ctx.drawImage(image, bgX, bgY, bgW, bgH);
-  if (format === 'AI_SEED') {
-    ctx.fillStyle = '#1A1A1A';
-    ctx.fillRect(0, 0, targetWidth, targetHeight);
-  } else {
-    try {
-      ctx.filter = 'blur(50px)';
-      ctx.drawImage(canvas, 0, 0);
-    } catch {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(0, 0, targetWidth, targetHeight);
-    }
-  }
-  ctx.restore();
 
   const imageAspect = image.width / image.height;
   const canvasAspect = targetWidth / targetHeight;
@@ -169,31 +135,33 @@ export async function generateSocialPost(imageBuffer: Buffer, options: RenderOpt
   let dw: number;
   let dh: number;
 
-  if (format === 'AI_SEED') {
-    const scale = 0.9;
-    const innerW = targetWidth * scale;
-    const innerH = targetHeight * scale;
-    if (imageAspect > innerW / innerH) {
-      dw = innerW;
-      dh = innerW / imageAspect;
-    } else {
-      dh = innerH;
-      dw = innerH * imageAspect;
-    }
-    dx = (targetWidth - dw) / 2;
-    dy = (targetHeight - dh) / 2;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 30;
-  } else if (imageAspect > canvasAspect) {
-    dh = targetHeight;
-    dw = targetHeight * imageAspect;
-    dx = (targetWidth - dw) / 2;
+  if (fitMode === 'stretch') {
+    dx = 0;
     dy = 0;
-  } else {
+    dw = targetWidth;
+    dh = targetHeight;
+  } else if (fitMode === 'cover' && format !== 'AI_SEED') {
+    if (imageAspect > canvasAspect) {
+      dh = targetHeight;
+      dw = targetHeight * imageAspect;
+      dx = (targetWidth - dw) / 2;
+      dy = 0;
+    } else {
+      dw = targetWidth;
+      dh = targetWidth / imageAspect;
+      dx = 0;
+      dy = (targetHeight - dh) / 2;
+    }
+  } else if (imageAspect > canvasAspect) {
     dw = targetWidth;
     dh = targetWidth / imageAspect;
     dx = 0;
     dy = (targetHeight - dh) / 2;
+  } else {
+    dh = targetHeight;
+    dw = targetHeight * imageAspect;
+    dx = (targetWidth - dw) / 2;
+    dy = 0;
   }
 
   ctx.drawImage(image, dx, dy, dw, dh);
