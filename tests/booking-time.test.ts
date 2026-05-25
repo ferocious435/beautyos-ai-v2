@@ -39,3 +39,11 @@ test('booking source keeps Telegram notification failures non-blocking', async (
   assert.match(source, /safeTelegramBatch/);
   assert.doesNotMatch(source, /await Promise\.all\(\[\s*bot\.telegram\.sendMessage/);
 });
+
+test('bot booking callbacks keep Telegram notification failures non-blocking', async () => {
+  const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../api/_lib/bot-logic.ts', import.meta.url), 'utf8'));
+
+  assert.match(source, /safeBotTelegramSend/);
+  assert.doesNotMatch(source, /await ctx\.telegram\.sendMessage\(booking\.client\.telegram_id/);
+  assert.doesNotMatch(source, /await scheduleNotification\(/);
+});

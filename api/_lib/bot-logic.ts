@@ -169,6 +169,14 @@ const setPersistentMenuButton = async (ctx: BotContext, path = '/') => {
   });
 };
 
+const safeBotTelegramSend = async (label: string, send: () => Promise<unknown>) => {
+  try {
+    await send();
+  } catch (err) {
+    console.warn(`[Bot] Telegram notification failed (${label}):`, err instanceof Error ? err.message : err);
+  }
+};
+
 const hasBookingOverlap = async (
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
   masterId: string,
@@ -198,12 +206,16 @@ const scheduleBookingReminders = async (booking: any) => {
 
   const delay24h = (start - (24 * 60 * 60 * 1000) - now) / 1000;
   if (delay24h > 0 && !booking.notified_24h) {
-    await scheduleNotification(Math.floor(delay24h), '24h', booking.id);
+    await safeBotTelegramSend('schedule-24h-reminder', () =>
+      scheduleNotification(Math.floor(delay24h), '24h', booking.id)
+    );
   }
 
   const delay3h = (start - (3 * 60 * 60 * 1000) - now) / 1000;
   if (delay3h > 0 && !booking.notified_3h) {
-    await scheduleNotification(Math.floor(delay3h), '3h', booking.id);
+    await safeBotTelegramSend('schedule-3h-reminder', () =>
+      scheduleNotification(Math.floor(delay3h), '3h', booking.id)
+    );
   }
 };
 
@@ -969,7 +981,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
       // Notify Client
       const clientMsg = `✨ **חדשות טובות!**\nהתור שלך ב-${booking.master.business_name || booking.master.full_name} אושר! 🎉\nמחכים לראות אותך!`;
-      await ctx.telegram.sendMessage(booking.client.telegram_id, clientMsg);
+      await safeBotTelegramSend('approve-client-notification', () =>
+        ctx.telegram.sendMessage(booking.client.telegram_id, clientMsg)
+      );
       await scheduleBookingReminders(booking);
 
     } catch (err: any) {
@@ -1015,7 +1029,9 @@ export function setupBotHandlers(bot: Telegraf<BotContext>) {
 
       // Notify Client
       const clientMsg = `😔 **עדכון לגבי התור:**\nלצערנו המאסטר לא יוכל לקבל אותך בשעה המבוקשת. נסה/י לקבוע מועד אחר ב-Studio.`;
-      await ctx.telegram.sendMessage(booking.client.telegram_id, clientMsg);
+      await safeBotTelegramSend('reject-client-notification', () =>
+        ctx.telegram.sendMessage(booking.client.telegram_id, clientMsg)
+      );
 
     } catch (err: any) {
       console.error('REJECT_ERR:', err);

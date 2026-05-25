@@ -171,6 +171,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'reject-booking',
     'cancel-booking',
   ];
+
+  const sensitiveSecureActions = [
+    'save-profile',
+    'save-service',
+    'save-portfolio',
+    'delete-service',
+    'create-payment',
+    'create-booking',
+    'update-booking',
+    'approve-booking',
+    'reject-booking',
+    'cancel-booking',
+  ];
   
   let authUser: TelegramAuthUser | null = null;
 
@@ -178,7 +191,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const initData = req.headers['x-telegram-init-data'] as string;
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     
-    const isValid = isDevelopment || validateTelegramWebAppData(initData, botToken);
+    const telegramAuthMaxAgeSeconds = sensitiveSecureActions.includes(action)
+      ? 10 * 60
+      : 24 * 60 * 60;
+    const isValid = isDevelopment || validateTelegramWebAppData(initData, botToken, telegramAuthMaxAgeSeconds);
     
     if (!isValid) {
       return res.status(401).json({ error: 'Unauthorized: Invalid Telegram Signature (API Security Block)' });
