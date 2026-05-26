@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { Telegraf } from 'telegraf';
 import { getSupabase } from './_lib/supabase.js';
 import { generateSocialPost } from './_lib/graphic-engine.js';
+import { reframeImage } from './_lib/content-engine.js';
 
 // Vercel Config: Disable Body Parser for Raw Body Security Verification
 export const config = {
@@ -19,6 +20,19 @@ const sanitizeBrandName = (businessName?: string | null, fullName?: string | nul
 
   return fallback;
 };
+
+const buildNaturalReframePrompt = (formatName: string, detectedService?: string) => `
+Natural social-media reframing for ${formatName}.
+Identify the central subject and the real beauty/treatment result in the photo${detectedService ? ` (${detectedService})` : ''}.
+Keep the main subject fully intact: face, body, hands, hair, clothing, skin, pose, proportions, and the visible treatment result must not be changed.
+Do not crop the subject. Do not stretch, squeeze, liquify, slim, enlarge, redraw, repaint, replace, beautify, or stylize the subject.
+Adapt the photo to the selected platform ratio by changing only the surrounding background area.
+If the target ratio needs more space, naturally extend the existing background.
+If the target ratio needs less space, reduce only empty/non-essential background outside the subject, never the subject or the treatment result.
+The final background must match the original room/materials/lighting/perspective and look like it was captured in the same photo.
+No text, captions, prices, posters, labels, frames, borders, black bars, side bars, blur background, stickers, logos, watermarks, or graphic design elements.
+Return a clean realistic photo that fits the selected platform ratio and does not look edited.
+`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
@@ -77,9 +91,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { session_data } = sessionData;
-    const workingBuffer = session_data.enhancedMaster 
-      ? Buffer.from(session_data.enhancedMaster, 'base64')
-      : Buffer.from(session_data.originalBuffer, 'base64');
+    const workingBuffer = session_data.originalBuffer
+      ? Buffer.from(session_data.originalBuffer, 'base64')
+      : Buffer.from(session_data.enhancedMaster, 'base64');
 
     // 🚀 TARGET FORMAT DETERMINATION
     let socialFormat: any = 'SQUARE_1_1';
@@ -142,12 +156,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     });
 
-    const finalResult = await generateSocialPost(workingBuffer, {
+    const reframeSeed = await generateSocialPost(workingBuffer, {
+      format: socialFormat,
+      businessName: realBusinessName,
+      overlay: [],
+      skipOverlay: true,
+      skipWatermark: true,
+      fitMode: 'contain',
+      theme: 'ORIGINAL_CLEAN'
+    });
+
+    let reframedBuffer = reframeSeed;
+    try {
+      reframedBuffer = await reframeImage(
+        reframeSeed,
+        buildNaturalReframePrompt(formatName, session_data.detectedService || session_data.lastDetectedService),
+      );
+    } catch (err: any) {
+      console.warn(`[Render-Worker] Natural reframe failed, using no-stretch fallback: ${err.message}`);
+    }
+
+    const finalResult = await generateSocialPost(reframedBuffer, {
       format: socialFormat,
       businessName: realBusinessName,
       overlay: overlays,
       skipWatermark: overlays.some((line: any) => line.type === 'LOGO'),
-      fitMode: 'stretch',
+      fitMode: 'contain',
       style: session_data.lastStyle || { preset: 'GLASSMorphism', primaryColor: '#FFFFFF' },
       theme: 'ORIGINAL_CLEAN'
     });

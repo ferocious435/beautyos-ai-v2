@@ -96,7 +96,7 @@ function renderLiveMarketingOverlay(
 export async function generateSocialPost(imageBuffer: Buffer, options: RenderOptions): Promise<Buffer> {
   ensureFonts();
 
-  const { format, businessName = 'Beauty Expert', fitMode = 'stretch' } = options;
+  const { format, businessName = 'Beauty Expert', fitMode = 'contain' } = options;
 
   const targetWidth = 1080;
   let targetHeight = 1080;

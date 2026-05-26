@@ -109,9 +109,9 @@ export async function analyzeAndGenerate(
   } catch (err) {
     console.error("Failed to parse AI response:", text);
     return {
-      post: "Professional Beauty Service",
-      cta: "Book now!",
-      overlay: [{ text: "Premium Quality", yPosition: 0.8, fontSize: 60, color: "#FFFFFF" }],
+      post: "התמונה מוכנה לפרסום",
+      cta: "לפרסום",
+      overlay: [],
       detectedService: "Beauty Professional",
       imagenPrompt: "Professional beauty retouch"
     };
@@ -188,6 +188,82 @@ export async function enhanceImage(imageBuffer: Buffer, prompt: string): Promise
     }
   } catch (err: any) {
     console.error('[BeautyOS Master] 💥 Retouch failed:', err.message);
+    throw err;
+  }
+}
+
+export async function reframeImage(imageBuffer: Buffer, prompt: string): Promise<Buffer> {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: CONFIG.MODELS.ENHANCEMENT,
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT' as any, threshold: 'BLOCK_NONE' as any },
+        { category: 'HARM_CATEGORY_HATE_SPEECH' as any, threshold: 'BLOCK_NONE' as any },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT' as any, threshold: 'BLOCK_NONE' as any },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT' as any, threshold: 'BLOCK_NONE' as any }
+      ],
+    });
+    (model as any).generationConfig = { responseModalities: ['TEXT', 'IMAGE'] };
+
+    const reframePrompt = `
+      PHOTO REFRAMING ONLY.
+      This is not a retouching task and not a creative redesign task.
+      Use the uploaded image as the source photo.
+      Identify the main subject and the visible beauty/treatment result.
+      Preserve the subject exactly: no body changes, no face changes, no pose changes, no clothing changes, no skin/body reshaping, no beautifying, no repainting.
+      Adapt only the surrounding composition/background to fit the selected social platform.
+      You may naturally extend existing background where the target format needs more space.
+      You may reduce only non-essential empty background outside the subject where the target format needs less space.
+      Never crop the subject or the visible treatment result.
+      Never stretch or squeeze the photo.
+      No text, captions, labels, prices, borders, frames, side bars, black bars, blur background, stickers, logos, or graphic overlays.
+      The result must look like a clean realistic photo captured in the same location.
+      Context: ${prompt}.
+    `;
+
+    console.log(`[BeautyOS Reframe] Starting natural reframe (${CONFIG.MODELS.ENHANCEMENT})...`);
+
+    const controller = new AbortController();
+    const timeoutPromise = new Promise<null>((_, reject) => {
+      setTimeout(() => {
+        controller.abort();
+        reject(new Error('AbortError'));
+      }, 40000);
+    });
+
+    try {
+      const generationPromise = model.generateContent({
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: reframePrompt },
+            { inlineData: { data: imageBuffer.toString('base64'), mimeType: 'image/jpeg' } }
+          ]
+        }] as any,
+        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } as any
+      }, { signal: controller.signal });
+
+      const result: any = await Promise.race([generationPromise, timeoutPromise]);
+
+      const response = result.response;
+      const parts = response.candidates?.[0]?.content?.parts;
+      if (parts) {
+        for (const part of parts) {
+          if ((part as any).inlineData?.data) {
+            console.log('[BeautyOS Reframe] Natural reframe completed');
+            return Buffer.from((part as any).inlineData.data, 'base64');
+          }
+        }
+      }
+      throw new Error('AI_RETURNED_NO_IMAGE');
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error('AI_TIMEOUT');
+      }
+      throw err;
+    }
+  } catch (err: any) {
+    console.error('[BeautyOS Reframe] Reframe failed:', err.message);
     throw err;
   }
 }

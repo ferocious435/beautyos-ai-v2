@@ -57,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error(`[Retouch-Worker] Step 1 ❌ Analysis failed:`, err.message);
       // Fallback: save original with default metadata so render-worker can still work
       aiResult = {
-        post: 'Professional Beauty Service ✨',
+        post: 'התמונה מוכנה לפרסום',
         imagenPrompt: 'Professional beauty retouch',
         design: {},
         style: { preset: 'LUXURY_GOLD', primaryColor: '#FFFFFF', secondaryColor: '#000000', shadowOpacity: 0.7, boxOpacity: 0.3 },
@@ -95,6 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         enhancedMaster: finalMasterBuffer.toString('base64'),
         lastImageId: fileId,
         lastImagenPrompt: aiResult.imagenPrompt,
+        lastDetectedService: aiResult.detectedService,
         lastPost: aiResult.post,
         lastDesign: aiResult.design,
         lastStyle: aiResult.style,
