@@ -192,6 +192,8 @@ const Booking = () => {
       hour12: false,
     })
     : '';
+  const bookingStep = selectedSlotTime ? 3 : selectedService ? 2 : 1;
+  const bookingSteps = ['טיפול', 'יום ושעה', 'אישור'];
 
   if (!masterId) {
     return (
@@ -246,6 +248,29 @@ const Booking = () => {
         <p className="text-zinc-400">
           מומחה: <span className="font-medium text-white">{displayProviderName(master)}</span>
         </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 rounded-3xl border border-white/10 bg-white/[0.03] p-2">
+        {bookingSteps.map((step, index) => {
+          const isActive = bookingStep === index + 1;
+          const isDone = bookingStep > index + 1;
+
+          return (
+            <div
+              key={step}
+              className={`rounded-2xl px-3 py-3 text-center text-xs font-black transition ${
+                isActive
+                  ? 'bg-yellow-500 text-black'
+                  : isDone
+                    ? 'bg-emerald-500/15 text-emerald-300'
+                    : 'bg-black/20 text-zinc-500'
+              }`}
+            >
+              <div className="text-[10px] opacity-70">שלב {index + 1}</div>
+              <div>{step}</div>
+            </div>
+          );
+        })}
       </div>
 
       {rescheduleId && (

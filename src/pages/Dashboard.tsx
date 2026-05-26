@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as Lucide from 'lucide-react';
 
 // Обход ошибок типизации в текущем окружении tsc
@@ -14,6 +15,7 @@ import { telegramAuthHeaders } from '../lib/telegramAuth';
 import { useAppStore, useEffectiveRole } from '../store/useAppStore';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { tg, haptic, setMainButton, hideMainButton, user } = useTelegram();
   const safeUser = user || { first_name: 'מאסטר/ית', id: 'unknown' };
 
@@ -27,7 +29,6 @@ const Dashboard = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   
   // New State for Real Data
-  const [stats, setStats] = useState({ views: 0, appointments: 0 });
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
   const [pendingBookings, setPendingBookings] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -48,7 +49,6 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!appUser.id) {
-        setStats({ views: 0, appointments: 0 });
         setPendingBookings([]);
         setUpcomingBookings([]);
         setIsLoadingData(false);
@@ -66,12 +66,6 @@ const Dashboard = () => {
         if (!response.ok) throw new Error(data.error || 'Failed to load dashboard data');
 
         const allBookings = data.bookings || [];
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const recentCount = allBookings.filter((booking: any) => new Date(booking.created_at) >= weekAgo).length;
-
-        setStats({ views: 0, appointments: recentCount });
-
         const now = Date.now();
         const isFuture = (booking: any) => new Date(booking.start_time).getTime() > now;
         const byStartTime = (a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
@@ -261,15 +255,34 @@ const Dashboard = () => {
           <p style={{ color: '#64748b', fontSize: '14px', marginTop: '5px' }}>הנה מה שקורה בעסק שלך היום</p>
         </header>
 
+        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '22px' }}>
+          <button onClick={() => navigate('/calendar')} className="glass-premium" style={{ minHeight: '82px', padding: '16px', borderRadius: '24px', textAlign: 'right' }}>
+            <div style={{ fontSize: '15px', fontWeight: 900 }}>יומן היום</div>
+            <div style={{ marginTop: '4px', color: '#94a3b8', fontSize: '12px' }}>תורים ואישורים</div>
+          </button>
+          <button onClick={() => navigate('/settings')} className="glass-premium" style={{ minHeight: '82px', padding: '16px', borderRadius: '24px', textAlign: 'right' }}>
+            <div style={{ fontSize: '15px', fontWeight: 900 }}>שירותים ומחירים</div>
+            <div style={{ marginTop: '4px', color: '#94a3b8', fontSize: '12px' }}>מה הלקוח רואה</div>
+          </button>
+          <button onClick={() => navigate('/messages')} className="glass-premium" style={{ minHeight: '82px', padding: '16px', borderRadius: '24px', textAlign: 'right' }}>
+            <div style={{ fontSize: '15px', fontWeight: 900 }}>הודעות</div>
+            <div style={{ marginTop: '4px', color: '#94a3b8', fontSize: '12px' }}>ברכות ותזכורות</div>
+          </button>
+          <button onClick={handleUploadClick} className="glass-premium" style={{ minHeight: '82px', padding: '16px', borderRadius: '24px', textAlign: 'right', borderColor: 'rgba(234, 179, 8, 0.25)' }}>
+            <div style={{ fontSize: '15px', fontWeight: 900, color: '#eab308' }}>תמונה לפרסום</div>
+            <div style={{ marginTop: '4px', color: '#94a3b8', fontSize: '12px' }}>שיפור והתאמה</div>
+          </button>
+        </section>
+
         {/* --- Stats Grid --- */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '40px' }}>
           <div className="glass-premium" style={{ padding: '20px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ color: '#64748b', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>צפיות בפרופיל</div>
-            <div style={{ fontSize: '28px', fontWeight: '900', color: 'white' }}>{isLoadingData ? '...' : stats.views}</div>
+            <div style={{ color: '#64748b', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>בקשות ממתינות</div>
+            <div style={{ fontSize: '28px', fontWeight: '900', color: 'white' }}>{isLoadingData ? '...' : pendingBookings.length}</div>
           </div>
           <div className="glass-premium" style={{ padding: '20px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ color: '#eab308', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>תורים חדשים</div>
-            <div style={{ fontSize: '28px', fontWeight: '900', color: 'white' }}>{isLoadingData ? '...' : stats.appointments}</div>
+            <div style={{ color: '#eab308', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>תורים קרובים</div>
+            <div style={{ fontSize: '28px', fontWeight: '900', color: 'white' }}>{isLoadingData ? '...' : upcomingBookings.length}</div>
           </div>
         </div>
 

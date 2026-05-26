@@ -93,7 +93,7 @@ const ClientDashboard = () => {
   const upcoming = bookings.filter(isActiveFutureBooking)[0];
   const otherActiveBookings = bookings.filter(b => b.id !== upcoming?.id && isActiveFutureBooking(b));
   const others = bookings.filter(b => b.id !== upcoming?.id && !isActiveFutureBooking(b));
-  const showBusinessInvite = appUser.role === 'client' && !previewRole;
+  const showBusinessInvite = appUser.role === 'client' && !previewRole && !loading && !upcoming && bookings.length === 0;
 
   const getDirections = (lat: number, lng: number) => {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
@@ -135,6 +135,23 @@ const ClientDashboard = () => {
         <h1 className="text-3xl font-black mb-1">היי, <span className="gold-text">{appUser.name.split(' ')[0]}</span></h1>
         <p className="text-zinc-500">הנה התורים שלך ב-BeautyOS</p>
       </header>
+
+      <section className="mb-6 grid grid-cols-2 gap-3">
+        <button
+          onClick={() => navigate('/discovery')}
+          className="min-h-20 rounded-[24px] bg-yellow-500 px-4 py-4 text-right text-black shadow-lg shadow-yellow-500/10 transition active:scale-[0.98]"
+        >
+          <div className="text-sm font-black">קביעת תור</div>
+          <div className="mt-1 text-xs font-bold opacity-70">בחירת מומחה ושעה</div>
+        </button>
+        <button
+          onClick={() => navigate('/calendar')}
+          className="min-h-20 rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-4 text-right text-white transition active:scale-[0.98]"
+        >
+          <div className="text-sm font-black">התורים שלי</div>
+          <div className="mt-1 text-xs text-zinc-500">הזזה או ביטול</div>
+        </button>
+      </section>
 
       {showBusinessInvite ? (
       <section className="mb-6 rounded-[28px] border border-emerald-500/20 bg-emerald-500/10 p-5">

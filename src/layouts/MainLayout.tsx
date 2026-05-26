@@ -155,7 +155,15 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     },
   ];
 
-  const filteredItems = navItems.filter((item) => item.roles.includes(userRole));
+  const dailyNavPathsByRole: Record<NavRole, string[]> = {
+    client: ['/', '/discovery'],
+    master: ['/dashboard/master', '/calendar', '/messages', '/settings'],
+    admin: ['/dashboard/master', '/calendar', '/discovery', '/settings'],
+  };
+
+  const filteredItems = navItems
+    .filter((item) => item.roles.includes(userRole))
+    .filter((item) => dailyNavPathsByRole[userRole].includes(item.path));
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#050505] text-white" dir="rtl" data-testid="main-layout" data-role={userRole}>
